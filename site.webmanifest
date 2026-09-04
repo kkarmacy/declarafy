@@ -1,0 +1,19 @@
+{
+  "name": "DeclaraFY — Asesor Tributario y Aduanero con IA",
+  "short_name": "DeclaraFY",
+  "description": "Asesor tributario y aduanero con IA especializado en IGV, Renta, Aduanas SUNAT y Precios de Transferencia para Perú.",
+  "start_url": "/",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#1A1A2E",
+  "theme_color": "#1A1A2E",
+  "lang": "es-PE",
+  "categories": ["business", "finance", "utilities"],
+  "icons": [
+    { "src": "/icon-64.png", "sizes": "64x64", "type": "image/png" },
+    { "src": "/icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

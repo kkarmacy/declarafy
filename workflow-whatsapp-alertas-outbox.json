@@ -1,0 +1,285 @@
+{
+  "name": "DeclaraFY — Enviar WhatsApp Alerts (outbox)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Procesa el outbox `whatsapp_alerts`\n\nEl scheduler de Cloud Functions escribe alertas con `status:'pending'`; este workflow las envía y marca `sent`/`failed`.\n\n**Setup:**\n1. Credencial **Google Service Account** (con rol Firebase Admin) → selecciónala en los nodos Firestore (Authentication = Service Account).\n2. Ajusta `projectId` si tu proyecto no es `declarafy-52bc1`.\n3. Credencial **Header Auth** (Name: `Authorization`, Value: `Bearer TU_TOKEN_META`) en el nodo HTTP.\n4. Reemplaza `PEGA_PHONE_NUMBER_ID` en la URL por el Phone Number ID de Meta WhatsApp Cloud API.\n5. Los envíos fallidos quedan `failed` (no se reintentan); cambia la marca si prefieres reintento.\n6. Meta exige plantilla aprobada para mensajes iniciados por el negocio fuera de la ventana de 24h.",
+        "height": 380,
+        "width": 400,
+        "color": 4
+      },
+      "id": "sticky-setup-1",
+      "name": "Sticky Note — Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-500, -120]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "id": "trigger-cada-10min",
+      "name": "Cada 10 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-40, 0]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "document",
+        "operation": "query",
+        "projectId": "declarafy-52bc1",
+        "database": "(default)",
+        "simple": true,
+        "query": "{\"from\":[{\"collectionId\":\"whatsapp_alerts\"}],\"where\":{\"fieldFilter\":{\"field\":{\"fieldPath\":\"status\"},\"op\":\"EQUAL\",\"value\":{\"stringValue\":\"pending\"}}}}"
+      },
+      "id": "firestore-query-pending",
+      "name": "Alertas pendientes",
+      "type": "n8n-nodes-base.googleFirebaseCloudFirestore",
+      "typeVersion": 1.1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/PEGA_PHONE_NUMBER_ID/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.phone }}\",\n  \"type\": \"text\",\n  \"text\": { \"preview_url\": false, \"body\": {{ JSON.stringify($json.message || '') }} }\n}",
+        "options": {}
+      },
+      "id": "http-enviar-whatsapp",
+      "name": "Enviar WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Combina la respuesta de Meta con el documento origen\nconst responses = $input.all();\nconst sources = $('Alertas pendientes').all();\nconst out = [];\nfor (let i = 0; i < responses.length; i++) {\n  const resp = responses[i].json || {};\n  const src = sources[i] ? sources[i].json : {};\n  const ok = Boolean((resp.messages && resp.messages.length) || resp.messaging_product === 'whatsapp');\n  out.push({\n    json: {\n      id: src.id,\n      phone: src.phone,\n      ok,\n      error: ok ? '' : JSON.stringify(resp.error || resp).slice(0, 300)\n    }\n  });\n}\nreturn out;"
+      },
+      "id": "code-prepara-resultado",
+      "name": "Prepara resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-envio-ok",
+      "name": "¿Envió OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [920, 0]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f-status-sent",
+              "name": "status",
+              "type": "string",
+              "value": "sent"
+            },
+            {
+              "id": "f-sentat-sent",
+              "name": "sentAt",
+              "type": "number",
+              "value": "={{ Date.now() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-marcar-sent",
+      "name": "Campos sent",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1160, -80]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f-status-failed",
+              "name": "status",
+              "type": "string",
+              "value": "failed"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-marcar-failed",
+      "name": "Campos failed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1160, 100]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "document",
+        "operation": "upsert",
+        "projectId": "declarafy-52bc1",
+        "database": "(default)",
+        "collection": "whatsapp_alerts",
+        "updateKey": "id",
+        "columns": "status,sentAt"
+      },
+      "id": "firestore-upsert-sent",
+      "name": "Marcar sent",
+      "type": "n8n-nodes-base.googleFirebaseCloudFirestore",
+      "typeVersion": 1.1,
+      "position": [1420, -80]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "document",
+        "operation": "upsert",
+        "projectId": "declarafy-52bc1",
+        "database": "(default)",
+        "collection": "whatsapp_alerts",
+        "updateKey": "id",
+        "columns": "status,error"
+      },
+      "id": "firestore-upsert-failed",
+      "name": "Marcar failed",
+      "type": "n8n-nodes-base.googleFirebaseCloudFirestore",
+      "typeVersion": 1.1,
+      "position": [1420, 100]
+    }
+  ],
+  "connections": {
+    "Cada 10 minutos": {
+      "main": [
+        [
+          {
+            "node": "Alertas pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alertas pendientes": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Prepara resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepara resultado": {
+      "main": [
+        [
+          {
+            "node": "¿Envió OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Envió OK?": {
+      "main": [
+        [
+          {
+            "node": "Campos sent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Campos failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Campos sent": {
+      "main": [
+        [
+          {
+            "node": "Marcar sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Campos failed": {
+      "main": [
+        [
+          {
+            "node": "Marcar failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Lima"
+  },
+  "pinData": {}
+}

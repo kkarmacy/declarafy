@@ -1,0 +1,15 @@
+// firestore.rules — agrega esto a tu archivo de reglas existente.
+// Bloquea el acceso directo desde el cliente a la colección api_keys:
+// solo las Cloud Functions (Admin SDK, que ignora estas reglas) pueden leerla/escribirla.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /api_keys/{keyId} {
+      allow read, write: if false; // solo accesible vía Cloud Functions (Admin SDK)
+    }
+
+    // ... conserva aquí el resto de tus reglas existentes (users, historial, etc.) ...
+  }
+}

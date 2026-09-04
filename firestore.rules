@@ -1,0 +1,95 @@
+// firestore.rules — DeclaraFY
+// Colecciones: users (con subcolección kv), historial, casos, sugerencias,
+// api_keys, radar_normativo + colecciones solo-servidor (rate_limits,
+// exports, whatsapp_alerts) accesibles únicamente vía Admin SDK / n8n.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Email con permisos de administrador (para responder sugerencias).
+    // Ajusta esto si tienes más de un admin o un mecanismo distinto.
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'christian@declarafy.com';
+    }
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // ── users/{uid} ── perfil del usuario ──
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid)
+                    && request.resource.data.uid == uid
+                    && request.resource.data.plan == 'basico'; // nadie se crea ya con plan pago
+      allow update: if (isOwner(uid) || isAdmin())
+                    // 'plan' NUNCA se modifica desde el cliente — solo vía Cloud Function
+                    // (Admin SDK, que ignora estas reglas) tras confirmar el pago con Culqi.
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['plan', 'uid']);
+      allow delete: if false;
+    }
+
+    // ── users/{uid}/kv/{key} ── datos de la app del usuario (chats, CRM,
+    // favoritos, wallet, prompts, exports, etc.). Persistencia unificada
+    // "todo en Firestore" con localStorage como caché offline. ──
+    match /users/{uid}/kv/{key} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ── historial/{uid} y casos/{uid} ── un doc por usuario, dueño exclusivo ──
+    match /historial/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+    match /casos/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ── sugerencias/{id} ── feed compartido de sugerencias de usuarios ──
+    match /sugerencias/{id} {
+      allow read: if request.auth != null;
+      // Cualquier usuario autenticado puede crear una sugerencia propia.
+      allow create: if request.auth != null;
+      // Solo el admin puede modificar (responder / cambiar estado).
+      // Si más adelante quieres que el autor edite su propia sugerencia antes
+      // de ser respondida, avísame y ajusto esta regla.
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── api_keys/{keyId} ── API keys del plan Empresa ──
+    // Bloqueada por completo desde el cliente: solo las Cloud Functions
+    // (generateApiKey, listApiKeys, revokeApiKey, publicApi) la tocan,
+    // usando el Admin SDK, que ignora estas reglas.
+    match /api_keys/{keyId} {
+      allow read, write: if false;
+    }
+
+    // ── radar_normativo/{id} ── normas detectadas automáticamente por n8n ──
+    // Escritura SOLO vía Admin SDK (workflow n8n con cuenta de servicio).
+    // Lectura para usuarios autenticados (pestaña Radar Normativo).
+    match /radar_normativo/{id} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // ── Colecciones exclusivas de servidor (Cloud Functions / n8n) ──
+    // Usadas únicamente vía Admin SDK o Service Account, que ignoran estas
+    // reglas. El frontend no las lee directamente (se exponen vía KV), así
+    // que se bloquean por completo desde el cliente.
+    // rate_limits: rate limiting server-side (claudeProxy, publicApi, etc.)
+    // exports: exportaciones CSV generadas por exportToGoogleSheets
+    // whatsapp_alerts: outbox de alertas WhatsApp (Cloud Functions + n8n)
+    match /rate_limits/{docId} {
+      allow read, write: if false;
+    }
+    match /exports/{docId} {
+      allow read, write: if false;
+    }
+    match /whatsapp_alerts/{docId} {
+      allow read, write: if false;
+    }
+
+    // Cualquier otra colección no listada aquí queda bloqueada por defecto.
+  }
+}

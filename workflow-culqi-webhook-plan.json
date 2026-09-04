@@ -1,0 +1,138 @@
+{
+  "name": "DeclaraFY — Culqi Webhook (actualizar plan)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Culqi → Firestore: actualiza el plan del usuario\n\n**Setup:**\n1. Activa el workflow y copia la **Production URL** del nodo Webhook (`https://TU-N8N/webhook/culqi-webhook`).\n2. En el panel de Culqi → **Integraciones / Webhooks**: registra esa URL con los eventos de cargo/pago.\n3. Credencial **Google Service Account** en los nodos Firestore (Authentication = Service Account); ajusta `projectId` si difiere.\n4. Montos mapeados (centavos): 19000→pro, 190000→pro, 75000→empresa, 750000→empresa.\n5. El email se toma de `charge.email` o `metadata.email`. Si tus Express Links no capturan el email de registro del usuario, crea links dinámicos con ese email en metadata.",
+        "height": 340,
+        "width": 400,
+        "color": 4
+      },
+      "id": "sticky-setup-culqi",
+      "name": "Sticky Note — Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-480, -80]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "culqi-webhook",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-culqi",
+      "name": "Webhook Culqi",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-40, 0],
+      "webhookId": "declarafy-culqi-webhook"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Normaliza el evento de Culqi y extrae email + plan según el monto\nconst AMOUNT_TO_PLAN = {\n  19000: 'pro',      // Profesional mensual S/190\n  190000: 'pro',     // Profesional anual S/1900\n  75000: 'empresa',  // Empresa mensual S/750\n  750000: 'empresa'  // Empresa anual S/7500\n};\nconst OK_EVENTS = /(succeeded|successful|aprob|paid|creado)/i;\n\nconst out = [];\nfor (const item of $input.all()) {\n  const b = item.json.body ?? item.json ?? {};\n  const evName = b.event || b.event_name || b.type || '';\n  const charge = b.data || b.charge || (b.object && b.object.charge) || {};\n\n  const amount = Number(charge.amount || b.amount || 0);\n  const plan = AMOUNT_TO_PLAN[amount];\n  const email = String(\n    (charge.metadata && charge.metadata.email) ||\n    (b.metadata && b.metadata.email) ||\n    charge.email || ''\n  ).toLowerCase().trim();\n\n  const succeeded = OK_EVENTS.test(evName) || (!evName && amount > 0);\n\n  if (succeeded && plan && email.includes('@')) {\n    out.push({ json: { email, plan, amount, eventId: b.id || '', event: evName } });\n  } else if (succeeded) {\n    console.log('Culqi: evento OK sin email/plan reconocible', JSON.stringify(b).slice(0, 500));\n  }\n}\nreturn out;"
+      },
+      "id": "code-parse-culqi",
+      "name": "Parse Culqi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "document",
+        "operation": "query",
+        "projectId": "declarafy-52bc1",
+        "database": "(default)",
+        "simple": true,
+        "query": "={\"from\":[{\"collectionId\":\"users\"}],\"where\":{\"fieldFilter\":{\"field\":{\"fieldPath\":\"email\"},\"op\":\"EQUAL\",\"value\":{\"stringValue\":\"{{ $json.email }}\"}}},\"limit\":1}"
+      },
+      "id": "firestore-buscar-usuario",
+      "name": "Buscar usuario por email",
+      "type": "n8n-nodes-base.googleFirebaseCloudFirestore",
+      "typeVersion": 1.1,
+      "position": [460, 0]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Une el doc del usuario con el plan detectado en el webhook\nconst found = $input.all();\nif (!found.length) return [];\nreturn [{\n  json: Object.assign({}, found[0].json, {\n    plan: $('Parse Culqi').item.json.plan,\n    planUpdatedAt: Date.now()\n  })\n}];"
+      },
+      "id": "code-combina-plan",
+      "name": "Combina plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 0]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "document",
+        "operation": "upsert",
+        "projectId": "declarafy-52bc1",
+        "database": "(default)",
+        "collection": "users",
+        "updateKey": "id",
+        "columns": "plan,planUpdatedAt"
+      },
+      "id": "firestore-actualizar-plan",
+      "name": "Actualizar plan",
+      "type": "n8n-nodes-base.googleFirebaseCloudFirestore",
+      "typeVersion": 1.1,
+      "position": [940, 0]
+    }
+  ],
+  "connections": {
+    "Webhook Culqi": {
+      "main": [
+        [
+          {
+            "node": "Parse Culqi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Culqi": {
+      "main": [
+        [
+          {
+            "node": "Buscar usuario por email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar usuario por email": {
+      "main": [
+        [
+          {
+            "node": "Combina plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combina plan": {
+      "main": [
+        [
+          {
+            "node": "Actualizar plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Lima"
+  },
+  "pinData": {}
+}

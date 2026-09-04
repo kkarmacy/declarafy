@@ -1,0 +1,118 @@
+{
+  "name": "DeclaraFY — Radar Normativo (IA → Firestore)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Detecta noticias tributarias → colección `radar_normativo`\n\nEl Peruano bloquea bots (anti-scraping), así que la fuente es **Google News RSS** filtrado a normativa tributaria peruana.\n\n**Setup:**\n1. Credencial **Google Service Account** en el nodo Firestore (Authentication = Service Account); ajusta `projectId` si difiere.\n2. El Code node guarda los links ya vistos en staticData del workflow (dedupe entre ejecuciones).\n3. Los documentos se crean en `radar_normativo`; el frontend (pestaña 📡 Radar Norm. → botón 🤖 IA) los lee automáticamente. Escritura bloqueada para clientes en firestore.rules — solo Admin SDK (este workflow).\n4. Para alertar a usuarios por WhatsApp: añade un nodo que escriba en `whatsapp_alerts` (el workflow outbox las envía).",
+        "height": 360,
+        "width": 420,
+        "color": 4
+      },
+      "id": "sticky-setup-radar",
+      "name": "Sticky Note — Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-520, -80]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 7,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "trigger-diario-7am",
+      "name": "Diario 07:00 Lima",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-40, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=when:7d+(tributaci%C3%B3n+OR+SUNAT+OR+IGV+OR+%22normas+legales%22)+Per%C3%BA&hl=es-419&gl=PE&ceid=PE:es-419",
+        "options": {}
+      },
+      "id": "rss-google-news",
+      "name": "RSS Tributario Perú",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Filtra temas tributarios, deduplica contra ejecuciones previas\n// y mapea al esquema que consume el frontend (RADAR_DATA).\nconst KEYWORDS = /(sunat|igv|impuesto|tribut|renta|pdt\\s?\\d|detracci|percepci|retenci|decreto supremo|decreto legislativo|normas legales|mef|sbs)/i;\nconst ALTO = /(decreto supremo|decreto legislativo|\\bley\\b|igv|impuesto a la renta|amnist)/i;\n\nconst store = $getWorkflowStaticData('global');\nconst seen = new Set(store.seenLinks || []);\n\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  const link = j.link || '';\n  // Google News agrega \" - Medio\" al final del título\n  const titulo = String(j.title || '').replace(/\\s+-\\s+[^-]+$/, '').trim();\n  if (!link || !titulo || !KEYWORDS.test(titulo)) continue;\n  if (seen.has(link)) continue;\n\n  seen.add(link);\n  out.push({\n    json: {\n      titulo,\n      resumen: String(j.contentSnippet || '').slice(0, 220),\n      fecha: String(j.isoDate || new Date().toISOString()).slice(0, 10),\n      impacto: ALTO.test(titulo) ? 'alto' : 'medio',\n      fuente: 'elperuano',\n      link,\n      createdAt: Date.now()\n    }\n  });\n}\n\n// Conserva solo los últimos 500 links vistos\nstore.seenLinks = Array.from(seen).slice(-500);\nreturn out;"
+      },
+      "id": "code-filtrar-mapear",
+      "name": "Filtrar y mapear",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "document",
+        "operation": "create",
+        "projectId": "declarafy-52bc1",
+        "database": "(default)",
+        "collection": "radar_normativo",
+        "columns": "titulo,resumen,fecha,impacto,fuente,link,createdAt",
+        "documentId": "",
+        "simple": true
+      },
+      "id": "firestore-guardar-norma",
+      "name": "Guardar en radar_normativo",
+      "type": "n8n-nodes-base.googleFirebaseCloudFirestore",
+      "typeVersion": 1.1,
+      "position": [680, 0],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Diario 07:00 Lima": {
+      "main": [
+        [
+          {
+            "node": "RSS Tributario Perú",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Tributario Perú": {
+      "main": [
+        [
+          {
+            "node": "Filtrar y mapear",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar y mapear": {
+      "main": [
+        [
+          {
+            "node": "Guardar en radar_normativo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Lima"
+  },
+  "pinData": {}
+}
