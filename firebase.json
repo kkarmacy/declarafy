@@ -1,9 +1,17 @@
 {
   "hosting": {
     "site": "declarafy-52bc1",
-    "public": "public",
+    "public": ".",
     "ignore": [
       "firebase.json",
+      "firestore.rules",
+      "firestore.rules.snippet",
+      "firestore.indexes.json",
+      "index.js",
+      "package.json",
+      "package-lock.json",
+      ".git/**",
+      ".github/**",
       "**/.*",
       "**/node_modules/**"
     ],
@@ -11,19 +19,30 @@
       {
         "source": "**/*.@(js|css)",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=3600, must-revalidate" }
+          { "key": "Cache-Control", "value": "public, max-age=3600, must-revalidate" },
+          { "key": "X-Content-Type-Options", "value": "nosniff" }
         ]
       },
       {
         "source": "**/*.@(jpg|jpeg|png|svg|ico|webp)",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=604800, immutable" }
+          { "key": "Cache-Control", "value": "public, max-age=604800, immutable" },
+          { "key": "X-Content-Type-Options", "value": "nosniff" }
         ]
       },
       {
         "source": "/site.webmanifest",
         "headers": [
-          { "key": "Access-Control-Allow-Origin", "value": "*" }
+          { "key": "Access-Control-Allow-Origin", "value": "*" },
+          { "key": "X-Content-Type-Options", "value": "nosniff" }
+        ]
+      },
+      {
+        "source": "**",
+        "headers": [
+          { "key": "X-Content-Type-Options", "value": "nosniff" },
+          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+          { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
         ]
       }
     ],
@@ -35,8 +54,15 @@
     ]
   },
   "functions": {
-    "source": "functions",
-    "runtime": "nodejs20"
+    "source": ".",
+    "runtime": "nodejs20",
+    "ignore": [
+      ".git",
+      ".github",
+      ".firebase",
+      "node_modules",
+      "*.log"
+    ]
   },
   "firestore": {
     "rules": "firestore.rules",
