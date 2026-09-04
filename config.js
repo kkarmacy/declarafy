@@ -15,12 +15,12 @@ const AREAS = {
   planificacion: { label:'Planificación',       scope:'planificacion' },
   pt:            { label:'Precios Transfer.',   scope:'pt' },
   material:      { label:'D. Material',         scope:'material' },
-  formal:        { label:'D. Formal',           scope:'formal' },
-  procesal:      { label:'D. Procesal',         scope:'procesal' },
-  penal:         { label:'D. Penal',            scope:'penal' },
-  constitucional:{ label:'D. Constitucional',   scope:'constitucional' },
-  internacional: { label:'D. Internacional',    scope:'internacional' },
-  lavado:        { label:'Lavado de Dinero',    scope:'lavado' },
+  formal:        { label:'D. Formal',            scope:'formal' },
+  procesal:      { label:'D. Procesal',          scope:'procesal' },
+  penal:         { label:'D. Penal',             scope:'penal' },
+  constitucional:{ label:'D. Constitucional',    scope:'constitucional' },
+  internacional: { label:'D. Internacional',     scope:'internacional' },
+  lavado:        { label:'Lavado de Dinero',     scope:'lavado' },
 };
 
 const SYS = 'Eres DeclaraFY, un asesor tributario y aduanero experto en Perú. Respondes en español, de forma clara, profesional y concisa. Usas la base legal peruana vigente (Código Tributario, LIR, LIGV, etc.). Si no tienes suficiente información para una respuesta precisa, lo indicas y recomiendas consultar con un contador o abogado tributarista.';
@@ -29,3 +29,18 @@ const ADMIN_EMAIL = 'christian@declarafy.com';
 const FREE = 30;
 const DECLARAFY_PROXY_URL = 'https://us-central1-declarafy-52bc1.cloudfunctions.net/claudeProxy';
 const DECLARAFY_FN_BASE = 'https://us-central1-declarafy-52bc1.cloudfunctions.net';
+
+// Security hardening: the normal product path must use the authenticated
+// Cloud Function proxy. `app.js` historically treats any truthy value in
+// tp_anthropic_key as "AI enabled" and only performs a direct browser call
+// when the value begins with sk-ant-. The sentinel below therefore enables
+// the proxy without storing a real provider credential in the browser.
+// Existing Anthropic keys are removed from localStorage on load.
+try {
+  const storedAnthropicKey = localStorage.getItem('tp_anthropic_key');
+  if (!storedAnthropicKey || storedAnthropicKey.startsWith('sk-ant-')) {
+    localStorage.setItem('tp_anthropic_key', 'declarafy-proxy');
+  }
+} catch (_) {
+  // Storage can be unavailable in hardened/private browser contexts.
+}
