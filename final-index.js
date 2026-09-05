@@ -131,6 +131,8 @@ function validateAiPayload(body) {
   if (!Number.isInteger(maxTokens) || maxTokens < 1 || maxTokens > 4096) return 'max_tokens out of range';
   if (body.system != null && typeof body.system !== 'string') return 'system must be text';
   if (typeof body.system === 'string' && body.system.length > 20_000) return 'system too large';
+  const validMessages = body.messages.every(m => m && typeof m === 'object' && ['user', 'assistant'].includes(m.role) && typeof m.content === 'string' && m.content.length <= 50_000);
+  if (!validMessages) return 'Invalid message format';
   return null;
 }
 
@@ -145,6 +147,16 @@ hardened.callAlternativeAI = onRequest({
     }
     const decoded = await requireUser(req, res);
     if (!decoded) return;
+
+    // The UI already hides alternative providers from Plan Básico, but that is
+    // not a security boundary. Enforce the entitlement from Firestore here.
+    const userDoc = await db.collection('users').doc(decoded.uid).get();
+    const plan = userDoc.exists ? String(userDoc.data().plan || 'basico') : 'basico';
+    if (!['profesional', 'empresa'].includes(plan)) {
+      res.status(403).json({ error: 'Plan Profesional or Empresa required' });
+      return;
+    }
+
     const validationError = validateAiPayload(req.body);
     if (validationError) {
       res.status(400).json({ error: validationError });
