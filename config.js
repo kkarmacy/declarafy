@@ -30,8 +30,6 @@ const FREE = 30;
 const DECLARAFY_PROXY_URL = 'https://us-central1-declarafy-52bc1.cloudfunctions.net/claudeProxy';
 const DECLARAFY_FN_BASE = 'https://us-central1-declarafy-52bc1.cloudfunctions.net';
 
-// Never persist a provider credential in the browser. app.js uses any truthy
-// non-sk-ant value as a signal to use the authenticated Cloud Function proxy.
 try {
   const storedAnthropicKey = localStorage.getItem('tp_anthropic_key');
   if (!storedAnthropicKey || storedAnthropicKey.startsWith('sk-ant-')) {
@@ -39,10 +37,7 @@ try {
   }
 } catch (_) {}
 
-// app.js is a legacy monolith. Apply narrow runtime overrides after all classic
-// scripts have loaded, without changing the million-byte bundle in-place.
 window.addEventListener('DOMContentLoaded', () => {
-  // Sanitize AFTER Markdown expansion, which closes the old link-attribute XSS.
   if (typeof DOMPurify !== 'undefined' && typeof _escapeHtml === 'function') {
     _mdFormat = function(text) {
       const escaped = _escapeHtml(String(text));
@@ -63,7 +58,6 @@ window.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  // File names are untrusted input; render them through textContent, not HTML.
   renderChips = function() {
     const el = document.getElementById('chips');
     if (!el) return;
@@ -82,8 +76,6 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  // BYOK in localStorage made a successful XSS equivalent to API-key theft.
-  // Keep the product on the server-side proxy and erase keys entered in legacy UI.
   saveKey = function() {
     try { localStorage.setItem('tp_anthropic_key', 'declarafy-proxy'); } catch (_) {}
     const inp = document.getElementById('apiInp');
@@ -95,8 +87,6 @@ window.addEventListener('DOMContentLoaded', () => {
   };
 
   // 2026 ONP corrections.
-  // D.S. 330-2025-EF set the SNP maximum pension at S/ 1,000 from January 2026.
-  // Ley 31301 allows proportional pensions with 10-14 and 15-19 years of contributions.
   if (typeof calcOnp === 'function') {
     calcOnp = function() {
       const sueldo = parseFloat(document.getElementById('onp_sueldo')?.value) || 0;
@@ -149,6 +139,45 @@ window.addEventListener('DOMContentLoaded', () => {
         .replace(/S\/\s*893(?:\.00)?\/mes/g, 'S/ 1,000.00/mes')
         .replace(/Pensión estimada ONP \(máx\)/g, 'Referencia máxima ONP 2026')
         .replace(/Te faltan ([0-9]+) años para pensión mínima ONP \(20 años\)/g, 'Existe pensión proporcional ONP desde 10 años; para régimen general se requieren 20 años');
+    };
+  }
+
+  // SUNAT TIM correction. Current monthly TIM for tax debts in PEN is 0.9% since Apr-2021.
+  if (typeof calcTim === 'function') {
+    calcTim = function() {
+      const anio = parseInt(document.getElementById('tim_anio')?.value, 10) || 2026;
+      const mesIni = parseInt(document.getElementById('tim_mes_ini')?.value, 10) || 1;
+      const mesFin = parseInt(document.getElementById('tim_mes_fin')?.value, 10) || 12;
+      const deuda = parseFloat(document.getElementById('tim_deuda')?.value) || 0;
+      const box = document.getElementById('timHistResult');
+      if (!box) return;
+      if (!deuda || mesIni > mesFin || mesIni < 1 || mesFin > 12) { box.style.display = 'none'; return; }
+
+      const rateForMonth = (year, month) => {
+        if (year > 2021) return 0.9;
+        if (year === 2021) return month >= 4 ? 0.9 : 1.0;
+        if (year === 2020) return month >= 4 ? 1.0 : 1.2;
+        if (year >= 2010) return 1.2;
+        return null;
+      };
+
+      let totalInteres = 0;
+      let rows = '';
+      for (let m = mesIni; m <= mesFin; m++) {
+        const tasa = rateForMonth(anio, m);
+        if (tasa == null) continue;
+        const interesMes = deuda * (tasa / 100);
+        totalInteres += interesMes;
+        rows += '<tr><td>' + String(m).padStart(2, '0') + '/' + anio + '</td><td style="text-align:right">' + tasa.toFixed(2) + '%</td><td style="text-align:right">S/ ' + interesMes.toFixed(2) + '</td></tr>';
+      }
+
+      box.style.display = '';
+      box.innerHTML = '<div class="res-table"><table>' +
+        '<tr><th>Periodo</th><th style="text-align:right">TIM mensual</th><th style="text-align:right">Interés referencial</th></tr>' +
+        rows +
+        '<tr><td colspan="2"><strong>Total referencial</strong></td><td style="text-align:right;font-weight:600;color:var(--gold)">S/ ' + totalInteres.toFixed(2) + '</td></tr>' +
+        '<tr><td colspan="3" style="font-size:14px;color:var(--muted);text-align:center">ℹ️ TIM SUNAT en moneda nacional: 0.9% mensual desde abril de 2021. Desde 01/01/2024 la TIM no se aplica a multas; para multas corresponde revisar la tasa de interés legal aplicable.</td></tr>' +
+        '</table></div>';
     };
   }
 });
