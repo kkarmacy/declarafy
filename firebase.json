@@ -13,36 +13,66 @@
       ".git/**",
       ".github/**",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "secure-index.js",
+      "final-index.js",
+      "scripts/**"
     ],
     "headers": [
       {
         "source": "**/*.@(js|css)",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=3600, must-revalidate" },
-          { "key": "X-Content-Type-Options", "value": "nosniff" }
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=3600, must-revalidate"
+          },
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          }
         ]
       },
       {
         "source": "**/*.@(jpg|jpeg|png|svg|ico|webp)",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=604800, immutable" },
-          { "key": "X-Content-Type-Options", "value": "nosniff" }
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=604800, immutable"
+          },
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          }
         ]
       },
       {
         "source": "/site.webmanifest",
         "headers": [
-          { "key": "Access-Control-Allow-Origin", "value": "*" },
-          { "key": "X-Content-Type-Options", "value": "nosniff" }
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          },
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          }
         ]
       },
       {
         "source": "**",
         "headers": [
-          { "key": "X-Content-Type-Options", "value": "nosniff" },
-          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-          { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "camera=(), microphone=(), geolocation=()"
+          }
         ]
       }
     ],
