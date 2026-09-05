@@ -1,0 +1,23 @@
+name: Security check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check JavaScript syntax
+        run: |
+          node --check index.js
+          node --check secure-index.js
+          node --check final-index.js
+          node --check config.js
+          node --check app.js
+          node --check calculators.js
+          node --check firebase-sync.js
