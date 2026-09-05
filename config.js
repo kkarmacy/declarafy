@@ -8,19 +8,19 @@ const AREAS = {
   renta:         { label:'Impuesto a la Renta', scope:'renta' },
   isc:           { label:'ISC',                 scope:'isc' },
   itf:           { label:'ITF',                 scope:'itf' },
-  arancel:       { label:'Arancel',             scope:'arancel' },
-  nrus:          { label:'NRUS',                scope:'nrus' },
-  vehicular:     { label:'Vehicular',           scope:'vehicular' },
-  aduanas:       { label:'Aduanas',             scope:'aduanas' },
-  planificacion: { label:'Planificación',       scope:'planificacion' },
-  pt:            { label:'Precios Transfer.',   scope:'pt' },
-  material:      { label:'D. Material',         scope:'material' },
-  formal:        { label:'D. Formal',            scope:'formal' },
-  procesal:      { label:'D. Procesal',          scope:'procesal' },
-  penal:         { label:'D. Penal',             scope:'penal' },
-  constitucional:{ label:'D. Constitucional',    scope:'constitucional' },
-  internacional: { label:'D. Internacional',     scope:'internacional' },
-  lavado:        { label:'Lavado de Dinero',     scope:'lavado' },
+  arancel:       { label:'Arancel',              scope:'arancel' },
+  nrus:          { label:'NRUS',                 scope:'nrus' },
+  vehicular:     { label:'Vehicular',            scope:'vehicular' },
+  aduanas:       { label:'Aduanas',              scope:'aduanas' },
+  planificacion: { label:'Planificación',        scope:'planificacion' },
+  pt:            { label:'Precios Transfer.',    scope:'pt' },
+  material:      { label:'D. Material',           scope:'material' },
+  formal:        { label:'D. Formal',             scope:'formal' },
+  procesal:      { label:'D. Procesal',           scope:'procesal' },
+  penal:         { label:'D. Penal',              scope:'penal' },
+  constitucional:{ label:'D. Constitucional',     scope:'constitucional' },
+  internacional: { label:'D. Internacional',      scope:'internacional' },
+  lavado:        { label:'Lavado de Dinero',      scope:'lavado' },
 };
 
 const SYS = 'Eres DeclaraFY, un asesor tributario y aduanero experto en Perú. Respondes en español, de forma clara, profesional y concisa. Usas la base legal peruana vigente (Código Tributario, LIR, LIGV, etc.). Si no tienes suficiente información para una respuesta precisa, lo indicas y recomiendas consultar con un contador o abogado tributarista.';
@@ -179,11 +179,44 @@ window.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  // Correct stale static guidance without rewriting the legacy HTML bundle.
   const onpIntro = document.querySelector('#ptOnp > p');
   if (onpIntro) onpIntro.textContent = 'Referencia del Sistema Nacional de Pensiones (D.L. 19990). Aporte del 13%. En 2026, la pensión general va de S/ 600 a S/ 1,000 con 20+ años; existen pensiones proporcionales desde 10 años de aportes.';
   const coactivaIntro = document.querySelector('#ptCobranza_coactiva > p');
   if (coactivaIntro) coactivaIntro.textContent = 'Simulación referencial de deuda tributaria. La TIM en moneda nacional es 0.9% mensual desde abril de 2021. Costas, gastos y medidas de cobranza dependen del procedimiento aplicable; no se estiman como porcentajes fijos.';
   const sucesionesIntro = document.querySelector('#ptSucesiones > p');
   if (sucesionesIntro) sucesionesIntro.textContent = 'Calcula costos referenciales de sucesión. Perú no grava la recepción de una herencia con un impuesto sucesorio general; una venta posterior del inmueble puede generar renta de segunda categoría sobre la ganancia, salvo las excepciones previstas por SUNAT. El plazo de 2 años corresponde, entre otros requisitos, al concepto de casa habitación, no a una exoneración general por vender una herencia después de ese plazo.';
+
+  // Keep visible integration guidance consistent with the hardened backend.
+  const sunatIntro = document.querySelector('#ptSunat_api > p');
+  if (sunatIntro) sunatIntro.textContent = 'Consulta el estado de RUC y otros datos disponibles mediante los servicios conectados de DeclaraFY. La disponibilidad y alcance dependen de la fuente externa consultada.';
+
+  const timIntro = document.querySelector('#ptTim > p');
+  if (timIntro) timIntro.textContent = 'Calcula intereses moratorios de manera referencial. Para periodos desde abril de 2021, la TIM en moneda nacional es 0.9% mensual. Base legal: Art. 33 del Código Tributario y resoluciones SUNAT aplicables.';
+  const timRate = document.querySelector('#ptTim .tim-row:nth-of-type(4) .tim-row-val');
+  if (timRate) timRate.textContent = '0.9% mensual para periodos desde abril de 2021';
+
+  const excelCodes = document.querySelectorAll('#ptExcel_int .excel-code');
+  if (excelCodes[0]) {
+    excelCodes[0].textContent = `function DECLARAFY(consulta) {
+  const url = "https://us-central1-declarafy-52bc1.cloudfunctions.net/publicApi";
+  const options = {
+    method: "post",
+    contentType: "application/json",
+    headers: { "x-api-key": "TU_API_KEY_DECLARAFY" },
+    payload: JSON.stringify({ question: consulta, regimen: "general" })
+  };
+  const r = UrlFetchApp.fetch(url, options);
+  return JSON.parse(r.getContentText()).answer;
+}`;
+  }
+  if (excelCodes[1]) {
+    excelCodes[1].textContent = `Function DECLARAFY(consulta As String) As String
+  ' Envía la consulta a la API segura de DeclaraFY.
+  ' Usa una API key de DeclaraFY, nunca una clave del proveedor de IA.
+  ' Implementa el POST hacia /publicApi desde tu integración autorizada.
+End Function`;
+  }
+  document.querySelectorAll('#ptExcel_int .excel-step-text').forEach((el) => {
+    el.textContent = el.textContent.replace('TU_API_KEY', 'TU_API_KEY_DECLARAFY');
+  });
 });
