@@ -4,14 +4,23 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  syntax:
+  security:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
       - name: Check JavaScript syntax
         run: |
           node --check index.js
@@ -21,3 +30,6 @@ jobs:
           node --check app.js
           node --check calculators.js
           node --check firebase-sync.js
+          node --check scripts/verify-deployment-structure.js
+      - name: Verify deployment structure and function exports
+        run: node scripts/verify-deployment-structure.js
