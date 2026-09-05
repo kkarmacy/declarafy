@@ -86,7 +86,6 @@ window.addEventListener('DOMContentLoaded', () => {
     if (typeof addNotif === 'function') addNotif('🔐', 'Conexión segura activa', 'DeclaraFY usa el proxy autenticado; no guarda claves de proveedor en el navegador.');
   };
 
-  // 2026 ONP corrections.
   if (typeof calcOnp === 'function') {
     calcOnp = function() {
       const sueldo = parseFloat(document.getElementById('onp_sueldo')?.value) || 0;
@@ -106,8 +105,8 @@ window.addEventListener('DOMContentLoaded', () => {
       let pensionText = 'Cálculo oficial requerido';
       let requisito = '';
       if (anios >= 20) {
-        pensionText = 'Hasta S/ 1,000/mes';
-        requisito = 'Régimen general: 20+ años de aportes. El monto exacto lo determina la ONP.';
+        pensionText = 'S/ 600 a S/ 1,000/mes';
+        requisito = 'Régimen general: 20+ años de aportes. El monto exacto depende de años aportados y remuneración de referencia y lo determina la ONP.';
       } else if (anios >= 15) {
         pensionText = 'S/ 400/mes';
         requisito = 'Pensión proporcional especial: 15 a menos de 20 años de aportes.';
@@ -124,7 +123,7 @@ window.addEventListener('DOMContentLoaded', () => {
         '<tr><td>Años cotizados</td><td style="text-align:right">' + anios + '</td></tr>' +
         '<tr><td>Referencia de pensión</td><td style="text-align:right;font-weight:600;color:var(--green)">' + pensionText + '</td></tr>' +
         '<tr><td>Aportes proyectados hasta jubilación</td><td style="text-align:right">S/ ' + fondoReferencial.toFixed(2) + '</td></tr>' +
-        '<tr><td colspan="2" style="font-size:14px;color:var(--muted);text-align:center">ℹ️ ' + requisito + ' Máximo SNP vigente desde enero de 2026: S/ 1,000.</td></tr>' +
+        '<tr><td colspan="2" style="font-size:14px;color:var(--muted);text-align:center">ℹ️ ' + requisito + ' En 2026 la pensión general mínima es S/ 600 y la máxima S/ 1,000.</td></tr>' +
         '</table></div>';
     };
   }
@@ -142,7 +141,6 @@ window.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  // SUNAT TIM correction. Current monthly TIM for tax debts in PEN is 0.9% since Apr-2021.
   if (typeof calcTim === 'function') {
     calcTim = function() {
       const anio = parseInt(document.getElementById('tim_anio')?.value, 10) || 2026;
@@ -180,4 +178,12 @@ window.addEventListener('DOMContentLoaded', () => {
         '</table></div>';
     };
   }
+
+  // Correct stale static guidance without rewriting the legacy HTML bundle.
+  const onpIntro = document.querySelector('#ptOnp > p');
+  if (onpIntro) onpIntro.textContent = 'Referencia del Sistema Nacional de Pensiones (D.L. 19990). Aporte del 13%. En 2026, la pensión general va de S/ 600 a S/ 1,000 con 20+ años; existen pensiones proporcionales desde 10 años de aportes.';
+  const coactivaIntro = document.querySelector('#ptCobranza_coactiva > p');
+  if (coactivaIntro) coactivaIntro.textContent = 'Simulación referencial de deuda tributaria. La TIM en moneda nacional es 0.9% mensual desde abril de 2021. Costas, gastos y medidas de cobranza dependen del procedimiento aplicable; no se estiman como porcentajes fijos.';
+  const sucesionesIntro = document.querySelector('#ptSucesiones > p');
+  if (sucesionesIntro) sucesionesIntro.textContent = 'Calcula costos referenciales de sucesión. Perú no grava la recepción de una herencia con un impuesto sucesorio general; una venta posterior del inmueble puede generar renta de segunda categoría sobre la ganancia, salvo las excepciones previstas por SUNAT. El plazo de 2 años corresponde, entre otros requisitos, al concepto de casa habitación, no a una exoneración general por vender una herencia después de ese plazo.';
 });
