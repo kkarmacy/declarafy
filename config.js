@@ -93,4 +93,62 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('apiOv')?.classList.add('hidden');
     if (typeof addNotif === 'function') addNotif('🔐', 'Conexión segura activa', 'DeclaraFY usa el proxy autenticado; no guarda claves de proveedor en el navegador.');
   };
+
+  // 2026 ONP corrections.
+  // D.S. 330-2025-EF set the SNP maximum pension at S/ 1,000 from January 2026.
+  // Ley 31301 allows proportional pensions with 10-14 and 15-19 years of contributions.
+  if (typeof calcOnp === 'function') {
+    calcOnp = function() {
+      const sueldo = parseFloat(document.getElementById('onp_sueldo')?.value) || 0;
+      const edad = parseInt(document.getElementById('onp_edad')?.value, 10) || 30;
+      const jubilacion = parseInt(document.getElementById('onp_jubilacion')?.value, 10) || 65;
+      const anios = parseInt(document.getElementById('onp_anios')?.value, 10) || 0;
+      const fondo = parseFloat(document.getElementById('onp_fondo')?.value) || 0;
+      const aporte = sueldo * 0.13;
+      const aporteAnual = aporte * 12;
+      const fondoReferencial = fondo + aporteAnual * Math.max(0, jubilacion - edad);
+      const div = document.getElementById('onpResult');
+      const aporteInput = document.getElementById('onp_aporte');
+      if (aporteInput) aporteInput.value = `S/ ${aporte.toFixed(2)}`;
+      if (!div) return;
+      if (!sueldo) { div.style.display = 'none'; return; }
+
+      let pensionText = 'Cálculo oficial requerido';
+      let requisito = '';
+      if (anios >= 20) {
+        pensionText = 'Hasta S/ 1,000/mes';
+        requisito = 'Régimen general: 20+ años de aportes. El monto exacto lo determina la ONP.';
+      } else if (anios >= 15) {
+        pensionText = 'S/ 400/mes';
+        requisito = 'Pensión proporcional especial: 15 a menos de 20 años de aportes.';
+      } else if (anios >= 10) {
+        pensionText = 'S/ 300/mes';
+        requisito = 'Pensión proporcional especial: 10 a menos de 15 años de aportes.';
+      } else {
+        requisito = `Aún no alcanza el mínimo de 10 años para pensión proporcional; faltan ${10 - anios} año(s).`;
+      }
+
+      div.style.display = '';
+      div.innerHTML = '<div class="res-table"><table>' +
+        '<tr><td>Aporte mensual ONP (13%)</td><td style="text-align:right">S/ ' + aporte.toFixed(2) + '</td></tr>' +
+        '<tr><td>Años cotizados</td><td style="text-align:right">' + anios + '</td></tr>' +
+        '<tr><td>Referencia de pensión</td><td style="text-align:right;font-weight:600;color:var(--green)">' + pensionText + '</td></tr>' +
+        '<tr><td>Aportes proyectados hasta jubilación</td><td style="text-align:right">S/ ' + fondoReferencial.toFixed(2) + '</td></tr>' +
+        '<tr><td colspan="2" style="font-size:14px;color:var(--muted);text-align:center">ℹ️ ' + requisito + ' Máximo SNP vigente desde enero de 2026: S/ 1,000.</td></tr>' +
+        '</table></div>';
+    };
+  }
+
+  if (typeof calcAfpOnp === 'function') {
+    const legacyCalcAfpOnp = calcAfpOnp;
+    calcAfpOnp = function() {
+      legacyCalcAfpOnp();
+      const div = document.getElementById('afponpResult');
+      if (!div) return;
+      div.innerHTML = div.innerHTML
+        .replace(/S\/\s*893(?:\.00)?\/mes/g, 'S/ 1,000.00/mes')
+        .replace(/Pensión estimada ONP \(máx\)/g, 'Referencia máxima ONP 2026')
+        .replace(/Te faltan ([0-9]+) años para pensión mínima ONP \(20 años\)/g, 'Existe pensión proporcional ONP desde 10 años; para régimen general se requieren 20 años');
+    };
+  }
 });
