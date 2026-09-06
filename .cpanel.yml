@@ -2,7 +2,6 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/declaxhh/public_html/
-    - /bin/mkdir -p $DEPLOYPATH
     - /bin/cp index.html $DEPLOYPATH
     - /bin/cp styles.css $DEPLOYPATH
     - /bin/cp app.js $DEPLOYPATH
@@ -12,4 +11,3 @@ deployment:
     - /bin/cp push-notifications.js $DEPLOYPATH
     - /bin/cp site.webmanifest $DEPLOYPATH
     - /bin/cp sw.js $DEPLOYPATH
-    - /bin/cp favicon.svg $DEPLOYPATH
