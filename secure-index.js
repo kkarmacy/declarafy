@@ -172,6 +172,7 @@ function isValidRuc(value) {
 function isIsoDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
 }
+
 function isCpeDate(value) {
   const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(value || ''));
   if (!match) return false;
@@ -181,7 +182,6 @@ function isCpeDate(value) {
     && date.getUTCMonth() === Number(month) - 1
     && date.getUTCDate() === Number(day);
 }
-
 
 legacy.validarComprobante = onRequest({ timeoutSeconds: 15 }, async (req, res) => {
   cors(req, res, async () => {
@@ -208,11 +208,11 @@ legacy.validarComprobante = onRequest({ timeoutSeconds: 15 }, async (req, res) =
       res.status(400).json({ error: 'Datos del comprobante inválidos o incompletos' });
       return;
     }
+
     if (!(await checkSimpleHourlyLimit(decoded.uid, 'cpe_validation', 30))) {
       res.status(429).json({ error: 'Límite horario de validaciones excedido' });
       return;
     }
-
 
     const params = new URLSearchParams({
       ruc: String(rucEmisor),
@@ -408,13 +408,13 @@ legacy.updateNotifPrefs = onCall(async request => {
     const v = normFlag(notifWhatsapp);
     if (!v) throw new Error('Invalid WhatsApp preference');
     updates.notifWhatsapp = v;
+  }
   if (ruc !== undefined) {
     const normalizedRuc = String(ruc || '').replace(/\D/g, '');
     if (normalizedRuc && !isValidRuc(normalizedRuc)) throw new Error('Invalid RUC');
     updates.ruc = normalizedRuc;
   }
   if (Object.keys(updates).length === 0) throw new Error('No valid preferences supplied');
-  }
   await db.collection('users').doc(request.auth.uid).set(updates, { merge: true });
   return { ok: true };
 });
