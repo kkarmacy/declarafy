@@ -173,6 +173,16 @@ function isIsoDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
 }
 
+function isCpeDate(value) {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(value || ''));
+  if (!match) return false;
+  const [, day, month, year] = match;
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  return date.getUTCFullYear() === Number(year)
+    && date.getUTCMonth() === Number(month) - 1
+    && date.getUTCDate() === Number(day);
+}
+
 legacy.validarComprobante = onRequest({ timeoutSeconds: 15 }, async (req, res) => {
   cors(req, res, async () => {
     if (req.method !== 'POST') {
@@ -184,18 +194,33 @@ legacy.validarComprobante = onRequest({ timeoutSeconds: 15 }, async (req, res) =
     if (!decoded) return;
 
     const { rucEmisor, tipoComprobante, serie, numero, fechaEmision, monto } = req.body || {};
-    if (!isValidRuc(rucEmisor) || !tipoComprobante || !serie || !numero || !fechaEmision) {
+    const normalizedTipo = String(tipoComprobante || '');
+    const normalizedSerie = String(serie || '').trim().toUpperCase();
+    const normalizedNumero = String(numero || '').trim();
+    const normalizedMonto = Number(monto);
+    if (!isValidRuc(rucEmisor)
+      || !/^\d{2}$/.test(normalizedTipo)
+      || !/^[A-Z0-9-]{1,20}$/.test(normalizedSerie)
+      || !/^\d{1,20}$/.test(normalizedNumero)
+      || !isCpeDate(fechaEmision)
+      || monto == null || monto === ''
+      || !Number.isFinite(normalizedMonto) || normalizedMonto < 0) {
       res.status(400).json({ error: 'Datos del comprobante inválidos o incompletos' });
+      return;
+    }
+
+    if (!(await checkSimpleHourlyLimit(decoded.uid, 'cpe_validation', 30))) {
+      res.status(429).json({ error: 'Límite horario de validaciones excedido' });
       return;
     }
 
     const params = new URLSearchParams({
       ruc: String(rucEmisor),
-      tipo: String(tipoComprobante).slice(0, 10),
-      serie: String(serie).slice(0, 20),
-      numero: String(numero).slice(0, 30),
-      fecha: String(fechaEmision).slice(0, 20),
-      monto: monto == null ? '' : String(monto).slice(0, 30)
+      tipo: normalizedTipo,
+      serie: normalizedSerie,
+      numero: normalizedNumero,
+      fecha: String(fechaEmision),
+      monto: normalizedMonto.toFixed(2)
     });
 
     try {
@@ -365,7 +390,7 @@ legacy.exportToGoogleSheets = onCall({ timeoutSeconds: 60 }, async request => {
 
 legacy.updateNotifPrefs = onCall(async request => {
   if (!request.auth) throw new Error('Must be authenticated');
-  const { whatsapp, notifPush, notifWhatsapp } = request.data || {};
+  const { whatsapp, notifPush, notifWhatsapp, ruc } = request.data || {};
   const updates = {};
   const normFlag = v => v === true || v === 'si' ? 'si' : v === false || v === 'no' ? 'no' : null;
 
@@ -384,6 +409,12 @@ legacy.updateNotifPrefs = onCall(async request => {
     if (!v) throw new Error('Invalid WhatsApp preference');
     updates.notifWhatsapp = v;
   }
+  if (ruc !== undefined) {
+    const normalizedRuc = String(ruc || '').replace(/\D/g, '');
+    if (normalizedRuc && !isValidRuc(normalizedRuc)) throw new Error('Invalid RUC');
+    updates.ruc = normalizedRuc;
+  }
+  if (Object.keys(updates).length === 0) throw new Error('No valid preferences supplied');
   await db.collection('users').doc(request.auth.uid).set(updates, { merge: true });
   return { ok: true };
 });

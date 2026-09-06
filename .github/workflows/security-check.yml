@@ -31,5 +31,5 @@ jobs:
           node --check calculators.js
           node --check firebase-sync.js
           node --check scripts/verify-deployment-structure.js
-      - name: Verify deployment structure and function exports
-        run: node scripts/verify-deployment-structure.js
+      - name: Run regression and deployment tests
+        run: npm test
