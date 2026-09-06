@@ -2,6 +2,27 @@
 // config.js — Constants, configuration, data
 // ════════════════════════════════════════
 
+const FIREBASE_PROJECT_ID = 'declarafy-52bc1-e4ff2';
+const FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyCy7UfFBTwWNQi5j3vI1fOcQgp_O3Gim_8',
+  authDomain: 'declarafy-52bc1-e4ff2.firebaseapp.com',
+  projectId: FIREBASE_PROJECT_ID,
+  storageBucket: 'declarafy-52bc1-e4ff2.firebasestorage.app',
+  messagingSenderId: '419868732290',
+  appId: '1:419868732290:web:6592ae1de4c980e0e87d9b',
+  measurementId: 'G-J6VHWB53MM'
+};
+
+// The app uses the Firebase v10 compat SDK loaded by index.html. Initialize the
+// correct project before app.js runs; app.js detects an existing Firebase app.
+try {
+  if (typeof firebase !== 'undefined' && (!firebase.apps || firebase.apps.length === 0)) {
+    firebase.initializeApp(FIREBASE_CONFIG);
+  }
+} catch (e) {
+  console.error('Firebase initialization failed:', e);
+}
+
 const AREAS = {
   general:       { label:'General',             scope:'general' },
   igv:           { label:'IGV',                 scope:'igv' },
@@ -27,8 +48,8 @@ const SYS = 'Eres DeclaraFY, un asesor tributario y aduanero experto en Perú. R
 
 const ADMIN_EMAIL = 'christian@declarafy.com';
 const FREE = 30;
-const DECLARAFY_PROXY_URL = 'https://us-central1-declarafy-52bc1.cloudfunctions.net/claudeProxy';
-const DECLARAFY_FN_BASE = 'https://us-central1-declarafy-52bc1.cloudfunctions.net';
+const DECLARAFY_PROXY_URL = 'https://us-central1-declarafy-52bc1-e4ff2.cloudfunctions.net/claudeProxy';
+const DECLARAFY_FN_BASE = 'https://us-central1-declarafy-52bc1-e4ff2.cloudfunctions.net';
 
 try {
   const storedAnthropicKey = localStorage.getItem('tp_anthropic_key');
@@ -186,7 +207,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const sucesionesIntro = document.querySelector('#ptSucesiones > p');
   if (sucesionesIntro) sucesionesIntro.textContent = 'Calcula costos referenciales de sucesión. Perú no grava la recepción de una herencia con un impuesto sucesorio general; una venta posterior del inmueble puede generar renta de segunda categoría sobre la ganancia, salvo las excepciones previstas por SUNAT. El plazo de 2 años corresponde, entre otros requisitos, al concepto de casa habitación, no a una exoneración general por vender una herencia después de ese plazo.';
 
-  // Keep visible integration guidance consistent with the hardened backend.
   const sunatIntro = document.querySelector('#ptSunat_api > p');
   if (sunatIntro) sunatIntro.textContent = 'Consulta el estado de RUC y otros datos disponibles mediante los servicios conectados de DeclaraFY. La disponibilidad y alcance dependen de la fuente externa consultada.';
 
@@ -198,7 +218,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const excelCodes = document.querySelectorAll('#ptExcel_int .excel-code');
   if (excelCodes[0]) {
     excelCodes[0].textContent = `function DECLARAFY(consulta) {
-  const url = "https://us-central1-declarafy-52bc1.cloudfunctions.net/publicApi";
+  const url = "https://us-central1-declarafy-52bc1-e4ff2.cloudfunctions.net/publicApi";
   const options = {
     method: "post",
     contentType: "application/json",
