@@ -8,7 +8,6 @@ deployment:
     - /bin/cat production-hotfix.css >> $DEPLOYPATH/styles.css
     - /bin/cat production-brand-fix.css >> $DEPLOYPATH/styles.css
     - /bin/cp app.js $DEPLOYPATH
-    - /bin/cat production-auth-fix.js >> $DEPLOYPATH/app.js
     - /bin/cat production-auth-v2.js >> $DEPLOYPATH/app.js
     - /bin/cp config.js $DEPLOYPATH
     - /bin/cp calculators.js $DEPLOYPATH
@@ -23,5 +22,8 @@ deployment:
     - /bin/cp sw.js $DEPLOYPATH
     - /bin/cp favicon.ico $DEPLOYPATH
     - /bin/cp apple-touch-icon.png $DEPLOYPATH
+    - /bin/cp icon.svg $DEPLOYPATH
+    - /bin/cp icon-64.png $DEPLOYPATH
+    - /bin/cp icon-180.png $DEPLOYPATH
     - /bin/cp declarafy-logo.svg $DEPLOYPATH
     - /bin/cp declarafy-mark.svg $DEPLOYPATH
