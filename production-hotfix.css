@@ -1,0 +1,31 @@
+/* Production display-state and responsive hotfixes for Namecheap deployment */
+html,body{width:100%;min-width:320px;overflow-x:hidden}
+body{zoom:1!important;transform:none!important}
+#app{width:100%!important;max-width:none!important;min-height:100vh!important;zoom:1!important;transform:none!important}
+.hidden{display:none!important}
+.screen{display:none!important;width:100%!important;max-width:none!important;zoom:1!important;transform:none!important}
+#screen-landing.active{display:block!important}
+#screen-panel{display:none!important}
+#screen-panel.active{display:flex!important}
+.overlay.hidden,.onb-overlay.hidden{display:none!important}
+#apiOv{display:none!important}
+.hero,.plans,.feats,.pheader,.pnav,.pbody{zoom:1!important;transform:none!important}
+@media (max-width:900px){
+  .hero{min-height:auto!important;padding-left:20px!important;padding-right:20px!important}
+  .hero h1{font-size:clamp(36px,10vw,56px)!important}
+  .annual-banner{margin-left:16px!important;margin-right:16px!important;flex-direction:column!important}
+  .annual-banner-right{text-align:left!important}
+  .plans{grid-template-columns:1fr!important;padding-left:16px!important;padding-right:16px!important}
+  .plan.feat{transform:none!important}
+  .fgrid{grid-template-columns:repeat(2,1fr)!important}
+  .pcards{grid-template-columns:repeat(2,1fr)!important}
+  .pbody{padding:20px 16px 40px!important}
+}
+@media (max-width:560px){
+  .htop{margin-bottom:54px!important}
+  .hero h1{font-size:38px!important}
+  .hero>p{font-size:16px!important}
+  .fgrid,.pcards{grid-template-columns:1fr!important}
+  .pheader{padding:8px 12px!important}
+  .pnav{padding-left:10px!important;padding-right:10px!important}
+}
