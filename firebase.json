@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "declarafy-52bc1",
+    "site": "declarafy-52bc1-e4ff2",
     "public": ".",
     "ignore": [
       "firebase.json",

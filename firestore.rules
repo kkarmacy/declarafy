@@ -2,45 +2,35 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function isAdmin() {
       return request.auth != null && request.auth.token.email == 'christian@declarafy.com';
     }
-
     function isOwner(uid) {
       return request.auth != null && request.auth.uid == uid;
     }
 
     match /users/{uid} {
       allow read: if isOwner(uid) || isAdmin();
-      allow create: if isOwner(uid)
+      allow create: if isAdmin() || (isOwner(uid)
                     && request.resource.data.uid == uid
-                    && request.resource.data.plan == 'basico';
-      allow update: if (isOwner(uid) || isAdmin())
-                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['plan', 'uid']);
-      allow delete: if false;
+                    && request.resource.data.plan == 'basico');
+      allow update: if isAdmin() || (isOwner(uid)
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['plan','role','uid']));
+      allow delete: if isAdmin();
     }
-
     match /users/{uid}/kv/{key} {
-      allow read, write: if isOwner(uid);
+      allow read, write: if isOwner(uid) || isAdmin();
     }
-
     match /historial/{uid} {
-      allow read, write: if isOwner(uid);
+      allow read, write: if isOwner(uid) || isAdmin();
     }
-
     match /casos/{uid} {
-      allow read, write: if isOwner(uid);
+      allow read, write: if isOwner(uid) || isAdmin();
     }
-
-    // Suggestions are shared for reading, but creation is bound to the
-    // authenticated author and restricted to a small, explicit schema.
     match /sugerencias/{id} {
       allow read: if request.auth != null;
       allow create: if request.auth != null
-                    && request.resource.data.keys().hasOnly([
-                      'uid', 'email', 'nombre', 'texto', 'estado', 'createdAt'
-                    ])
+                    && request.resource.data.keys().hasOnly(['uid','email','nombre','texto','estado','createdAt'])
                     && request.resource.data.uid == request.auth.uid
                     && request.resource.data.email == request.auth.token.email
                     && request.resource.data.texto is string
@@ -49,24 +39,10 @@ service cloud.firestore {
                     && request.resource.data.estado == 'pendiente';
       allow update, delete: if isAdmin();
     }
-
-    match /api_keys/{keyId} {
-      allow read, write: if false;
-    }
-
-    match /radar_normativo/{id} {
-      allow read: if request.auth != null;
-      allow write: if false;
-    }
-
-    match /rate_limits/{docId} {
-      allow read, write: if false;
-    }
-    match /exports/{docId} {
-      allow read, write: if false;
-    }
-    match /whatsapp_alerts/{docId} {
-      allow read, write: if false;
-    }
+    match /api_keys/{keyId} { allow read, write: if false; }
+    match /radar_normativo/{id} { allow read: if request.auth != null; allow write: if isAdmin(); }
+    match /rate_limits/{docId} { allow read, write: if false; }
+    match /exports/{docId} { allow read: if isAdmin(); allow write: if false; }
+    match /whatsapp_alerts/{docId} { allow read: if isAdmin(); allow write: if false; }
   }
 }

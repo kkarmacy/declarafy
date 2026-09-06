@@ -1,19 +1,18 @@
 // Service Worker — DeclaraFY PWA + Push Notifications
-const CACHE_NAME = 'declarafy-v2';
+const CACHE_NAME = 'declarafy-v4';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/styles.css',
+  '/favicon.ico',
+  '/site.webmanifest',
   '/icon.svg',
   '/icon-64.png',
-  '/icon-180.png',
-  '/favicon.ico',
-  '/site.webmanifest'
+  '/icon-180.png'
 ];
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(STATIC_ASSETS))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -28,29 +27,22 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
-  // API calls: network-first with no cache
   if (url.pathname.includes('/cloudfunctions/') || url.hostname.includes('anthropic.com')) {
     e.respondWith(fetch(e.request).catch(() => new Response(JSON.stringify({ error: 'Network error' }), { status: 503, headers: { 'Content-Type': 'application/json' } })));
     return;
   }
 
-  // Firebase SDK: network-first
   if (url.hostname.includes('gstatic.com') || url.hostname.includes('firebaseio.com')) {
-    e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
-    );
+    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
     return;
   }
 
-  // JS files: network-first (never cache stale JS)
-  if (url.pathname.endsWith('.js')) {
-    e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
-    );
+  // HTML/navigation, CSS and JS are always network-first so deployed fixes appear immediately.
+  if (e.request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('.css') || url.pathname.endsWith('.js')) {
+    e.respondWith(fetch(e.request, { cache: 'no-store' }).catch(() => caches.match(e.request)));
     return;
   }
 
-  // Static assets: cache-first (HTML, CSS, images, fonts)
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
@@ -65,9 +57,6 @@ self.addEventListener('fetch', e => {
   );
 });
 
-// ════════════════════════════════════════
-// PUSH NOTIFICATIONS
-// ════════════════════════════════════════
 self.addEventListener('push', e => {
   let data = { title: 'DeclaraFY', body: 'Tienes una notificación' };
   if (e.data) {
@@ -93,13 +82,9 @@ self.addEventListener('notificationclick', e => {
   if (e.action === 'dismiss') return;
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-      // Focus existing window if open
       for (const client of windowClients) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          return client.focus();
-        }
+        if (client.url.includes(self.location.origin) && 'focus' in client) return client.focus();
       }
-      // Open new window
       return clients.openWindow(e.notification.data || '/');
     })
   );
