@@ -1,0 +1,14 @@
+/* Final production brand sizing pass */
+.htop>div:first-child{width:300px!important;height:66px!important;flex:0 0 300px!important;background-size:contain!important}
+.htop{min-height:92px!important;padding-top:12px!important;padding-bottom:12px!important}
+.pbrand{width:210px!important;height:50px!important;flex:0 0 210px!important}
+.modal-logo{width:250px!important;height:70px!important;margin-bottom:14px!important}
+@media(max-width:900px){
+  .htop>div:first-child{width:220px!important;height:54px!important;flex-basis:220px!important}
+  .pbrand{width:170px!important;height:42px!important;flex-basis:170px!important}
+}
+@media(max-width:560px){
+  .htop>div:first-child{width:160px!important;height:42px!important;flex-basis:160px!important}
+  .htop{min-height:68px!important}
+  .modal-logo{width:205px!important;height:58px!important}
+}
