@@ -182,9 +182,9 @@ exports.generateApiKey = onCall({ secrets: [ANTHROPIC_API_KEY] }, async (request
   const userDoc = await db.collection("users").doc(uid).get();
   if (!userDoc.exists || userDoc.data().plan !== "empresa") throw new Error("API access requires Plan Empresa");
 
+  // Count existing keys
   const label = String(request.data?.label || "API Key").trim();
   if (!label || label.length > 80) throw new Error("API key label must contain 1-80 characters");
-  // Count existing keys
   const existing = await db.collection("api_keys").where("userId", "==", uid).where("revoked", "==", false).get();
   if (existing.size >= 5) throw new Error("Maximum 5 active API keys per account");
 
