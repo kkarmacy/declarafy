@@ -20,3 +20,5 @@ deployment:
     - /bin/cp sw.js $DEPLOYPATH
     - /bin/cp favicon.ico $DEPLOYPATH
     - /bin/cp apple-touch-icon.png $DEPLOYPATH
+    - /bin/cp declarafy-logo.svg $DEPLOYPATH
+    - /bin/cp declarafy-mark.svg $DEPLOYPATH
