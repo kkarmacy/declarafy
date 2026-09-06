@@ -1,0 +1,15 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/declaxhh/public_html/
+    - /bin/mkdir -p $DEPLOYPATH
+    - /bin/cp index.html $DEPLOYPATH
+    - /bin/cp styles.css $DEPLOYPATH
+    - /bin/cp app.js $DEPLOYPATH
+    - /bin/cp config.js $DEPLOYPATH
+    - /bin/cp calculators.js $DEPLOYPATH
+    - /bin/cp firebase-sync.js $DEPLOYPATH
+    - /bin/cp push-notifications.js $DEPLOYPATH
+    - /bin/cp site.webmanifest $DEPLOYPATH
+    - /bin/cp sw.js $DEPLOYPATH
+    - /bin/cp favicon.svg $DEPLOYPATH
