@@ -8762,6 +8762,21 @@ async function _tpAuthedFetch(url, options = {}) {
     },
   });
 }
+// Firebase callable functions use a {data: ...} request envelope and return
+// their payload inside {result: ...}. Keep that protocol in one place.
+async function _tpCallFunction(name, data = {}) {
+  const res = await _tpAuthedFetch(`${DECLARAFY_FN_BASE}/${name}`, {
+    method: 'POST',
+    body: JSON.stringify({ data }),
+  });
+  const envelope = await res.json().catch(() => ({}));
+  if (!res.ok || envelope.error) {
+    const message = envelope.error?.message || `Error llamando ${name}`;
+    throw new Error(message);
+  }
+  return envelope.result;
+}
+
 
 function renderApiAccessPanel() {
   const upsell = document.getElementById('apiUpsell');
@@ -8780,15 +8795,9 @@ async function tpApiGenerateKey() {
   const labelInput = document.getElementById('apiKeyLabel');
   const label = labelInput ? labelInput.value.trim() || 'Sin nombre' : 'Sin nombre';
   try {
-    const res = await _tpAuthedFetch(`${DECLARAFY_FN_BASE}/generateApiKey`, {
-      method: 'POST',
-      body: JSON.stringify({ label }),
-    });
-    const data = await res.json();
-    if (!res.ok) { addNotif('⚠️', 'No se pudo generar la key', data.error?.message || 'Error desconocido'); return; }
-
-    _tpLastGeneratedKey = data.apiKey;
-    document.getElementById('apiNewKeyValue').textContent = data.apiKey;
+    const data = await _tpCallFunction('generateApiKey', { label });
+    _tpLastGeneratedKey = data.rawKey;
+    document.getElementById('apiNewKeyValue').textContent = data.rawKey;
     document.getElementById('apiNewKeyBox').style.display = 'block';
     if (labelInput) labelInput.value = '';
     tpApiListKeys();
@@ -8810,11 +8819,8 @@ async function tpApiListKeys() {
   if (!list) return;
   list.innerHTML = '<div style="color:var(--muted);font-size:14px">Cargando keys...</div>';
   try {
-    const res = await _tpAuthedFetch(`${DECLARAFY_FN_BASE}/listApiKeys`);
-    const data = await res.json();
-    if (!res.ok) { list.innerHTML = `<div style="color:var(--red);font-size:14px">${data.error?.message || 'Error cargando keys'}</div>`; return; }
-
-    const keys = (data.keys || []).sort((a, b) => (b.createdAt?._seconds || 0) - (a.createdAt?._seconds || 0));
+    const data = await _tpCallFunction('listApiKeys');
+    const keys = (Array.isArray(data) ? data : []).sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
     if (keys.length === 0) {
       list.innerHTML = '<div style="color:var(--muted);font-size:14px">Aún no tienes API keys. Genera la primera arriba.</div>';
       return;
@@ -8822,11 +8828,11 @@ async function tpApiListKeys() {
     list.innerHTML = keys.map(k => `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px">
         <div>
-          <div style="font-size:14px;font-weight:500">${_escapeHtml(k.label || 'Sin nombre')} ${k.active ? '' : '<span style="color:var(--red);font-size:14px">(revocada)</span>'}</div>
-          <div style="font-size:14px;color:var(--muted);font-family:monospace">${k.masked || ''}</div>
-          <div style="font-size:14px;color:var(--muted)">${k.requestCount || 0} solicitudes${k.lastUsedAt ? ' · último uso reciente' : ' · sin uso aún'}</div>
+          <div style="font-size:14px;font-weight:500">${_escapeHtml(k.label || 'Sin nombre')} ${k.revoked ? '<span style="color:var(--red);font-size:14px">(revocada)</span>' : ''}</div>
+          <div style="font-size:14px;color:var(--muted);font-family:monospace">${_escapeHtml(k.id || '')}</div>
+          <div style="font-size:14px;color:var(--muted)">${k.lastUsed ? 'Último uso registrado' : 'Sin uso aún'}</div>
         </div>
-        ${k.active ? `<button style="font-size:14px;padding:5px 10px;border-radius:6px;background:rgba(230,57,70,.1);border:1px solid rgba(230,57,70,.25);color:var(--red);cursor:pointer;font-family:inherit" onclick="tpApiRevokeKey('${k.keyId}')">Revocar</button>` : ''}
+        ${!k.revoked ? `<button style="font-size:14px;padding:5px 10px;border-radius:6px;background:rgba(230,57,70,.1);border:1px solid rgba(230,57,70,.25);color:var(--red);cursor:pointer;font-family:inherit" onclick="tpApiRevokeKey('${_escapeHtml(k.id || '')}')">Revocar</button>` : ''}
       </div>
     `).join('');
   } catch (e) {
@@ -8838,12 +8844,7 @@ async function tpApiListKeys() {
 async function tpApiRevokeKey(keyId) {
   if (!confirm('¿Revocar esta API key? Las integraciones que la usen dejarán de funcionar de inmediato.')) return;
   try {
-    const res = await _tpAuthedFetch(`${DECLARAFY_FN_BASE}/revokeApiKey`, {
-      method: 'POST',
-      body: JSON.stringify({ keyId }),
-    });
-    const data = await res.json();
-    if (!res.ok) { addNotif('⚠️', 'No se pudo revocar', data.error?.message || 'Error desconocido'); return; }
+    await _tpCallFunction('revokeApiKey', { keyId });
     addNotif('✅', 'Key revocada', 'La API key fue revocada correctamente.');
     tpApiListKeys();
   } catch (e) {
@@ -9093,7 +9094,7 @@ async function tpValidarComprobante() {
   const box = document.getElementById('cpeResult');
   if (!box) return;
 
-  if (!rucEmisor || !tipoComprobante || !serie || !numero || !fechaRaw) {
+  if (!rucEmisor || !tipoComprobante || !serie || !numero || !fechaRaw || monto === '' || !Number.isFinite(Number(monto)) || Number(monto) < 0) {
     box.style.display = 'block';
     box.innerHTML = '<div style="color:var(--red);font-size:14px">Completa todos los campos.</div>';
     return;
@@ -9104,33 +9105,26 @@ async function tpValidarComprobante() {
   box.style.display = 'block';
   box.innerHTML = '<div style="color:var(--muted);font-size:14px">Validando ante SUNAT...</div>';
   try {
-    // Client-side validation via public SUNAT API
-    const rucRes = await fetch(`https://api.apis.net.pe/v2/sunat/ruc?numero=${rucEmisor}`, {
-      headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(8000)
+    const response = await _tpAuthedFetch(`${DECLARAFY_FN_BASE}/validarComprobante`, {
+      method: 'POST',
+      body: JSON.stringify({ rucEmisor, tipoComprobante, serie, numero, fechaEmision, monto })
     });
-    if (!rucRes.ok) throw new Error(`RUC ${rucEmisor} no encontrado`);
-    const rucData = await rucRes.json();
-    const isActive = (rucData.estado || '').toUpperCase() === 'ACTIVO';
-    const tipoMap = { '01': 'Factura', '03': 'Boleta', '07': 'Nota de crédito', '08': 'Nota de débito', '31': 'Guía de remisión' };
-    const tipoDesc = tipoMap[tipoComprobante] || tipoComprobante;
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.verificado !== true) {
+      const message = data.mensaje || data.error || 'No fue posible verificar el comprobante con la fuente CPE.';
+      box.innerHTML = `<div style="color:var(--red);font-size:14px">⚠️ ${_escapeHtml(message)}</div>`;
+      return;
+    }
+    const valido = data.valido === true;
     box.innerHTML = `
-      <div style="background:${isActive ? 'rgba(46,204,113,.08)' : 'rgba(230,57,70,.08)'};border:1px solid ${isActive ? 'rgba(46,204,113,.3)' : 'rgba(230,57,70,.3)'};border-radius:10px;padding:16px">
-        <div style="font-size:15px;font-weight:600;color:${isActive ? '#2ECC71' : 'var(--red)'}">${isActive ? '✅ RUC emisor válido' : '❌ RUC emisor no activo'}</div>
+      <div style="background:${valido ? 'rgba(46,204,113,.08)' : 'rgba(230,57,70,.08)'};border:1px solid ${valido ? 'rgba(46,204,113,.3)' : 'rgba(230,57,70,.3)'};border-radius:10px;padding:16px">
+        <div style="font-size:15px;font-weight:600;color:${valido ? '#2ECC71' : 'var(--red)'}">${valido ? '✅ Comprobante verificado' : '❌ Comprobante no válido'}</div>
         <div style="font-size:14px;margin-top:8px;line-height:1.8">
-          <div><strong>Razón Social:</strong> ${_escapeHtml(rucData.nombre_o_razon_social || '—')}</div>
-          <div><strong>RUC:</strong> ${_escapeHtml(rucData.numero_documento || rucEmisor)}</div>
-          <div><strong>Estado:</strong> ${_escapeHtml(rucData.estado || '—')}</div>
-          <div><strong>Condición:</strong> ${_escapeHtml(rucData.condicion || '—')}</div>
-          <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)">
-            <div><strong>Comprobante:</strong> ${tipoDesc} ${serie}-${numero}</div>
-            <div><strong>Fecha emisión:</strong> ${fechaEmision}</div>
-            ${monto ? `<div><strong>Monto:</strong> S/ ${parseFloat(monto).toFixed(2)}</div>` : ''}
-          </div>
-          <div style="margin-top:8px;font-size:14px;color:var(--muted)">
-            ℹ️ El RUC está ${isActive ? 'activo y puede emitir comprobantes.' : 'inactivo. El comprobante podría no ser válido.'}
-            Para validación completa del CPE, usa SUNAT Operaciones en Línea.
-          </div>
+          <div><strong>RUC:</strong> ${_escapeHtml(rucEmisor)}</div>
+          <div><strong>Comprobante:</strong> ${_escapeHtml(tipoComprobante)} ${_escapeHtml(serie)}-${_escapeHtml(numero)}</div>
+          <div><strong>Fecha:</strong> ${_escapeHtml(fechaEmision)}</div>
+          <div><strong>Estado CPE:</strong> ${_escapeHtml(data.estado_cpe || 'desconocido')}</div>
+          <div>${_escapeHtml(data.mensaje || '')}</div>
         </div>
       </div>`;
   } catch (e) {
@@ -9323,15 +9317,7 @@ async function tpGuardarRecordatorios() {
   }
 
   try {
-    const res = await _tpAuthedFetch(`${DECLARAFY_FN_BASE}/updateNotifPrefs`, {
-      method: 'POST',
-      body: JSON.stringify({ whatsapp, notifWhatsapp, ruc }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      if (ok) { ok.style.color = 'var(--red)'; ok.textContent = data.error?.message || 'Error guardando preferencias.'; }
-      return;
-    }
+    await _tpCallFunction('updateNotifPrefs', { whatsapp, notifWhatsapp, ruc });
     if (ok) { ok.style.color = ''; ok.textContent = notifWhatsapp ? '✅ Recordatorios activados. Te avisaremos por WhatsApp.' : '✅ Preferencias guardadas.'; }
   } catch (e) {
     console.error('tpGuardarRecordatorios error:', e);
@@ -9373,19 +9359,14 @@ async function tpConsultaSunat(tipo) {
   resultEl.style.display = 'block';
   resultEl.innerHTML = '<div style="color:var(--muted)">🔄 Consultando SUNAT...</div>';
   try {
-    const response = await fetch(`https://api.apis.net.pe/v2/sunat/ruc?numero=${ruc}`, {
-      headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(8000)
+    const backendTipo = tipo === 'deudas' ? 'deuda' : tipo === 'pdt' ? 'pdt' : 'ruc';
+    const response = await tpAuthFetch(`${TP_FN_BASE}/consultaSunatComprobantes`, {
+      method: 'POST',
+      body: JSON.stringify({ ruc, tipo: backendTipo })
     });
-    if (!response.ok) throw new Error(`RUC ${ruc} no encontrado`);
-    const rawData = await response.json();
-    if (tipo === 'deudas') {
-      renderSunatResult({ deudas: rawData.deudas || [] }, 'deudas', targetId);
-    } else if (tipo === 'pdt') {
-      renderSunatResult({ pdts: rawData.pdts || [] }, 'pdt', targetId);
-    } else {
-      renderSunatResult(rawData, tipo, targetId);
-    }
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.ok) throw new Error(payload.error || 'La consulta SUNAT no pudo completarse');
+    renderSunatResult(payload.data || {}, tipo, targetId);
   } catch(e) {
     resultEl.innerHTML = `<div style="color:var(--red)">Error: ${safeHTML(e.message)}</div>`;
   }
@@ -9393,32 +9374,33 @@ async function tpConsultaSunat(tipo) {
 
 function renderSunatResult(data, tipo, targetId) {
   const el = document.getElementById(targetId || 'sunatLiveResult');
+  const esc = value => _escapeHtml(String(value ?? ''));
   if (!el) return;
   if (tipo === 'deudas') {
     const deudas = data.deudas || data.data || [];
-    if (!deudas.length) { el.innerHTML = '<div style="color:var(--green)">✅ No tiene deudas tributarias pendientes.</div>'; return; }
+    if (!Array.isArray(deudas) || !deudas.length) { el.innerHTML = '<div style="color:var(--muted)">La fuente consultada no reportó deudas. Confirma el resultado en SUNAT Operaciones en Línea.</div>'; return; }
     el.innerHTML = `<div style="font-size:14px;font-weight:500;color:var(--red);margin-bottom:8px">⚠️ ${deudas.length} deuda(s) encontrada(s)</div>` +
       deudas.map(d => `<div style="background:rgba(230,57,70,.08);border:1px solid rgba(230,57,70,.2);border-radius:8px;padding:10px;margin-bottom:8px;font-size:14px">
-        <div><strong>${d.codTributo || d.codigo || 'N/A'}</strong> — ${d.descripcion || d.desc || ''}</div>
-        <div>Monto: S/ ${parseFloat(d.monto || d.deuda || 0).toFixed(2)} | Periodo: ${d.periodo || d.fiscal_period || 'N/A'}</div>
+        <div><strong>${esc(d.codTributo || d.codigo || 'N/A')}</strong> — ${esc(d.descripcion || d.desc || '')}</div>
+        <div>Monto: S/ ${Number(d.monto || d.deuda || 0).toFixed(2)} | Periodo: ${esc(d.periodo || d.fiscal_period || 'N/A')}</div>
       </div>`).join('');
   } else if (tipo === 'pdt') {
     const pdts = data.pdts || data.data || [];
-    if (!pdts.length) { el.innerHTML = '<div style="color:var(--muted)">No se encontraron PDTs presentados.</div>'; return; }
+    if (!Array.isArray(pdts) || !pdts.length) { el.innerHTML = '<div style="color:var(--muted)">La fuente consultada no reportó PDT. Confirma el resultado en SUNAT Operaciones en Línea.</div>'; return; }
     el.innerHTML = `<div style="font-size:14px;font-weight:500;color:#3A86FF;margin-bottom:8px">📄 PDTs encontrados</div>` +
       pdts.map(p => `<div style="background:rgba(58,134,255,.07);border:1px solid rgba(58,134,255,.2);border-radius:8px;padding:10px;margin-bottom:8px;font-size:14px">
-        <div><strong>${p.formulario || p.codigo || 'N/A'}</strong> — ${p.descripcion || p.periodo || ''}</div>
-        <div>Fecha presentación: ${p.fechaPresentacion || p.fecha || 'N/A'} | Estado: ${p.estado || 'N/A'}</div>
+        <div><strong>${esc(p.formulario || p.codigo || 'N/A')}</strong> — ${esc(p.descripcion || p.periodo || '')}</div>
+        <div>Fecha presentación: ${esc(p.fechaPresentacion || p.fecha || 'N/A')} | Estado: ${esc(p.estado || 'N/A')}</div>
       </div>`).join('');
   } else {
     el.innerHTML = `<div style="font-size:14px;line-height:1.8">
-      <div><strong>Razón Social:</strong> ${data.razonSocial || data.nombre_o_razon_social || 'N/A'}</div>
-      <div><strong>RUC:</strong> ${data.ruc || data.numeroDocumento || 'N/A'}</div>
-      <div><strong>Estado:</strong> <span style="color:${data.estado === 'ACTIVO' ? 'var(--green)' : 'var(--red)'}">${data.estado || 'N/A'}</span></div>
-      <div><strong>Condición:</strong> ${data.condicion || 'N/A'}</div>
-      <div><strong>Dirección:</strong> ${data.direccion || data.domicilioFiscal || 'N/A'}</div>
-      <div><strong>Tipo:</strong> ${data.tipoContribuyente || data.tipo || 'N/A'}</div>
-      <div><strong>Actividad:</strong> ${data.actividadExterior || data.giroNegocio || 'N/A'}</div>
+      <div><strong>Razón Social:</strong> ${esc(data.razonSocial || data.nombre_o_razon_social || 'N/A')}</div>
+      <div><strong>RUC:</strong> ${esc(data.ruc || data.numeroDocumento || data.numero_documento || 'N/A')}</div>
+      <div><strong>Estado:</strong> <span style="color:${String(data.estado || '').toUpperCase() === 'ACTIVO' ? 'var(--green)' : 'var(--red)'}">${esc(data.estado || 'N/A')}</span></div>
+      <div><strong>Condición:</strong> ${esc(data.condicion || 'N/A')}</div>
+      <div><strong>Dirección:</strong> ${esc(data.direccion || data.domicilioFiscal || 'N/A')}</div>
+      <div><strong>Tipo:</strong> ${esc(data.tipoContribuyente || data.tipo || 'N/A')}</div>
+      <div><strong>Actividad:</strong> ${esc(data.actividadExterior || data.giroNegocio || 'N/A')}</div>
     </div>`;
   }
 }
