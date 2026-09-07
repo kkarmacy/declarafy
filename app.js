@@ -1118,7 +1118,11 @@ function askAboutNorm(e,normName) {
 // ════════════════════════════════════════
 // OVERRIDE setPTab TO LOAD DATA
 // ════════════════════════════════════════
-const _origSetPTab2 = typeof _origSetPTab !== 'undefined' ? _origSetPTab : setPTab;
+// Capture the implementation that exists at this point. Referencing
+// `_origSetPTab` here is unsafe because that `const` is declared much later in
+// this bundled file; even `typeof` throws while a lexical binding is in its
+// temporal dead zone and aborts the whole application during startup.
+const _origSetPTab2 = setPTab;
 setPTab = function(tab, btn) {
   _origSetPTab2(tab, btn);
   if(tab==='estadisticas') renderEstadisticas();
@@ -3650,18 +3654,10 @@ setPTab = function(tab, btn) {
 // ════════════════════════════════════════
 // FIREBASE CONFIGURATION & INIT
 // ════════════════════════════════════════
-const firebaseConfig = {
-  apiKey: "BBva16rGzybUODEOVP5zSHHblcOpacP3LqnhrJ97mg2swcZ6XHb5tIyk1XIgovpXfEkJhRsIA2MCju9DgdhMmwE",
-  authDomain: "declarafy-52bc1.firebaseapp.com",
-  projectId: "declarafy-52bc1",
-  storageBucket: "declarafy-52bc1.firebasestorage.app",
-  messagingSenderId: "448788308031",
-  // TODO: Rellena appId y measurementId con los valores exactos del
-  // firebaseConfig.js del proyecto NUEVO "declarafy-52bc1" (Consola Firebase
-  // → Configuración del proyecto → Tus apps → Web). No son derivables.
-  appId: "1:448788308031:web:XXXX_REEMPLAZAR_XXXX",
-  measurementId: "G-XXXX_REEMPLAZAR_XXXX"
-};
+// Firebase Hosting initializes the Web SDK through /__/firebase/init.js.
+// Do not keep guessed keys or placeholder application IDs in the bundle: they
+// make a broken non-Hosting deployment look configured when it is not.
+const firebaseConfig = null;
 
 function isValidFirebaseConfig(config) {
   return !!config
@@ -3735,11 +3731,19 @@ async function _doLoginFBFirebaseImpl() {
       localStorage.setItem('tp_s', JSON.stringify({e:em,t:Date.now()}));
       hideAuth();
       await kvLoadAll();
-      loadPanel();
+      goPanel();
       showAuthLoading(false);
     } catch(e) {
       showAuthLoading(false);
-      const msgs = { 'auth/user-not-found':'No existe una cuenta con ese correo.', 'auth/wrong-password':'Contraseña incorrecta.', 'auth/invalid-email':'Correo inválido.', 'auth/too-many-requests':'Demasiados intentos. Espera unos minutos.' };
+      const msgs = {
+        'auth/user-not-found':'No existe una cuenta con ese correo.',
+        'auth/wrong-password':'Contraseña incorrecta.',
+        'auth/invalid-credential':'Correo o contraseña incorrectos.',
+        'auth/invalid-email':'Correo inválido.',
+        'auth/too-many-requests':'Demasiados intentos. Espera unos minutos.',
+        'auth/network-request-failed':'No se pudo conectar con Firebase. Revisa tu conexión e intenta nuevamente.',
+        'auth/operation-not-allowed':'El acceso con correo y contraseña todavía no está habilitado en Firebase.'
+      };
       aerr(msgs[e.code] || e.message);
     }
   } else {
@@ -3778,10 +3782,16 @@ async function doRegisterFB() {
       const _CULQI_LINKS = { profesional: 'https://express.culqi.com/pago/053F161D3A', empresa: 'https://express.culqi.com/pago/593B4B3F8D' };
       const _paidLink = _CULQI_LINKS[window._overridePlan];
       if (_paidLink) window.open(_paidLink, '_blank');
-      setTimeout(() => { hideAuth(); loadPanel(); if (!curUser.onboarded) setTimeout(() => showOnboarding(), 600); }, 900);
+      setTimeout(() => { hideAuth(); goPanel(); if (!curUser.onboarded) setTimeout(() => showOnboarding(), 600); }, 900);
     } catch(e) {
       showAuthLoading(false);
-      const msgs = { 'auth/email-already-in-use':'Ya existe una cuenta con ese correo.', 'auth/weak-password':'Contraseña muy débil.', 'auth/invalid-email':'Correo inválido.' };
+      const msgs = {
+        'auth/email-already-in-use':'Ya existe una cuenta con ese correo.',
+        'auth/weak-password':'Contraseña muy débil.',
+        'auth/invalid-email':'Correo inválido.',
+        'auth/network-request-failed':'No se pudo conectar con Firebase. Revisa tu conexión e intenta nuevamente.',
+        'auth/operation-not-allowed':'El registro con correo y contraseña todavía no está habilitado en Firebase.'
+      };
       aerr(msgs[e.code] || e.message);
     }
   } else {
@@ -3813,7 +3823,7 @@ async function doLogout() {
 }
 
 function showAuthLoading(show) {
-  const btns = document.querySelectorAll('.bp');
+  const btns = document.querySelectorAll('.btn-p, .bp');
   btns.forEach(b => { if(show) b.setAttribute('disabled','1'); else b.removeAttribute('disabled'); });
 }
 
@@ -8643,7 +8653,7 @@ function _bootApp() {
           if (doc.exists) {
             curUser = { ...doc.data(), uid: user.uid };
             localStorage.setItem('tp_s', curUser.email);
-            kvLoadAll().then(() => loadPanel());
+            kvLoadAll().then(() => goPanel());
             return;
           }
         } catch(e) { console.warn('Auth state error:', e.message); }
