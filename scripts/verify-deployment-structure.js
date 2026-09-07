@@ -15,12 +15,40 @@ function fail(message) {
 
 const localScripts = [...html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["']/gi)]
   .map(match => match[1])
-  .filter(src => !/^(?:https?:)?\/\//i.test(src));
+  .filter(src => !/^(?:https?:)?\/\//i.test(src))
+  // Reserved Firebase Hosting runtime configuration; not a repository file.
+  .filter(src => src !== '/__/firebase/init.js');
 
 for (const src of localScripts) {
   const cleanPath = src.split(/[?#]/, 1)[0].replace(/^\//, '');
   if (!cleanPath || !fs.existsSync(path.join(root, cleanPath))) {
     fail(`index.html references missing local script: ${src}`);
+  }
+}
+
+const localStylesheets = [...html.matchAll(/<link\b[^>]*\brel=["']stylesheet["'][^>]*\bhref=["']([^"']+)["']/gi)]
+  .map(match => match[1])
+  .filter(src => !/^(?:https?:)?\/\//i.test(src));
+
+for (const href of localStylesheets) {
+  const cleanPath = href.split(/[?#]/, 1)[0].replace(/^\//, '');
+  if (!cleanPath || !fs.existsSync(path.join(root, cleanPath))) {
+    fail(`index.html references missing local stylesheet: ${href}`);
+  }
+}
+
+const serviceWorker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+const staticAssetsMatch = serviceWorker.match(/const STATIC_ASSETS = \[([\s\S]*?)\];/);
+if (!staticAssetsMatch) {
+  fail('unable to find STATIC_ASSETS in sw.js');
+} else {
+  const assets = [...staticAssetsMatch[1].matchAll(/["']([^"']+)["']/g)].map(match => match[1]);
+  for (const asset of assets) {
+    if (asset === '/') continue;
+    const cleanPath = asset.split(/[?#]/, 1)[0].replace(/^\//, '');
+    if (!cleanPath || !fs.existsSync(path.join(root, cleanPath))) {
+      fail(`sw.js references missing static asset: ${asset}`);
+    }
   }
 }
 
@@ -76,5 +104,5 @@ for (const name of requiredExports) {
 }
 
 if (!process.exitCode) {
-  console.log(`Deployment structure verified: ${localScripts.length} local scripts and ${requiredExports.length} required function exports.`);
+  console.log(`Deployment structure verified: ${localScripts.length} local scripts, ${localStylesheets.length} local stylesheets and ${requiredExports.length} required function exports.`);
 }

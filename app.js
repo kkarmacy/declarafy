@@ -224,8 +224,10 @@ function saveKey() {
 }
 
 // ── DB ──
-function getUsers(){try{return JSON.parse(localStorage.getItem('tp_u')||'{}')}catch{return{}}}
-function saveUsers(u){localStorage.setItem('tp_u',JSON.stringify(u))}
+// Legacy local user accounts are intentionally disabled. Authentication and
+// user profiles are authoritative in Firebase only.
+function getUsers(){return {}}
+function saveUsers(){/* retired: never persist user accounts in the browser */}
 function getHist(e){
   try{return JSON.parse(localStorage.getItem('tp_h_'+btoa(e))||'[]')}catch{return[]}
 }
@@ -868,14 +870,19 @@ function onbNext(step) {
   });
   onbData.step=step;
 }
-function finishOnboarding() {
+async function finishOnboarding() {
   document.getElementById('onbOverlay').style.display='none';
   if(!curUser) return;
-  const us=getUsers();
-  us[curUser.email].regimen=onbData.regimen||us[curUser.email].regimen;
-  us[curUser.email].topics=onbData.topics;
-  us[curUser.email].onboarded=true;
-  saveUsers(us); curUser=us[curUser.email];
+  const updates = {
+    regimen: onbData.regimen || curUser.regimen || '',
+    topics: onbData.topics,
+    onboarded: true
+  };
+  Object.assign(curUser, updates);
+  if (fbReady && curUser.uid) {
+    await fbDb.collection('users').doc(curUser.uid).update(updates)
+      .catch(e => console.warn('Onboarding sync error:', e.message));
+  }
   addNotif('🎯','Perfil configurado','Tu experiencia ha sido personalizada según tu régimen y temas de interés.');
   newChat();
   // Auto-arrancar tour justo después del onboarding
@@ -1333,7 +1340,11 @@ function endTour() {
   tourActive = false;
   document.querySelectorAll('.tour-spotlight,.tour-tooltip').forEach(el => el.remove());
   if (curUser) {
-    const us = getUsers(); if (us[curUser.email]) { us[curUser.email].tourDone = true; saveUsers(us); }
+    curUser.tourDone = true;
+    if (fbReady && curUser.uid) {
+      fbDb.collection('users').doc(curUser.uid).update({ tourDone: true })
+        .catch(e => console.warn('Tour sync error:', e.message));
+    }
     addNotif('🎉', 'Tour completado', 'Ya conoces todas las funciones principales. ¡Empieza a consultar!');
   }
 }
@@ -1394,7 +1405,13 @@ function loadAlerts() {
   document.getElementById('alertsResult').style.display = 'block';
   // Save RUC to user profile
   if (curUser) {
-    const us = getUsers(); if (us[curUser.email]) { us[curUser.email].ruc = us[curUser.email].ruc || ruc; saveUsers(us); curUser.ruc = ruc; }
+    if (!curUser.ruc) {
+      curUser.ruc = ruc;
+      if (fbReady && curUser.uid) {
+        fbDb.collection('users').doc(curUser.uid).update({ ruc })
+          .catch(e => console.warn('RUC sync error:', e.message));
+      }
+    }
     addNotif('🔔', 'Alertas configuradas', `Vencimientos para RUC ${ruc.slice(0,4)}... cargados. Dígito ${digito} → vence día ${baseDay} de cada mes.`);
   }
 }
@@ -3646,6 +3663,14 @@ const firebaseConfig = {
   measurementId: "G-XXXX_REEMPLAZAR_XXXX"
 };
 
+function isValidFirebaseConfig(config) {
+  return !!config
+    && /^AIza[\w-]{20,}$/.test(String(config.apiKey || ''))
+    && /^[\w-]+\.firebaseapp\.com$/.test(String(config.authDomain || ''))
+    && /^[\w-]+$/.test(String(config.projectId || ''))
+    && /^1:\d+:web:[a-f0-9]+$/i.test(String(config.appId || ''));
+}
+
 let fbApp, fbAuth, fbDb;
 let fbReady = false;
 
@@ -3658,6 +3683,9 @@ function initFirebase() {
     if (firebase.apps && firebase.apps.length > 0) {
       fbApp = firebase.apps[0];
     } else {
+      if (!isValidFirebaseConfig(firebaseConfig)) {
+        throw new Error('Firebase Web configuration is incomplete');
+      }
       fbApp = firebase.initializeApp(firebaseConfig);
     }
     fbAuth = firebase.auth();
@@ -3665,7 +3693,7 @@ function initFirebase() {
     // Enable offline persistence
     fbDb.enablePersistence({synchronizeTabs:true}).catch(() => {});
     fbReady = true;
-    console.log('✅ Firebase conectado — declarafy-89a8d');
+    console.log('✅ Firebase conectado — declarafy-52bc1');
     // Show online indicator
     const dots = document.querySelectorAll('.notif-dot, .onl');
     updateFBStatusUI(true);
@@ -3715,11 +3743,7 @@ async function _doLoginFBFirebaseImpl() {
       aerr(msgs[e.code] || e.message);
     }
   } else {
-    // Fallback to localStorage
-    const us = getUsers();
-    if (!us[em]) { aerr('No existe una cuenta con ese correo.'); return; }
-    if (us[em].pw !== btoa(pw)) { aerr('Contraseña incorrecta.'); return; }
-    curUser = us[em]; localStorage.setItem('tp_s', JSON.stringify({e:em,t:Date.now()})); hideAuth(); loadPanel();
+    aerr('El servicio de autenticación no está disponible. Intenta nuevamente más tarde.');
   }
 }
 
@@ -3761,12 +3785,7 @@ async function doRegisterFB() {
       aerr(msgs[e.code] || e.message);
     }
   } else {
-    // Fallback localStorage
-    const us = getUsers();
-    if (us[em]) { aerr('Ya existe una cuenta con ese correo.'); return; }
-    const u = { name:nm, email:em, pw:btoa(pw), plan:'basico', since:new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'short',year:'numeric'}), mc:0 };
-    us[em] = u; saveUsers(us); curUser = u; localStorage.setItem('tp_s', JSON.stringify({e:em,t:Date.now()}));
-    aok('¡Cuenta creada! Ingresando...'); setTimeout(() => { hideAuth(); loadPanel(); setTimeout(() => showOnboarding(), 600); }, 900);
+    aerr('El servicio de autenticación no está disponible. No se creó ninguna cuenta local.');
   }
 }
 
@@ -3783,12 +3802,7 @@ async function doRecoverFB() {
       aerr(msgs[e.code] || e.message);
     }
   } else {
-    // Fallback
-    const us = getUsers();
-    if (!us[em]) { aerr('No existe una cuenta con ese correo.'); return; }
-    const temp = 'Tp' + Math.random().toString(36).substring(2,7).toUpperCase();
-    us[em].pw = btoa(temp); saveUsers(us);
-    aok('Contraseña temporal generada: ' + temp + ' (solo en modo offline)');
+    aerr('El servicio de recuperación no está disponible. Intenta nuevamente más tarde.');
   }
 }
 
@@ -3829,9 +3843,7 @@ async function saveProfile() {
       addNotif('☁️','Perfil sincronizado','Tu perfil fue guardado en Firebase.');
     } catch(e) { showProfMsg('err','Error: ' + e.message); }
   } else {
-    // Fallback localStorage
-    const us = getUsers(); if(us[curUser.email]) { Object.assign(us[curUser.email], updates); saveUsers(us); Object.assign(curUser, updates); }
-    showProfMsg('ok','✅ Perfil guardado.');
+    showProfMsg('err','El servicio de perfiles no está disponible. Intenta nuevamente más tarde.');
   }
 }
 
@@ -3854,10 +3866,7 @@ async function changePassword() {
       showProfMsg('err', msgs[e.code] || e.message);
     }
   } else {
-    if (btoa(old) !== curUser.pw) { showProfMsg('err','Contraseña actual incorrecta.'); return; }
-    const us = getUsers(); us[curUser.email].pw = btoa(nw); saveUsers(us); curUser.pw = btoa(nw);
-    ['pwOld','pwNew','pwNew2'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
-    showProfMsg('ok','✅ Contraseña cambiada.');
+    showProfMsg('err','El servicio de autenticación no está disponible.');
   }
 }
 
@@ -3916,7 +3925,7 @@ async function incrementMsgCount() {
     fbDb.collection('users').doc(curUser.uid).update({ mc: firebase.firestore.FieldValue.increment(1) })
       .catch(e => console.warn('mc update error:', e.message));
   } else {
-    const us = getUsers(); if(us[curUser.email]) { us[curUser.email].mc = curUser.mc; saveUsers(us); }
+    console.warn('Message count was not persisted because Firebase is unavailable.');
   }
 }
 
@@ -8296,58 +8305,11 @@ function tpClearAuditLog() {
   tpToast('Log limpiado.', 'ok');
 }
 
-// ══════════════════════════════════════════════════════════
-// SEGURIDAD — Hashing SHA-256 (Web Crypto) + migración btoa
-// ══════════════════════════════════════════════════════════
-async function tpHashPw(pw) {
-  try {
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('declarafy:' + pw));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-  } catch { return 'legacy:' + btoa(pw); }
-}
-
-async function tpVerifyPw(pw, stored) {
-  if (!stored) return { match: false };
-  const hash = await tpHashPw(pw);
-  if (hash === stored) return { match: true, legacy: false };
-  if (btoa(pw) === stored) return { match: true, legacy: true };
-  if ('legacy:' + btoa(pw) === stored) return { match: true, legacy: false };
-  return { match: false };
-}
-
-// Parchar el login fallback localStorage con SHA-256
+// Firebase is the only authentication authority.
 const _origDoLoginFBInner = _doLoginFBFirebaseImpl;
 async function doLoginFB() {
-  // Si Firebase está activo, delegar completamente
-  if (typeof fbReady !== 'undefined' && fbReady && typeof fbAuth !== 'undefined') {
-    return _origDoLoginFBInner();
-  }
-  const em = (document.getElementById('lEmail')?.value || document.getElementById('lE')?.value || '').trim().toLowerCase();
-  const pw = document.getElementById('lPass')?.value || document.getElementById('lP')?.value || '';
-  if (!em || !pw) { if (typeof aerr === 'function') aerr('Completa todos los campos.'); return; }
-  const us = getUsers();
-  if (!us[em]) { if (typeof aerr === 'function') aerr('No existe cuenta con ese correo.'); return; }
-  const verify = await tpVerifyPw(pw, us[em].pw);
-  if (!verify.match) { if (typeof aerr === 'function') aerr('Contraseña incorrecta.'); return; }
-  if (verify.legacy) {
-    us[em].pw = await tpHashPw(pw);
-    saveUsers(us);
-    console.info('[DeclaraFY] Contraseña migrada a SHA-256:', em);
-  }
-  curUser = us[em];
-  localStorage.setItem('tp_s', JSON.stringify({ e: em, t: Date.now() }));
-  hideAuth(); loadPanel();
-  tpAuditLog('login', 'Login localStorage: ' + em);
+  return _origDoLoginFBInner();
 }
-
-// Parchar registro fallback con SHA-256
-const _origDoRegisterFBInner = typeof _origDoRegister === 'function' ? _origDoRegister : null;
-
-// Parchar creación de usuario en registro localStorage
-const _origRegisterLSBlock = async function(nm, em, pw) {
-  const hash = await tpHashPw(pw);
-  return hash;
-};
 
 // ══════════════════════════════════════════════════════════
 // PLANTILLAS DE CONSULTA (Saved Prompts)
@@ -8694,15 +8656,7 @@ function _bootApp() {
 }
 
 function _fallbackInit() {
-  const _rawS = localStorage.getItem('tp_s');
-  let s = null;
-  try {
-    const _pS = JSON.parse(_rawS || 'null');
-    if (_pS && _pS.e && (Date.now() - _pS.t) < 86400000) s = _pS.e;
-    else if (_rawS && !_rawS.startsWith('{')) s = _rawS; // legacy string session
-    else if (_rawS && _rawS.startsWith('{')) localStorage.removeItem('tp_s'); // expired
-  } catch(e) { s = _rawS; }
-  if (s) { const u = getUsers(); if (u[s]) { curUser = u[s]; loadPanel(); return; } }
+  localStorage.removeItem('tp_s');
   if (typeof showScreen === 'function') showScreen('screen-landing');
   else { const el=document.getElementById('screen-landing'); if(el){el.classList.add('active');el.style.display='flex';} }
 }

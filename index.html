@@ -99,6 +99,8 @@
 
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <!-- Firebase Hosting supplies the real public Web configuration here. -->
+  <script src="/__/firebase/init.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" crossorigin="anonymous"></script>
@@ -959,7 +961,7 @@
       <div style="border-top:1px solid var(--border);padding-top:16px">
         <div class="sec-title" style="margin-bottom:8px;font-size:14px">Cómo usarla</div>
         <p style="color:var(--muted);font-size:14px;margin-bottom:8px">Envía tu pregunta tributaria por POST, con tu key en el header <code>x-api-key</code>:</p>
-        <pre style="background:rgba(0,0,0,.3);border-radius:8px;padding:12px;font-size:14px;overflow-x:auto;color:#ddd">curl -X POST https://us-central1-declarafy-89a8d.cloudfunctions.net/publicApi \
+        <pre style="background:rgba(0,0,0,.3);border-radius:8px;padding:12px;font-size:14px;overflow-x:auto;color:#ddd">curl -X POST https://us-central1-declarafy-52bc1.cloudfunctions.net/publicApi \
   -H "x-api-key: tia_live_xxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{"question": "¿Cómo calculo el IGV de una venta de S/1000?", "regimen": "rg"}'</pre>
