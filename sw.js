@@ -1,5 +1,5 @@
 // Service Worker — DeclaraFY PWA + Push Notifications
-const CACHE_NAME = 'declarafy-v2';
+const CACHE_NAME = 'declarafy-v3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -29,7 +29,10 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
   // API calls: network-first with no cache
-  if (url.pathname.includes('/cloudfunctions/') || url.hostname.includes('anthropic.com')) {
+  if (url.hostname.endsWith('.cloudfunctions.net')
+      || url.hostname.includes('anthropic.com')
+      || url.hostname.includes('openai.com')
+      || url.hostname.includes('deepseek.com')) {
     e.respondWith(fetch(e.request).catch(() => new Response(JSON.stringify({ error: 'Network error' }), { status: 503, headers: { 'Content-Type': 'application/json' } })));
     return;
   }
@@ -50,7 +53,13 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Static assets: cache-first (HTML, CSS, images, fonts)
+  // Navigations and HTML: network-first so a deployment is not hidden by a stale shell.
+  if (e.request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname === '/') {
+    e.respondWith(fetch(e.request).catch(() => caches.match('/index.html')));
+    return;
+  }
+
+  // Static assets: cache-first (CSS, images, fonts)
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;

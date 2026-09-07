@@ -281,11 +281,19 @@ legacy.validarComprobante = onRequest({ timeoutSeconds: 15 }, async (req, res) =
 
 legacy.consultaRuc = onRequest({ timeoutSeconds: 15 }, async (req, res) => {
   cors(req, res, async () => {
+    if (!['GET', 'POST'].includes(req.method)) {
+      res.status(405).json({ error: 'GET or POST only' });
+      return;
+    }
     const decoded = await requireUser(req, res);
     if (!decoded) return;
     const ruc = req.method === 'POST' ? req.body?.ruc : req.query?.ruc;
     if (!isValidRuc(ruc)) {
       res.status(400).json({ error: 'RUC inválido' });
+      return;
+    }
+    if (!(await checkSimpleHourlyLimit(decoded.uid, 'ruc_lookup', 60))) {
+      res.status(429).json({ error: 'Límite horario de consultas RUC excedido' });
       return;
     }
     try {
@@ -306,11 +314,19 @@ legacy.consultaRuc = onRequest({ timeoutSeconds: 15 }, async (req, res) => {
 
 legacy.consultaBCRTiposCambio = onRequest({ timeoutSeconds: 15 }, async (req, res) => {
   cors(req, res, async () => {
+    if (req.method !== 'GET') {
+      res.status(405).json({ error: 'GET only' });
+      return;
+    }
     const decoded = await requireUser(req, res);
     if (!decoded) return;
     const fecha = req.query?.fecha;
     if (fecha && !isIsoDate(fecha)) {
       res.status(400).json({ error: 'fecha debe usar formato YYYY-MM-DD' });
+      return;
+    }
+    if (!(await checkSimpleHourlyLimit(decoded.uid, 'bcr_lookup', 60))) {
+      res.status(429).json({ error: 'Límite horario de consultas BCRP excedido' });
       return;
     }
     try {

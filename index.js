@@ -46,48 +46,26 @@ async function checkRateLimit(uid, email, plan, apiKeyId) {
   const hourKey = apiKeyId ? `apikey_${apiKeyId}_hour` : `user_${uid || "anon"}_hour`;
   const hourRef = db.collection("rate_limits").doc(hourKey);
 
-  // Check minute window
-  const minDoc = await minRef.get();
-  if (minDoc.exists) {
-    const data = minDoc.data();
-    const windowStart = now - window60s;
-    const recentCount = (data.timestamps || []).filter(t => t > windowStart).length;
-    if (recentCount >= minLimit) {
-      return { status: 429, message: `Rate limit: ${minLimit} requests/minute. Wait ${Math.ceil((data.timestamps.find(t => t > windowStart) + window60s - now) / 1000)}s.` };
+  // Read, validate and record both windows in one transaction. This prevents
+  // concurrent requests from bypassing the limit.
+  return db.runTransaction(async tx => {
+    const [minDoc, hourDoc] = await Promise.all([tx.get(minRef), tx.get(hourRef)]);
+    const minTs = (minDoc.exists ? minDoc.data().timestamps || [] : [])
+      .filter(t => Number.isFinite(t) && t > now - window60s);
+    const hourTs = (hourDoc.exists ? hourDoc.data().timestamps || [] : [])
+      .filter(t => Number.isFinite(t) && t > now - window1h);
+
+    if (minTs.length >= minLimit) {
+      return { status: 429, message: `Rate limit: ${minLimit} requests/minute.` };
     }
-  }
-
-  // Check hour window
-  const hourDoc = await hourRef.get();
-  if (hourDoc.exists) {
-    const data = hourDoc.data();
-    const windowStart = now - window1h;
-    const recentCount = (data.timestamps || []).filter(t => t > windowStart).length;
-    if (recentCount >= hourLimit) {
-      return { status: 429, message: `Rate limit: ${hourLimit} requests/hour. Resets in ${Math.ceil((data.timestamps.find(t => t > windowStart) + window1h - now) / 60000)} min.` };
+    if (hourTs.length >= hourLimit) {
+      return { status: 429, message: `Rate limit: ${hourLimit} requests/hour.` };
     }
-  }
 
-  // Record this request
-  const batch = db.batch();
-  const minTs = minDoc.exists ? [...(minDoc.data().timestamps || []), now].filter(t => t > now - window60s) : [now];
-  batch.set(minRef, { timestamps: minTs }, { merge: true });
-
-  const hourTs = hourDoc.exists ? [...(hourDoc.data().timestamps || []), now].filter(t => t > now - window1h) : [now];
-  batch.set(hourRef, { timestamps: hourTs }, { merge: true });
-
-  // Zero out old entries periodically (1 in 50 chance)
-  if (Math.random() < 0.02) {
-    const cutoff = now - window1h;
-    const stale = await db.collection("rate_limits").get();
-    stale.forEach(doc => {
-      const ts = (doc.data().timestamps || []);
-      if (ts.length && Math.max(...ts) < cutoff) batch.delete(doc.ref);
-    });
-  }
-
-  await batch.commit();
-  return null; // OK
+    tx.set(minRef, { timestamps: [...minTs, now], updatedAt: now }, { merge: true });
+    tx.set(hourRef, { timestamps: [...hourTs, now], updatedAt: now }, { merge: true });
+    return null;
+  });
 }
 
 /**
@@ -244,6 +222,14 @@ exports.publicApi = onRequest({ secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 60
     const keyDoc = keysSnap.docs[0];
     const keyData = keyDoc.data();
 
+    // API keys are an Empresa entitlement, not a permanent grant. A downgrade
+    // immediately disables previously issued keys.
+    const ownerDoc = await db.collection("users").doc(keyData.userId).get();
+    if (!ownerDoc.exists || ownerDoc.data().plan !== "empresa") {
+      res.status(403).json({ error: "API access requires Plan Empresa" });
+      return;
+    }
+
     // Rate limit for API keys
     const rl = await checkRateLimit(keyData.userId, null, "empresa", keyDoc.id);
     if (rl) { res.status(rl.status).json({ error: rl.message }); return; }
@@ -254,15 +240,31 @@ exports.publicApi = onRequest({ secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 60
     // Forward to Claude
     try {
       const ak = ANTHROPIC_API_KEY.value();
-      const { question, regime } = req.body;
-      if (!question) { res.status(400).json({ error: "Missing 'question' field" }); return; }
+      const { question, regime } = req.body || {};
+      if (typeof question !== "string" || question.trim().length < 1 || question.length > 8000) {
+        res.status(400).json({ error: "question must contain 1-8000 characters" });
+        return;
+      }
+      const normalizedRegime = typeof regime === "string" ? regime.trim().toLowerCase() : "general";
+      const allowedRegimes = new Set(["general", "rg", "rmt", "rer", "nrus"]);
+      if (!allowedRegimes.has(normalizedRegime)) {
+        res.status(400).json({ error: "Unsupported tax regime" });
+        return;
+      }
 
-      const system = `Eres DeclaraFY, asesor tributario peruano experto. Responde en máximo 3 líneas, directo y conciso. Régimen del contribuyente: ${regime || "general"}.`;
+      const system = `Eres DeclaraFY, asesor tributario peruano experto. Responde en máximo 3 líneas, directo y conciso. Régimen del contribuyente: ${normalizedRegime}.`;
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": ak, "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: 300, system, messages: [{ role: "user", content: question }] }),
+        body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: 300, system, messages: [{ role: "user", content: question.trim() }] }),
+        signal: AbortSignal.timeout(45000),
       });
+      if (!response.ok) {
+        const detail = await response.text().catch(() => "");
+        console.error("publicApi upstream error", response.status, detail.slice(0, 500));
+        res.status(502).json({ error: "AI provider error" });
+        return;
+      }
       const data = await response.json();
       res.json({ answer: data.content?.[0]?.text || "Sin respuesta" });
     } catch (e) {
@@ -278,7 +280,9 @@ exports.publicApi = onRequest({ secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 60
 exports.savePushToken = onCall(async (request) => {
   if (!request.auth) throw new Error("Must be authenticated");
   const { token } = request.data;
-  if (!token) throw new Error("Missing token");
+  if (typeof token !== "string" || token.length < 32 || token.length > 4096 || /\s/.test(token)) {
+    throw new Error("Invalid push token");
+  }
   await db.collection("users").doc(request.auth.uid).update({ pushToken: token });
   return { ok: true };
 });

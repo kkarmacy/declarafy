@@ -35,6 +35,9 @@ try {
   if (!storedAnthropicKey || storedAnthropicKey.startsWith('sk-ant-')) {
     localStorage.setItem('tp_anthropic_key', 'declarafy-proxy');
   }
+  // Remove credentials created by the retired offline-auth fallback. The
+  // application never authenticates users from localStorage.
+  localStorage.removeItem('tp_u');
 } catch (_) {}
 
 window.addEventListener('DOMContentLoaded', () => {
