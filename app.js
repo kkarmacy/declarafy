@@ -3654,10 +3654,18 @@ setPTab = function(tab, btn) {
 // ════════════════════════════════════════
 // FIREBASE CONFIGURATION & INIT
 // ════════════════════════════════════════
-// Firebase Hosting initializes the Web SDK through /__/firebase/init.js.
-// Do not keep guessed keys or placeholder application IDs in the bundle: they
-// make a broken non-Hosting deployment look configured when it is not.
-const firebaseConfig = null;
+// Firebase Web configuration is public client metadata (not a private key).
+// Keep it explicit so the app connects to the restored production project even
+// when the static files are served from a different Firebase Hosting project.
+const firebaseConfig = {
+  apiKey: 'AIzaSyBNcWJiM9TaEn0mREHbWRXj1UoQCF2Zlso',
+  authDomain: 'declarafy-52bc1.firebaseapp.com',
+  projectId: 'declarafy-52bc1',
+  storageBucket: 'declarafy-52bc1.firebasestorage.app',
+  messagingSenderId: '448788308031',
+  appId: '1:448788308031:web:e53e52149b67be413dd88a',
+  measurementId: 'G-NL89TDL5ZM'
+};
 
 function isValidFirebaseConfig(config) {
   return !!config
