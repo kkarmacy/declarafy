@@ -159,7 +159,7 @@
     </div>
     <!-- RECOVER -->
     <div id="fRec" style="display:none">
-      <p style="font-size:14px;color:var(--muted);margin-bottom:12px;line-height:1.5">Ingresa tu correo y te generaremos una contraseña temporal de acceso.</p>
+      <p style="font-size:14px;color:var(--muted);margin-bottom:12px;line-height:1.5">Ingresa tu correo y te enviaremos un enlace seguro para restablecer tu contraseña.</p>
       <div class="field"><label>Correo electrónico</label><input type="email" id="recE" placeholder="tu@correo.com"></div>
       <button class="btn-p" onclick="doRecover()">Recuperar contraseña</button>
       <button class="btn-g" onclick="switchTab('login')">Volver al login</button>
@@ -5499,10 +5499,15 @@ End Function</div>
 <script src="app.js" defer></script>
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js?v=2').then(reg => {
-    if (reg.installing) {
-      reg.installing.addEventListener('statechange', () => {
-        if (reg.installing.state === 'activated') window.location.reload();
+  navigator.serviceWorker.register('/sw.js?v=3').then(reg => {
+    // Keep the worker reference: `reg.installing` becomes null once the
+    // installation finishes, which previously caused a runtime TypeError.
+    const installingWorker = reg.installing;
+    if (installingWorker) {
+      installingWorker.addEventListener('statechange', () => {
+        if (installingWorker.state === 'activated' && navigator.serviceWorker.controller) {
+          window.location.reload();
+        }
       });
     }
   }).catch(() => {});

@@ -11,6 +11,7 @@ const backend = fs.readFileSync(path.join(root, 'secure-index.js'), 'utf8');
 const legacyBackend = fs.readFileSync(path.join(root, 'index.js'), 'utf8');
 const config = fs.readFileSync(path.join(root, 'config.js'), 'utf8');
 const serviceWorker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 
 test('Firebase callable functions use the callable protocol', () => {
   assert.match(app, /body:\s*JSON\.stringify\(\{ data \}\)/);
@@ -52,12 +53,34 @@ test('SUNAT renderer escapes external text fields', () => {
 
 test('authentication fails closed and removes legacy local credentials', () => {
   assert.match(app, /isValidFirebaseConfig\(firebaseConfig\)/);
-  assert.match(fs.readFileSync(path.join(root, 'index.html'), 'utf8'), /\/__\/firebase\/init\.js/);
+  assert.match(app, /const firebaseConfig = null/);
+  assert.doesNotMatch(app, /XXXX_REEMPLAZAR|apiKey:\s*["'][^"']+["']/);
+  assert.match(html, /\/__\/firebase\/init\.js/);
   assert.match(app, /No se creó ninguna cuenta local/);
   assert.doesNotMatch(app, /btoa\((?:pw|old|nw|temp)\)/);
   assert.doesNotMatch(app, /tpHashPw|tpVerifyPw|Login localStorage/);
   assert.match(app, /function getUsers\(\)\{return \{\}\}/);
   assert.match(config, /localStorage\.removeItem\('tp_u'\)/);
+});
+
+test('successful authentication opens the user panel', () => {
+  assert.match(app, /await kvLoadAll\(\);\s*goPanel\(\);/);
+  assert.match(app, /hideAuth\(\); goPanel\(\);/);
+  assert.match(app, /kvLoadAll\(\)\.then\(\(\) => goPanel\(\)\)/);
+});
+
+test('frontend startup does not reference a later lexical alias', () => {
+  const firstWrapper = app.indexOf('const _origSetPTab2');
+  const laterAlias = app.indexOf('const _origSetPTab =');
+  assert.ok(firstWrapper >= 0 && laterAlias > firstWrapper);
+  assert.match(app.slice(firstWrapper, firstWrapper + 100), /const _origSetPTab2 = setPTab;/);
+  assert.doesNotMatch(app.slice(0, laterAlias), /typeof _origSetPTab/);
+});
+
+test('service worker install handler retains a stable worker reference', () => {
+  assert.match(html, /const installingWorker = reg\.installing/);
+  assert.match(html, /installingWorker\.state === 'activated'/);
+  assert.doesNotMatch(html, /reg\.installing\.state/);
 });
 
 test('public API validates current entitlement and bounded input', () => {
