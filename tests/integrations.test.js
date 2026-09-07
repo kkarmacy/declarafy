@@ -53,9 +53,10 @@ test('SUNAT renderer escapes external text fields', () => {
 
 test('authentication fails closed and removes legacy local credentials', () => {
   assert.match(app, /isValidFirebaseConfig\(firebaseConfig\)/);
-  assert.match(app, /const firebaseConfig = null/);
-  assert.doesNotMatch(app, /XXXX_REEMPLAZAR|apiKey:\s*["'][^"']+["']/);
-  assert.match(html, /\/__\/firebase\/init\.js/);
+  assert.match(app, /projectId:\s*['"]declarafy-52bc1['"]/);
+  assert.match(app, /authDomain:\s*['"]declarafy-52bc1\.firebaseapp\.com['"]/);
+  assert.doesNotMatch(app, /XXXX_REEMPLAZAR/);
+  assert.doesNotMatch(html, /\/__\/firebase\/init\.js/);
   assert.match(app, /No se creó ninguna cuenta local/);
   assert.doesNotMatch(app, /btoa\((?:pw|old|nw|temp)\)/);
   assert.doesNotMatch(app, /tpHashPw|tpVerifyPw|Login localStorage/);
