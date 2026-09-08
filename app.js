@@ -1,4 +1,4 @@
-// ── LLAMADAS A CLAUDE: directas (API key del usuario) o vía Cloud Function ──
+// ── LLAMADAS A CLAUDE: directas o mediante el backend PHP seguro ──
 // NOTA: AREAS, SYS, DECLARAFY_PROXY_URL, DECLARAFY_FN_BASE, FREE y ADMIN_EMAIL
 // están definidos en /js/config.js — NO duplicar aquí.
 async function callDeclaraFY(body) {
@@ -29,20 +29,18 @@ async function callDeclaraFY(body) {
       throw new Error('Error de conexión con Anthropic: ' + e.message);
     }
   }
-  // Fallback: Cloud Function proxy (needs Blaze plan)
-  let idToken = null;
-  try {
-    if (typeof firebase !== 'undefined' && firebase.auth().currentUser) {
-      idToken = await firebase.auth().currentUser.getIdToken();
-    }
-  } catch (e) { console.warn('No se pudo obtener idToken:', e.message); }
+  // Backend PHP en el mismo dominio. La clave de Anthropic nunca llega al navegador.
+  if (!declarafyCsrfToken) await declarafyLoadSession();
   return fetch(DECLARAFY_PROXY_URL, {
     method: 'POST',
+    credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
-      ...(idToken ? { 'Authorization': 'Bearer ' + idToken } : {})
+      'Accept': 'application/json',
+      'X-Requested-With': 'DeclarafyWeb',
+      'X-CSRF-Token': declarafyCsrfToken
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify({...body, stream:false})
   });
 }
 
@@ -225,7 +223,7 @@ function saveKey() {
 
 // ── DB ──
 // Legacy local user accounts are intentionally disabled. Authentication and
-// user profiles are authoritative in Firebase only.
+// Las cuentas se validan en el backend PHP/MySQL; nunca se guardan contraseñas aquí.
 function getUsers(){return {}}
 function saveUsers(){/* retired: never persist user accounts in the browser */}
 function getHist(e){
@@ -3652,57 +3650,33 @@ setPTab = function(tab, btn) {
 
 
 // ════════════════════════════════════════
-// FIREBASE CONFIGURATION & INIT
+// NAMECHEAP API COMPATIBILITY INIT
 // ════════════════════════════════════════
-// Firebase Web configuration is public client metadata (not a private key).
-// Keep it explicit so the app connects to the restored production project even
-// when the static files are served from a different Firebase Hosting project.
-const firebaseConfig = {
-  apiKey: 'AIzaSyBNcWJiM9TaEn0mREHbWRXj1UoQCF2Zlso',
-  authDomain: 'declarafy-52bc1.firebaseapp.com',
-  projectId: 'declarafy-52bc1',
-  storageBucket: 'declarafy-52bc1.firebasestorage.app',
-  messagingSenderId: '448788308031',
-  appId: '1:448788308031:web:e53e52149b67be413dd88a',
-  measurementId: 'G-NL89TDL5ZM'
-};
-
-function isValidFirebaseConfig(config) {
-  return !!config
-    && /^AIza[\w-]{20,}$/.test(String(config.apiKey || ''))
-    && /^[\w-]+\.firebaseapp\.com$/.test(String(config.authDomain || ''))
-    && /^[\w-]+$/.test(String(config.projectId || ''))
-    && /^1:\d+:web:[a-f0-9]+$/i.test(String(config.appId || ''));
-}
-
 let fbApp, fbAuth, fbDb;
 let fbReady = false;
 
 function initFirebase() {
   try {
     if (typeof firebase === 'undefined') {
-      throw new Error('Firebase SDK not available');
+      throw new Error('El cliente del servidor no está disponible');
     }
     // Check if already initialized
     if (firebase.apps && firebase.apps.length > 0) {
       fbApp = firebase.apps[0];
     } else {
-      if (!isValidFirebaseConfig(firebaseConfig)) {
-        throw new Error('Firebase Web configuration is incomplete');
-      }
-      fbApp = firebase.initializeApp(firebaseConfig);
+      fbApp = firebase.initializeApp({ backend: 'namecheap-php' });
     }
     fbAuth = firebase.auth();
     fbDb = firebase.firestore();
     // Enable offline persistence
     fbDb.enablePersistence({synchronizeTabs:true}).catch(() => {});
     fbReady = true;
-    console.log('✅ Firebase conectado — declarafy-52bc1');
+    console.log('✅ Servidor DeclaraFY conectado');
     // Show online indicator
     const dots = document.querySelectorAll('.notif-dot, .onl');
     updateFBStatusUI(true);
   } catch(e) {
-    console.warn('Firebase init error:', e.message);
+    console.warn('Error iniciando el servidor:', e.message);
     fbReady = false;
   }
 }
@@ -3749,8 +3723,8 @@ async function _doLoginFBFirebaseImpl() {
         'auth/invalid-credential':'Correo o contraseña incorrectos.',
         'auth/invalid-email':'Correo inválido.',
         'auth/too-many-requests':'Demasiados intentos. Espera unos minutos.',
-        'auth/network-request-failed':'No se pudo conectar con Firebase. Revisa tu conexión e intenta nuevamente.',
-        'auth/operation-not-allowed':'El acceso con correo y contraseña todavía no está habilitado en Firebase.'
+        'auth/network-request-failed':'No se pudo conectar con el servidor. Revisa tu conexión e intenta nuevamente.',
+        'server/database-unavailable':'La base de datos no está disponible temporalmente.'
       };
       aerr(msgs[e.code] || e.message);
     }
@@ -3767,7 +3741,7 @@ async function doRegisterFB() {
   const pw2 = document.getElementById('rPass2')?.value || document.getElementById('rP2')?.value || '';
   if (!nm || !em || !pw || !pw2) { aerr('Completa todos los campos.'); return; }
   if (!em.includes('@')) { aerr('Correo inválido.'); return; }
-  if (pw.length < 6) { aerr('Contraseña mínimo 6 caracteres.'); return; }
+  if (pw.length < 8) { aerr('Contraseña mínimo 8 caracteres.'); return; }
   if (pw !== pw2) { aerr('Las contraseñas no coinciden.'); return; }
 
   if (fbReady) {
@@ -3797,8 +3771,8 @@ async function doRegisterFB() {
         'auth/email-already-in-use':'Ya existe una cuenta con ese correo.',
         'auth/weak-password':'Contraseña muy débil.',
         'auth/invalid-email':'Correo inválido.',
-        'auth/network-request-failed':'No se pudo conectar con Firebase. Revisa tu conexión e intenta nuevamente.',
-        'auth/operation-not-allowed':'El registro con correo y contraseña todavía no está habilitado en Firebase.'
+        'auth/network-request-failed':'No se pudo conectar con el servidor. Revisa tu conexión e intenta nuevamente.',
+        'server/database-unavailable':'La base de datos no está disponible temporalmente.'
       };
       aerr(msgs[e.code] || e.message);
     }
@@ -3858,7 +3832,7 @@ async function saveProfile() {
       document.getElementById('profAv').textContent = name.charAt(0).toUpperCase();
       document.getElementById('profName').textContent = name;
       showProfMsg('ok','✅ Perfil guardado en la nube.');
-      addNotif('☁️','Perfil sincronizado','Tu perfil fue guardado en Firebase.');
+      addNotif('☁️','Perfil sincronizado','Tu perfil fue guardado en el servidor.');
     } catch(e) { showProfMsg('err','Error: ' + e.message); }
   } else {
     showProfMsg('err','El servicio de perfiles no está disponible. Intenta nuevamente más tarde.');
@@ -3870,7 +3844,7 @@ async function changePassword() {
   const nw = document.getElementById('pwNew')?.value || '';
   const nw2 = document.getElementById('pwNew2')?.value || '';
   if (!old || !nw || !nw2) { showProfMsg('err','Completa todos los campos.'); return; }
-  if (nw.length < 6) { showProfMsg('err','Mínimo 6 caracteres.'); return; }
+  if (nw.length < 8) { showProfMsg('err','Mínimo 8 caracteres.'); return; }
   if (nw !== nw2) { showProfMsg('err','Las contraseñas no coinciden.'); return; }
   if (fbReady && fbAuth.currentUser) {
     try {
@@ -3878,7 +3852,7 @@ async function changePassword() {
       await fbAuth.currentUser.reauthenticateWithCredential(cred);
       await fbAuth.currentUser.updatePassword(nw);
       ['pwOld','pwNew','pwNew2'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
-      showProfMsg('ok','✅ Contraseña actualizada en Firebase.');
+      showProfMsg('ok','✅ Contraseña actualizada.');
     } catch(e) {
       const msgs = { 'auth/wrong-password':'Contraseña actual incorrecta.', 'auth/weak-password':'Contraseña muy débil.' };
       showProfMsg('err', msgs[e.code] || e.message);
@@ -3943,7 +3917,7 @@ async function incrementMsgCount() {
     fbDb.collection('users').doc(curUser.uid).update({ mc: firebase.firestore.FieldValue.increment(1) })
       .catch(e => console.warn('mc update error:', e.message));
   } else {
-    console.warn('Message count was not persisted because Firebase is unavailable.');
+    console.warn('El contador no se guardó porque el servidor no está disponible.');
   }
 }
 
@@ -3960,7 +3934,7 @@ function renderFBStatus() {
   const badge = document.createElement('div');
   badge.id = 'fbStatusBadge';
   badge.style.cssText = 'position:fixed;bottom:52px;right:16px;font-size:14px;padding:3px 9px;border-radius:8px;z-index:50;pointer-events:none;' + (fbReady ? 'background:rgba(76,175,80,.15);border:1px solid rgba(76,175,80,.25);color:#4CAF50' : 'background:rgba(144,144,168,.1);border:1px solid rgba(144,144,168,.18);color:#9090A8');
-  badge.textContent = fbReady ? '☁ Firebase conectado' : '💾 Modo local';
+  badge.textContent = fbReady ? '☁ Servidor conectado' : '⚠ Servidor sin conexión';
   document.body.appendChild(badge);
 }
 
@@ -8719,34 +8693,30 @@ setPTab = function(tab, btn) {
 let _tpLastGeneratedKey = '';
 
 async function _tpAuthedFetch(url, options = {}) {
-  let idToken = null;
-  try {
-    if (typeof firebase !== 'undefined' && firebase.auth().currentUser) {
-      idToken = await firebase.auth().currentUser.getIdToken();
-    }
-  } catch (e) { console.warn('No se pudo obtener idToken:', e.message); }
+  if (!declarafyCsrfToken) await declarafyLoadSession();
   return fetch(url, {
     ...options,
+    credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
-      ...(idToken ? { 'Authorization': 'Bearer ' + idToken } : {}),
+      'X-Requested-With': 'DeclarafyWeb',
+      'X-CSRF-Token': declarafyCsrfToken,
       ...(options.headers || {}),
     },
   });
 }
-// Firebase callable functions use a {data: ...} request envelope and return
-// their payload inside {result: ...}. Keep that protocol in one place.
+// Acciones autenticadas del backend PHP.
 async function _tpCallFunction(name, data = {}) {
-  const res = await _tpAuthedFetch(`${DECLARAFY_FN_BASE}/${name}`, {
+  const res = await _tpAuthedFetch(`${DECLARAFY_FN_BASE}${encodeURIComponent(name)}`, {
     method: 'POST',
-    body: JSON.stringify({ data }),
+    body: JSON.stringify(data),
   });
   const envelope = await res.json().catch(() => ({}));
-  if (!res.ok || envelope.error) {
-    const message = envelope.error?.message || `Error llamando ${name}`;
+  if (!res.ok || envelope.ok === false) {
+    const message = envelope.message || envelope.error?.message || `Error llamando ${name}`;
     throw new Error(message);
   }
-  return envelope.result;
+  return envelope.data;
 }
 
 

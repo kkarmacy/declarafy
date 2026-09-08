@@ -97,12 +97,8 @@
 <link rel="stylesheet" href="styles.css">
 
 
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <!-- Firebase is initialized explicitly in app.js so Hosting can remain
-       independent from the restored Firebase project's damaged site link. -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <!-- Namecheap PHP/MySQL API. No Firebase SDK is loaded. -->
+  <script src="/server-api.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -184,7 +180,7 @@
           Usa el correo de tu estudio o empresa (<em>ej: contacto@tuestudio.pe</em>).
         </div>
       </div>
-      <div class="field"><label>Contraseña</label><input type="password" id="rPass" placeholder="Mínimo 6 caracteres"></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="rPass" minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres"></div>
       <div class="field"><label>Confirmar contraseña</label><input type="password" id="rPass2" placeholder="Repite tu contraseña" onkeydown="if(event.key==='Enter')doRegister()"></div>
       <button class="btn-p" onclick="doRegister()">Crear cuenta gratis</button>
       <button class="btn-g" onclick="switchTab('login')">¿Ya tienes cuenta? Ingresa</button>
@@ -843,7 +839,7 @@
       <h3>2. Finalidad del tratamiento</h3>
       <ul><li>Prestación del servicio de orientación tributaria con IA.</li><li>Comunicaciones sobre tu cuenta y suscripción.</li><li>Mejora continua del servicio.</li></ul>
       <h3>3. Almacenamiento de datos</h3>
-      <p>Los datos se almacenan en tu navegador (localStorage). Las consultas se envían a la API de Anthropic para generar respuestas. No se almacenan en servidores propios.</p>
+      <p>Los datos de tu cuenta y del servicio se almacenan de forma segura en la base de datos de DeclaraFY alojada en Namecheap. Las consultas se procesan mediante el proveedor de IA para generar respuestas.</p>
       <h3>4. Derechos del titular (Ley 29733)</h3>
       <p>Tienes derecho a acceder, rectificar, cancelar u oponerte al tratamiento de tus datos personales. Contacta al administrador para ejercer estos derechos.</p>
       <h3>5. Seguridad</h3>
@@ -915,7 +911,7 @@
       <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border)">
         <div class="sec-title" style="margin-bottom:12px">Cambiar contraseña</div>
         <div class="fi"><label>Contraseña actual</label><input type="password" id="pwOld" placeholder="••••••••"></div>
-        <div class="fi"><label>Nueva contraseña</label><input type="password" id="pwNew" placeholder="Mínimo 6 caracteres"></div>
+        <div class="fi"><label>Nueva contraseña</label><input type="password" id="pwNew" minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres"></div>
         <div class="fi"><label>Confirmar nueva contraseña</label><input type="password" id="pwNew2" placeholder="Repite la nueva contraseña"></div>
         <button class="bp" onclick="changePassword()" style="background:transparent;border:1px solid var(--gold);color:var(--gold)">Cambiar contraseña</button>
         <div class="fok" id="profOk" style="margin-top:8px"></div>
@@ -961,7 +957,7 @@
       <div style="border-top:1px solid var(--border);padding-top:16px">
         <div class="sec-title" style="margin-bottom:8px;font-size:14px">Cómo usarla</div>
         <p style="color:var(--muted);font-size:14px;margin-bottom:8px">Envía tu pregunta tributaria por POST, con tu key en el header <code>x-api-key</code>:</p>
-        <pre style="background:rgba(0,0,0,.3);border-radius:8px;padding:12px;font-size:14px;overflow-x:auto;color:#ddd">curl -X POST https://us-central1-declarafy-52bc1.cloudfunctions.net/publicApi \
+        <pre style="background:rgba(0,0,0,.3);border-radius:8px;padding:12px;font-size:14px;overflow-x:auto;color:#ddd">curl -X POST https://www.declarafy.com/api/index.php?action=public_api \
   -H "x-api-key: tia_live_xxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{"question": "¿Cómo calculo el IGV de una venta de S/1000?", "regimen": "rg"}'</pre>
@@ -5494,7 +5490,6 @@ End Function</div>
 <script src="/utils.js"></script>
 <script src="/calculators.js"></script>
 <script src="/firebase-sync.js"></script>
-<script src="/push-notifications.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="app.js" defer></script>
 <script>

@@ -27,8 +27,8 @@ const SYS = 'Eres DeclaraFY, un asesor tributario y aduanero experto en Perú. R
 
 const ADMIN_EMAIL = 'christian@declarafy.com';
 const FREE = 30;
-const DECLARAFY_PROXY_URL = 'https://us-central1-declarafy-52bc1.cloudfunctions.net/claudeProxy';
-const DECLARAFY_FN_BASE = 'https://us-central1-declarafy-52bc1.cloudfunctions.net';
+const DECLARAFY_PROXY_URL = '/api/index.php?action=ai';
+const DECLARAFY_FN_BASE = '/api/index.php?action=';
 
 try {
   const storedAnthropicKey = localStorage.getItem('tp_anthropic_key');
