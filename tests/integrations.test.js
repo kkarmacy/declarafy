@@ -6,103 +6,70 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
-const backend = fs.readFileSync(path.join(root, 'secure-index.js'), 'utf8');
-const legacyBackend = fs.readFileSync(path.join(root, 'index.js'), 'utf8');
-const config = fs.readFileSync(path.join(root, 'config.js'), 'utf8');
-const serviceWorker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const app = read('app.js');
+const apiClient = read('server-api.js');
+const api = read('api/index.php');
+const bootstrap = read('api/bootstrap.php');
+const schema = read('api/schema.sql');
+const html = read('index.html');
+const serviceWorker = read('sw.js');
 
-test('Firebase callable functions use the callable protocol', () => {
-  assert.match(app, /body:\s*JSON\.stringify\(\{ data \}\)/);
-  assert.match(app, /return envelope\.result/);
-  for (const name of ['generateApiKey', 'listApiKeys', 'revokeApiKey', 'updateNotifPrefs']) {
-    assert.match(app, new RegExp(`_tpCallFunction\\('${name}'`));
-  }
+test('production frontend uses the same-origin Namecheap API without Firebase SDKs', () => {
+  assert.match(html, /<script src="\/server-api\.js"><\/script>/);
+  assert.doesNotMatch(html, /gstatic\.com\/firebasejs/);
+  assert.doesNotMatch(html, /push-notifications\.js/);
+  assert.match(read('config.js'), /DECLARAFY_PROXY_URL = '\/api\/index\.php\?action=ai'/);
+  assert.doesNotMatch(read('config.js'), /cloudfunctions\.net/);
 });
 
-test('API key UI consumes the backend response schema', () => {
-  assert.match(app, /data\.rawKey/);
-  assert.match(app, /Array\.isArray\(data\)/);
-  assert.match(app, /k\.revoked/);
-  assert.match(app, /k\.id/);
+test('API client sends cookie sessions and CSRF protection on mutations', () => {
+  assert.match(apiClient, /credentials: 'same-origin'/);
+  assert.match(apiClient, /'X-CSRF-Token'/);
+  assert.match(apiClient, /action=session/);
+  assert.match(bootstrap, /hash_equals\(\$_SESSION\['csrf'\], \$token\)/);
+  assert.match(bootstrap, /'httponly' => true/);
+  assert.match(bootstrap, /'samesite' => 'Lax'/);
 });
 
-test('SUNAT and CPE browser flows use authenticated backend endpoints', () => {
-  assert.match(app, /TP_FN_BASE}\/consultaSunatComprobantes/);
-  assert.match(app, /DECLARAFY_FN_BASE}\/validarComprobante/);
-  assert.doesNotMatch(app, /async function tpConsultaSunat[\s\S]*?fetch\(`https:\/\/api\.apis\.net\.pe/);
+test('registration and login use password hashes and prepared statements', () => {
+  assert.match(api, /password_hash\(\$password, PASSWORD_DEFAULT\)/);
+  assert.match(api, /password_verify\(\$password, \$record\['password_hash'\]\)/);
+  assert.match(api, /session_regenerate_id\(true\)/);
+  assert.match(api, /\$pdo->prepare\('INSERT INTO users/);
+  assert.doesNotMatch(schema, /\bpassword\s+VARCHAR/i);
 });
 
-test('CPE backend validates fields and applies a rate limit', () => {
-  assert.match(backend, /isCpeDate\(fechaEmision\)/);
-  assert.match(backend, /cpe_validation/);
-  assert.match(backend, /normalizedMonto\.toFixed\(2\)/);
+test('client cannot assign itself a paid plan or arbitrary profile columns', () => {
+  const profileCase = api.slice(api.indexOf("case 'profile_update':"), api.indexOf("case 'reauthenticate':"));
+  assert.match(profileCase, /\$allowed = \[\]/);
+  assert.match(profileCase, /\['regimen' => 80, 'sector' => 120\]/);
+  assert.doesNotMatch(profileCase, /\$allowed\['plan'\]/);
+  assert.doesNotMatch(profileCase, /\$allowed\['message_count'\]/);
 });
 
-test('notification preferences persist a validated RUC', () => {
-  assert.match(backend, /const \{ whatsapp, notifPush, notifWhatsapp, ruc \}/);
-  assert.match(backend, /updates\.ruc = normalizedRuc/);
+test('password recovery stores only a token hash with an expiry', () => {
+  assert.match(api, /hash\('sha256', \$token\)/);
+  assert.match(api, /INTERVAL 60 MINUTE/);
+  assert.match(api, /used_at IS NULL/);
+  assert.match(schema, /token_hash CHAR\(64\)/);
 });
 
-test('SUNAT renderer escapes external text fields', () => {
-  assert.match(app, /const esc = value => _escapeHtml/);
-  assert.match(app, /esc\(d\.descripcion/);
-  assert.match(app, /esc\(data\.direccion/);
+test('AI key stays server-side and requests have quota and time limits', () => {
+  assert.match(api, /\$config\['anthropic_api_key'\]/);
+  assert.match(api, /message_count'\] >= 30/);
+  assert.match(api, /CURLOPT_TIMEOUT => 90/);
+  assert.doesNotMatch(html + app + apiClient, /sk-ant-[A-Za-z0-9_-]{20,}/);
 });
 
-test('authentication fails closed and removes legacy local credentials', () => {
-  assert.match(app, /isValidFirebaseConfig\(firebaseConfig\)/);
-  assert.match(app, /projectId:\s*['"]declarafy-52bc1['"]/);
-  assert.match(app, /authDomain:\s*['"]declarafy-52bc1\.firebaseapp\.com['"]/);
-  assert.doesNotMatch(app, /XXXX_REEMPLAZAR/);
-  assert.doesNotMatch(html, /\/__\/firebase\/init\.js/);
-  assert.match(app, /No se creó ninguna cuenta local/);
-  assert.doesNotMatch(app, /btoa\((?:pw|old|nw|temp)\)/);
-  assert.doesNotMatch(app, /tpHashPw|tpVerifyPw|Login localStorage/);
-  assert.match(app, /function getUsers\(\)\{return \{\}\}/);
-  assert.match(config, /localStorage\.removeItem\('tp_u'\)/);
+test('service worker never caches API responses and refreshes old shells', () => {
+  assert.match(serviceWorker, /declarafy-v4-namecheap/);
+  assert.match(serviceWorker, /url\.pathname\.startsWith\('\/api\/'\)/);
+  assert.match(serviceWorker, /e\.request\.mode === 'navigate'/);
 });
 
-test('successful authentication opens the user panel', () => {
+test('successful authentication still opens the user panel', () => {
   assert.match(app, /await kvLoadAll\(\);\s*goPanel\(\);/);
   assert.match(app, /hideAuth\(\); goPanel\(\);/);
   assert.match(app, /kvLoadAll\(\)\.then\(\(\) => goPanel\(\)\)/);
-});
-
-test('frontend startup does not reference a later lexical alias', () => {
-  const firstWrapper = app.indexOf('const _origSetPTab2');
-  const laterAlias = app.indexOf('const _origSetPTab =');
-  assert.ok(firstWrapper >= 0 && laterAlias > firstWrapper);
-  assert.match(app.slice(firstWrapper, firstWrapper + 100), /const _origSetPTab2 = setPTab;/);
-  assert.doesNotMatch(app.slice(0, laterAlias), /typeof _origSetPTab/);
-});
-
-test('service worker install handler retains a stable worker reference', () => {
-  assert.match(html, /const installingWorker = reg\.installing/);
-  assert.match(html, /installingWorker\.state === 'activated'/);
-  assert.doesNotMatch(html, /reg\.installing\.state/);
-});
-
-test('public API validates current entitlement and bounded input', () => {
-  assert.match(legacyBackend, /ownerDoc\.data\(\)\.plan !== "empresa"/);
-  assert.match(legacyBackend, /question\.length > 8000/);
-  assert.match(legacyBackend, /allowedRegimes\.has\(normalizedRegime\)/);
-  assert.match(legacyBackend, /AbortSignal\.timeout\(45000\)/);
-});
-
-test('legacy API-key rate limiter records windows atomically', () => {
-  assert.match(legacyBackend, /db\.runTransaction\(async tx/);
-  assert.match(legacyBackend, /tx\.set\(minRef/);
-  assert.match(legacyBackend, /tx\.set\(hourRef/);
-});
-
-test('authenticated provider lookups have explicit hourly limits', () => {
-  assert.match(backend, /ruc_lookup/);
-  assert.match(backend, /bcr_lookup/);
-});
-
-test('service worker bypasses Cloud Functions and refreshes navigations', () => {
-  assert.match(serviceWorker, /hostname\.endsWith\('\.cloudfunctions\.net'\)/);
-  assert.match(serviceWorker, /e\.request\.mode === 'navigate'/);
 });

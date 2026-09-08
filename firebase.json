@@ -16,7 +16,8 @@
       "**/node_modules/**",
       "secure-index.js",
       "final-index.js",
-      "scripts/**"
+      "scripts/**",
+      "api/**"
     ],
     "headers": [
       {

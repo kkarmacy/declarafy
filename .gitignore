@@ -11,6 +11,7 @@ ui-debug.log*
 .env
 .env.*
 !.env.example
+api/config.local.php
 *.pem
 *.key
 service-account*.json

@@ -1,9 +1,10 @@
-// Service Worker — DeclaraFY PWA + Push Notifications
-const CACHE_NAME = 'declarafy-v3';
+// Service Worker — DeclaraFY PWA
+const CACHE_NAME = 'declarafy-v4-namecheap';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/styles.css',
+  '/server-api.js',
   '/icon.svg',
   '/icon-64.png',
   '/icon-180.png',
@@ -29,7 +30,8 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
   // API calls: network-first with no cache
-  if (url.hostname.endsWith('.cloudfunctions.net')
+  if (url.pathname.startsWith('/api/')
+      || url.hostname.endsWith('.cloudfunctions.net')
       || url.hostname.includes('anthropic.com')
       || url.hostname.includes('openai.com')
       || url.hostname.includes('deepseek.com')) {

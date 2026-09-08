@@ -28,8 +28,14 @@ jobs:
           node --check final-index.js
           node --check config.js
           node --check app.js
+          node --check server-api.js
           node --check calculators.js
           node --check firebase-sync.js
           node --check scripts/verify-deployment-structure.js
+      - name: Check PHP syntax
+        run: |
+          php -l api/bootstrap.php
+          php -l api/index.php
+          php -l api/config.sample.php
       - name: Run regression and deployment tests
         run: npm test
