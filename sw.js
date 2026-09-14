@@ -1,5 +1,5 @@
 // Service Worker — DeclaraFY PWA
-const CACHE_NAME = 'declarafy-v4-namecheap';
+const CACHE_NAME = 'declarafy-v5-stabilization';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -47,8 +47,8 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // JS files: network-first (never cache stale JS)
-  if (url.pathname.endsWith('.js')) {
+  // JS and CSS: network-first so deployments are not hidden by stale assets.
+  if (url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) {
     e.respondWith(
       fetch(e.request).catch(() => caches.match(e.request))
     );
@@ -61,7 +61,7 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Static assets: cache-first (CSS, images, fonts)
+  // Remaining static assets: cache-first (images and fonts)
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
