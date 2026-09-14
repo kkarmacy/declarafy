@@ -619,8 +619,19 @@ function searchHist(query) {
 }
 function renderHistList(h, highlight) {
   const l = document.getElementById('histList'); if (!l) return;
-  if (!h.length) { l.innerHTML = '<div class="hempty">No se encontraron conversaciones.</div>'; return; }
-  const allH = getHist(curUser.email);
+  const totalEl=document.getElementById('histTotal');
+  const allH=curUser ? getHist(curUser.email) : [];
+  if(totalEl) totalEl.textContent=allH.length;
+  const clearBtn=document.getElementById('histClearBtn');
+  if(clearBtn) clearBtn.disabled=!allH.length;
+  const resultLabel=document.getElementById('histResultLabel');
+  if(resultLabel) resultLabel.textContent=highlight ? `${h.length} resultado${h.length===1?'':'s'} para “${highlight}”` : (h.length ? `Mostrando ${h.length} conversación${h.length===1?'':'es'}` : '');
+  if (!h.length) {
+    l.innerHTML = highlight
+      ? '<div class="hempty"><span aria-hidden="true">🔎</span><strong>No encontramos coincidencias</strong><small>Prueba con otra palabra o área tributaria.</small></div>'
+      : '<div class="hempty"><span aria-hidden="true">💡</span><strong>Aún no tienes conversaciones</strong><small>Realiza tu primera consulta y aparecerá guardada aquí.</small><button type="button" onclick="newChat()">Iniciar una consulta</button></div>';
+    return;
+  }
   l.innerHTML = '';
   [...h].reverse().forEach(c => {
     const i = allH.findIndex(x => x.title === c.title && x.date === c.date);
@@ -629,10 +640,63 @@ function renderHistList(h, highlight) {
     const prev = fu ? fu.content.substring(0, 70) : 'Consulta';
     const titleHtml = highlight ? _highlightMatch(c.title || 'Consulta', highlight) : (c.title || 'Consulta');
     const prevHtml = highlight ? _highlightMatch(prev, highlight) : prev;
-    d.innerHTML = `<div class="hl" onclick="loadConv(${i})"><div class="ht">${titleHtml}</div><div class="hp">${prevHtml}${prev.length>=70?'…':''}</div></div><div class="hm"><div class="ha">${c.area||'General'}</div><div class="hd">${c.date}</div></div><button class="hdel" aria-label="Eliminar conversación" onclick="delConv(${i},event)">×</button>`;
+    d.innerHTML = `<button type="button" class="hl" onclick="loadConv(${i})" aria-label="Abrir conversación: ${c.title||'Consulta'}"><span class="hist-item-icon" aria-hidden="true">💬</span><span class="hist-item-copy"><span class="ht">${titleHtml}</span><span class="hp">${prevHtml}${prev.length>=70?'…':''}</span></span></button><div class="hm"><span class="ha">${c.area||'General'}</span><span class="hd">${c.date}</span></div><button type="button" class="hdel" aria-label="Eliminar conversación" title="Eliminar" onclick="delConv(${i},event)">×</button>`;
     l.appendChild(d);
   });
 }
+
+// Mantiene Inicio primero y ordena todos los módulos restantes alfabéticamente.
+function sortPanelNavigation() {
+  const nav=document.querySelector('.pnav');
+  if(!nav) return;
+  const buttons=[...nav.querySelectorAll(':scope > .pntab')];
+  const cleanLabel=button=>(button.textContent||'').replace(/[^\p{L}\p{N}\s./-]/gu,'').trim();
+  buttons.sort((a,b)=>{
+    const aHome=/^inicio$/i.test(cleanLabel(a));
+    const bHome=/^inicio$/i.test(cleanLabel(b));
+    if(aHome!==bHome) return aHome?-1:1;
+    return cleanLabel(a).localeCompare(cleanLabel(b),'es',{sensitivity:'base',numeric:true});
+  });
+  buttons.forEach(button=>nav.appendChild(button));
+  buttons.forEach(button=>{
+    button.setAttribute('aria-selected',button.classList.contains('active')?'true':'false');
+    button.tabIndex=button.classList.contains('active')?0:-1;
+  });
+  updateModuleSearchStatus(buttons.length,buttons.length);
+}
+function updateModuleSearchStatus(visible,total) {
+  const status=document.getElementById('moduleSearchStatus');
+  if(status) status.textContent=visible===total ? `${total} módulos disponibles` : `${visible} de ${total} módulos`;
+}
+function filterPanelNavigation(query) {
+  const buttons=[...document.querySelectorAll('.pnav > .pntab')];
+  const normalized=(query||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  let visible=0;
+  buttons.forEach(button=>{
+    const label=(button.textContent||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    const show=!normalized || label.includes(normalized) || /^inicio$/i.test(label.trim());
+    button.hidden=!show;
+    if(show) visible++;
+  });
+  updateModuleSearchStatus(visible,buttons.length);
+}
+function initPanelNavigationKeyboard() {
+  const nav=document.querySelector('.pnav');
+  if(!nav) return;
+  nav.addEventListener('keydown',event=>{
+    if(!event.target.classList.contains('pntab')) return;
+    const visible=[...nav.querySelectorAll('.pntab:not([hidden])')];
+    const current=visible.indexOf(event.target);
+    let next=current;
+    if(event.key==='ArrowDown' || event.key==='ArrowRight') next=(current+1)%visible.length;
+    else if(event.key==='ArrowUp' || event.key==='ArrowLeft') next=(current-1+visible.length)%visible.length;
+    else if(event.key==='Home') next=0;
+    else if(event.key==='End') next=visible.length-1;
+    else return;
+    event.preventDefault(); visible[next]?.focus();
+  });
+}
+document.addEventListener('DOMContentLoaded',()=>{ sortPanelNavigation(); initPanelNavigationKeyboard(); });
 
 // ════════════════════════════════════════
 // SIMULADOR FISCALIZACIÓN SUNAT
@@ -827,14 +891,17 @@ function setPTab(tab, btn) {
     const el = document.getElementById(_ptSectionId(t));
     if (el) el.style.display = (t === tab) ? '' : 'none';
   });
-  document.querySelectorAll('.pntab').forEach(b => b.classList.remove('active'));
-  if (btn) { btn.classList.add('active'); }
+  document.querySelectorAll('.pntab').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); b.tabIndex=-1; });
+  if (btn) { btn.classList.add('active'); btn.setAttribute('aria-selected','true'); btn.tabIndex=0; }
   else {
     const match = document.querySelector(`.pntab[onclick*="'${tab}'"]`);
-    if (match) match.classList.add('active');
+    if (match) { match.classList.add('active'); match.setAttribute('aria-selected','true'); match.tabIndex=0; }
   }
   if (tab === 'perfil') loadProfileForm();
   if (tab === 'historial') { const s = document.getElementById('histSearch'); if(s) s.value=''; renderHist(); }
+  if (window.matchMedia('(max-width: 900px)').matches) {
+    document.getElementById('main-content')?.focus({preventScroll:true});
+  }
 }
 
 
@@ -891,31 +958,68 @@ async function finishOnboarding() {
 // REFERIDOS
 // ════════════════════════════════════════
 function getRefCode(email) { return 'REF'+btoa(email).substring(0,8).toUpperCase().replace(/[^A-Z0-9]/g,'X'); }
+function getReferralUrl() {
+  if(!curUser || !curUser.email) return '';
+  const base = window.location.origin && window.location.origin !== 'null' ? window.location.origin : 'https://declarafy.com';
+  return base.replace(/\/$/, '') + '/?ref=' + encodeURIComponent(getRefCode(curUser.email));
+}
 function loadReferidos() {
   if(!curUser) return;
   const code=getRefCode(curUser.email);
   const el=document.getElementById('refLink');
-  if(el) el.textContent='declarafy.com/ref/'+code;
+  if(el) el.textContent=getReferralUrl();
   const us=getUsers(); const all=Object.values(us);
   const refs=all.filter(u=>u.refBy===code);
-  const active=refs.filter(u=>u.plan!=='basico');
+  const active=refs.filter(u=>u.plan && u.plan!=='basico' && u.plan!=='gratis');
   if(document.getElementById('refTotal')) document.getElementById('refTotal').textContent=refs.length;
   if(document.getElementById('refActive')) document.getElementById('refActive').textContent=active.length;
   if(document.getElementById('refMeses')) document.getElementById('refMeses').textContent=active.length;
+  const history=document.getElementById('refHistoryList');
+  if(history) {
+    if(!refs.length) {
+      history.innerHTML='<div class="ref-empty"><span aria-hidden="true">👋</span><strong>Aún no tienes referidos</strong><small>Comparte tu enlace para comenzar a ganar meses gratis.</small></div>';
+    } else {
+      history.innerHTML=refs.slice(0,8).map((u,i)=>{
+        const paid=u.plan && u.plan!=='basico' && u.plan!=='gratis';
+        const safeName=(u.name||u.nombre||u.email||('Referido '+(i+1))).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        return `<div class="ref-history-row"><span class="ref-history-avatar">${safeName.charAt(0).toUpperCase()}</span><div><strong>${safeName}</strong><small>${paid?'Plan Profesional confirmado':'Registro completado'}</small></div><span class="ref-status ${paid?'earned':'pending'}">${paid?'Mes ganado':'Pendiente de pago'}</span></div>`;
+      }).join('');
+    }
+  }
   // Leaderboard
   const scores={}; all.forEach(u=>{if(u.refBy){scores[u.refBy]=(scores[u.refBy]||0)+1;}});
   const sorted=Object.entries(scores).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const lb=document.getElementById('refLeaderList');
-  if(lb){ if(!sorted.length){lb.innerHTML='<div style="font-size:14px;color:var(--muted);padding:10px 0">Aún no hay referidores. ¡Sé el primero!</div>';return;}
+  if(lb){ if(!sorted.length){lb.innerHTML='<div class="ref-empty compact"><span aria-hidden="true">🏆</span><strong>El ranking empieza contigo</strong><small>Invita al primer suscriptor de este mes.</small></div>';return;}
     lb.innerHTML=sorted.map(([code,cnt],i)=>`<div class="ref-row"><span class="ref-rank">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</span><span class="ref-name">${code}</span><span class="ref-count">${cnt} referidos</span></div>`).join(''); }
 }
-function copyRefLink() {
-  const code=getRefCode(curUser.email);
-  const btn = event.currentTarget;
-  navigator.clipboard.writeText('declarafy.com/ref/'+code).then(()=>{
-    if(btn) { btn.textContent='✅ Copiado!'; setTimeout(()=>btn.textContent='Copiar link',2000); }
-  });
-  addNotif('🔗','Link copiado','Tu link de referido fue copiado al portapapeles.');
+async function copyRefLink(btn) {
+  const link=getReferralUrl();
+  try {
+    await navigator.clipboard.writeText(link);
+    if(btn) { btn.innerHTML='✓ Enlace copiado'; setTimeout(()=>btn.innerHTML='<span aria-hidden="true">⧉</span> Copiar enlace',2000); }
+    addNotif('🔗','Enlace copiado','Tu enlace de referido fue copiado al portapapeles.');
+  } catch(e) {
+    const area=document.createElement('textarea'); area.value=link; area.style.position='fixed'; area.style.opacity='0';
+    document.body.appendChild(area); area.select(); document.execCommand('copy'); area.remove();
+    if(btn) { btn.textContent='✓ Enlace copiado'; setTimeout(()=>btn.innerHTML='<span aria-hidden="true">⧉</span> Copiar enlace',2000); }
+  }
+}
+async function shareReferral(channel) {
+  const link=getReferralUrl();
+  const message='Prueba Declarafy, tu asesor tributario con IA para pymes y mypes. Regístrate con mi enlace:';
+  const encodedText=encodeURIComponent(message+' '+link);
+  if(channel==='native' && navigator.share) {
+    try { await navigator.share({title:'Conoce Declarafy',text:message,url:link}); } catch(e) { if(e.name!=='AbortError') copyRefLink(); }
+    return;
+  }
+  const urls={
+    whatsapp:'https://wa.me/?text='+encodedText,
+    linkedin:'https://www.linkedin.com/sharing/share-offsite/?url='+encodeURIComponent(link),
+    email:'mailto:?subject='+encodeURIComponent('Te invito a probar Declarafy')+'&body='+encodedText
+  };
+  if(urls[channel]) window.open(urls[channel],channel==='email'?'_self':'_blank','noopener,noreferrer');
+  else copyRefLink();
 }
 // Check ref code on register — persist URL param to localStorage
 function checkRefCode() {
@@ -8372,28 +8476,6 @@ function tpHighlight(text, query) {
   const safe = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return text.replace(new RegExp(safe, 'gi'), m => `<span class="hs-match">${m}</span>`);
 }
-
-const _origRenderHistList = renderHistList;
-renderHistList = function(h) {
-  const l = document.getElementById('histList');
-  if (!l) return;
-  if (!h.length) { l.innerHTML = '<div class="hempty">No se encontraron conversaciones.</div>'; return; }
-  const allH = getHist(curUser.email);
-  const q = (document.getElementById('histSearch')?.value || '').trim();
-  l.innerHTML = '';
-  [...h].reverse().forEach(c => {
-    const i = allH.findIndex(x => x.title === c.title && x.date === c.date);
-    const d = document.createElement('div');
-    d.className = 'hitem';
-    const fu = c.messages?.find(m => m.role === 'user');
-    const rawPrev = fu ? fu.content.substring(0, 80) : 'Consulta';
-    const rawTitle = c.title || 'Consulta';
-    const displayTitle = q ? tpHighlight(rawTitle, q) : rawTitle;
-    const displayPrev  = q ? tpHighlight(rawPrev, q)  : rawPrev;
-    d.innerHTML = `<div class="hl" onclick="loadConv(${i})"><div class="ht">${displayTitle}</div><div class="hp">${displayPrev}${rawPrev.length>=80?'…':''}</div></div><div class="hm"><div class="ha">${c.area||'General'}</div><div class="hd">${c.date}</div></div><button class="hdel" aria-label="Eliminar" onclick="delConv(${i},event)">×</button>`;
-    l.appendChild(d);
-  });
-};
 
 // ══════════════════════════════════════════════════════════
 // PDF CON MEMBRETE DEL ESTUDIO
