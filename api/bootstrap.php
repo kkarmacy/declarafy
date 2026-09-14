@@ -84,11 +84,23 @@ function request_body(): array {
 
 function require_mutation_security(array $config): void {
     if (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') !== 'DeclarafyWeb') fail_request('request/forbidden', 'Solicitud no autorizada.', 403);
-    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    $origin = rtrim((string) ($_SERVER['HTTP_ORIGIN'] ?? ''), '/');
     if ($origin !== '') {
+        $originScheme = strtolower((string) parse_url($origin, PHP_URL_SCHEME));
         $originHost = strtolower((string) parse_url($origin, PHP_URL_HOST));
-        $requestHost = strtolower(explode(':', $_SERVER['HTTP_HOST'] ?? '')[0]);
-        if ($originHost === '' || !hash_equals($requestHost, $originHost)) fail_request('request/origin', 'Origen no autorizado.', 403);
+        $configuredHost = strtolower((string) parse_url((string) ($config['app_origin'] ?? ''), PHP_URL_HOST));
+        $allowedHosts = array_filter([$configuredHost]);
+
+        // The public site is valid with and without "www". Do not trust HTTP_HOST:
+        // reverse proxies and cPanel may expose a different internal host.
+        if ($configuredHost === 'declarafy.com') $allowedHosts[] = 'www.declarafy.com';
+        if ($configuredHost === 'www.declarafy.com') $allowedHosts[] = 'declarafy.com';
+
+        $isLocalDev = in_array($configuredHost, ['localhost', '127.0.0.1'], true);
+        $validScheme = $originScheme === 'https' || ($isLocalDev && $originScheme === 'http');
+        if (!$validScheme || $originHost === '' || !in_array($originHost, array_unique($allowedHosts), true)) {
+            fail_request('request/origin', 'Origen no autorizado.', 403);
+        }
     }
     $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     if ($token === '' || !hash_equals($_SESSION['csrf'], $token)) fail_request('request/csrf', 'La sesión expiró. Recarga la página.', 419);
