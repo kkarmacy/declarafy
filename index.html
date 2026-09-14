@@ -36,7 +36,7 @@
 <meta name="twitter:image" content="https://www.declarafy.com/og-image.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -561,7 +561,15 @@
   </div>
 
   <!-- PANEL NAV -->
-  <div class="pnav">
+  <nav class="pnav" aria-label="Módulos de Declarafy">
+    <div class="module-finder">
+      <label for="moduleSearch">Buscar módulo</label>
+      <div class="module-search-control">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <input id="moduleSearch" type="search" autocomplete="off" placeholder="Ej. IGV, SUNAT…" oninput="filterPanelNavigation(this.value)">
+      </div>
+      <div class="module-search-status" id="moduleSearchStatus" aria-live="polite"></div>
+    </div>
     <button class="pntab active" onclick="setPTab('inicio',this)">Inicio</button>
     <button class="pntab" role="tab" onclick="setPTab('historial',this)">Historial</button>
     <button class="pntab" role="tab" onclick="setPTab('calculadora',this)">Calculadora</button>
@@ -707,9 +715,9 @@
     <button class="pntab" role="tab" onclick="setPTab('donaciones',this)" style="color:var(--green);font-weight:500">🎁 Donaciones</button>
     <button class="pntab" role="tab" onclick="setPTab('sucesiones',this)" style="color:#9B59B6;font-weight:500">📜 Sucesiones</button>
     <button class="pntab" role="tab" onclick="setPTab('cripto_portfolio',this)" style="color:#9B59B6;font-weight:600;background:linear-gradient(135deg,rgba(155,89,182,.12),rgba(58,134,255,.08));border-radius:7px">📊 Portafolio Cripto</button>
-  </div>
+  </nav>
 
-  <div style="flex:1;overflow-y:auto">
+  <main id="main-content" tabindex="-1" style="flex:1;overflow-y:auto">
 
   <!-- INICIO -->
   <div id="ptInicio" class="pbody">
@@ -761,9 +769,23 @@
 
   <!-- HISTORIAL -->
   <div id="ptHistorial" class="pbody" style="display:none">
-    <div class="sec-title">Historial de conversaciones <button class="clrbtn" onclick="clearHist()">Borrar todo</button></div>
-    <input type="search" class="hist-search" id="histSearch" placeholder="🔍 Buscar en el historial..." oninput="searchHist(this.value)">
-    <div class="hlist" id="histList"><div class="hempty">No tienes conversaciones aún.<br>¡Inicia tu primera consulta!</div></div>
+    <section class="hist-hero" aria-labelledby="histTitle">
+      <div class="hist-hero-icon" aria-hidden="true">💬</div>
+      <div>
+        <span class="hist-eyebrow">TU ACTIVIDAD</span>
+        <h2 id="histTitle">Historial de conversaciones</h2>
+        <p>Encuentra rápidamente tus consultas anteriores y continúa trabajando donde lo dejaste.</p>
+      </div>
+      <div class="hist-total" aria-label="Total de conversaciones"><strong id="histTotal">0</strong><span>conversaciones</span></div>
+    </section>
+    <section class="hist-panel">
+      <div class="hist-toolbar">
+        <label class="hist-search-wrap" for="histSearch"><span aria-hidden="true">⌕</span><input type="search" class="hist-search" id="histSearch" placeholder="Buscar por tema, área o palabra…" oninput="searchHist(this.value)"></label>
+        <button type="button" class="clrbtn" id="histClearBtn" onclick="clearHist()"><span aria-hidden="true">⌫</span> Borrar historial</button>
+      </div>
+      <div class="hist-result-label" id="histResultLabel" aria-live="polite"></div>
+      <div class="hlist" id="histList"><div class="hempty"><span aria-hidden="true">💡</span><strong>Aún no tienes conversaciones</strong><small>Realiza tu primera consulta y aparecerá guardada aquí.</small><button type="button" onclick="newChat()">Iniciar una consulta</button></div></div>
+    </section>
   </div>
 
   <!-- CALCULADORA -->
@@ -1141,25 +1163,63 @@
 
   <!-- REFERIDOS -->
   <div id="ptReferidos" class="pbody" style="display:none">
-    <div class="sec-title" style="margin-bottom:4px">Sistema de Referidos 🎁</div>
-    <p style="font-size:14px;color:var(--muted);margin-bottom:16px">Comparte tu link único y gana <strong style="color:var(--gold)">1 mes gratis</strong> por cada amigo que se suscriba al Plan Profesional.</p>
-    <div class="ref-box">
-      <div style="font-size:14px;font-weight:500;margin-bottom:4px">Tu link de referido</div>
-      <div style="font-size:14px;color:var(--muted);margin-bottom:10px">Cualquier persona que se registre con este link y pague un plan, te otorga 1 mes gratis automáticamente.</div>
-      <div class="ref-link-wrap">
-        <div class="ref-link" id="refLink">declarafy.com/ref/CARGANDO</div>
-        <button class="ref-copy-btn" onclick="copyRefLink()">Copiar link</button>
+    <section class="ref-hero" aria-labelledby="refTitle">
+      <div class="ref-hero-icon" aria-hidden="true">🎁</div>
+      <div>
+        <span class="ref-eyebrow">PROGRAMA DE REFERIDOS</span>
+        <h2 id="refTitle">Invita a un amigo y gana 1 mes gratis</h2>
+        <p>Comparte tu enlace personal. Cuando tu amigo contrate y pague el Plan Profesional, recibirás automáticamente un mes gratis.</p>
       </div>
-    </div>
+    </section>
+
+    <section class="ref-box" aria-labelledby="refLinkTitle">
+      <div class="ref-section-heading">
+        <div><span class="ref-section-icon" aria-hidden="true">🔗</span><strong id="refLinkTitle">Tu enlace personal</strong></div>
+        <span class="ref-private">Solo para ti</span>
+      </div>
+      <div class="ref-link-wrap">
+        <div class="ref-link" id="refLink" role="textbox" aria-readonly="true">Cargando enlace…</div>
+        <button type="button" class="ref-copy-btn" onclick="copyRefLink(this)"><span aria-hidden="true">⧉</span> Copiar enlace</button>
+      </div>
+      <div class="ref-share-label">Compartir directamente</div>
+      <div class="ref-share-actions" aria-label="Opciones para compartir">
+        <button type="button" class="ref-share-btn whatsapp" onclick="shareReferral('whatsapp')">WhatsApp</button>
+        <button type="button" class="ref-share-btn linkedin" onclick="shareReferral('linkedin')">LinkedIn</button>
+        <button type="button" class="ref-share-btn email" onclick="shareReferral('email')">Correo</button>
+        <button type="button" class="ref-share-btn native" onclick="shareReferral('native')">Más opciones</button>
+      </div>
+    </section>
+
     <div class="ref-stats">
-      <div class="ref-stat"><div class="ref-stat-v" id="refTotal">0</div><div class="ref-stat-l">Referidos totales</div></div>
-      <div class="ref-stat"><div class="ref-stat-v" id="refActive">0</div><div class="ref-stat-l">Suscriptores activos</div></div>
-      <div class="ref-stat"><div class="ref-stat-v gold" id="refMeses">0</div><div class="ref-stat-l">Meses ganados</div></div>
+      <div class="ref-stat"><span class="ref-stat-icon blue" aria-hidden="true">👥</span><div><div class="ref-stat-v" id="refTotal">0</div><div class="ref-stat-l">Referidos totales</div></div></div>
+      <div class="ref-stat"><span class="ref-stat-icon green" aria-hidden="true">✓</span><div><div class="ref-stat-v" id="refActive">0</div><div class="ref-stat-l">Con Plan Profesional</div></div></div>
+      <div class="ref-stat"><span class="ref-stat-icon gold" aria-hidden="true">★</span><div><div class="ref-stat-v" id="refMeses">0</div><div class="ref-stat-l">Meses gratis ganados</div></div></div>
     </div>
-    <div class="ref-leaderboard" id="refLeader" style="margin-top:18px">
-      <div class="sec-title" style="margin-bottom:10px">Top referidores del mes</div>
+
+    <div class="ref-grid">
+      <section class="ref-panel" aria-labelledby="refHowTitle">
+        <div class="ref-panel-title" id="refHowTitle">¿Cómo funciona?</div>
+        <ol class="ref-steps">
+          <li><span>1</span><div><strong>Comparte tu enlace</strong><small>Envíalo a amigos o emprendedores.</small></div></li>
+          <li><span>2</span><div><strong>Tu amigo se suscribe</strong><small>Debe contratar y pagar el Plan Profesional.</small></div></li>
+          <li><span>3</span><div><strong>Recibe tu recompensa</strong><small>Sumamos 1 mes gratis automáticamente.</small></div></li>
+        </ol>
+      </section>
+      <section class="ref-panel" aria-labelledby="refHistoryTitle">
+        <div class="ref-panel-title" id="refHistoryTitle">Actividad de tus referidos</div>
+        <div id="refHistoryList" class="ref-history"></div>
+      </section>
+    </div>
+
+    <section class="ref-leaderboard ref-panel" id="refLeader" aria-labelledby="refLeaderTitle">
+      <div class="ref-panel-title" id="refLeaderTitle">Top referidores del mes</div>
       <div id="refLeaderList"></div>
-    </div>
+    </section>
+
+    <details class="ref-terms">
+      <summary>Condiciones del programa</summary>
+      <p>La recompensa se acredita cuando el referido completa el pago del Plan Profesional. Cada suscripción válida otorga 1 mes gratis al usuario que compartió el enlace.</p>
+    </details>
   </div>
 
   <!-- ALERTAS VENCIMIENTO POR RUC -->
@@ -3570,7 +3630,7 @@ End Function</div>
     </div>
 
   </div><!-- /cripto_legal -->
-  </div><!-- /scroll wrapper -->
+  </main><!-- /scroll wrapper -->
   </div>
 </div>
 
