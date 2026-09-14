@@ -73,3 +73,23 @@ test('successful authentication still opens the user panel', () => {
   assert.match(app, /hideAuth\(\); goPanel\(\);/);
   assert.match(app, /kvLoadAll\(\)\.then\(\(\) => goPanel\(\)\)/);
 });
+
+test('module navigation is searchable, alphabetized and keyboard accessible', () => {
+  assert.match(html, /id="moduleSearch"/);
+  assert.match(html, /aria-label="Módulos de Declarafy"/);
+  assert.match(app, /function sortPanelNavigation\(\)/);
+  assert.match(app, /localeCompare\(cleanLabel\(b\),'es'/);
+  assert.match(app, /function filterPanelNavigation\(query\)/);
+  assert.match(app, /ArrowDown/);
+  assert.match(app, /aria-selected/);
+});
+
+test('frontend uses the Declarafy design system and accessible content target', () => {
+  const styles = read('styles.css');
+  assert.match(html, /Plus\+Jakarta\+Sans/);
+  assert.match(html, /<main id="main-content" tabindex="-1"/);
+  assert.match(styles, /--color-primary:#1e3a5f/);
+  assert.match(styles, /:focus-visible/);
+  assert.match(styles, /prefers-reduced-motion:reduce/);
+  assert.equal((app.match(/renderHistList = function/g) || []).length, 0);
+});
