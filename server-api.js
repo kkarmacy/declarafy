@@ -7,6 +7,21 @@ const DECLARAFY_API_ENDPOINT = '/api/index.php';
 let declarafyCsrfToken = '';
 let declarafySessionUser = null;
 
+async function declarafyFetch(url, options = {}, timeoutMs = 45000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, cache: 'no-store', signal: controller.signal });
+  } catch (error) {
+    const message = error.name === 'AbortError'
+      ? 'El servidor tardó demasiado. Intenta nuevamente; no repitas la operación varias veces.'
+      : 'No se pudo conectar con el servidor. Comprueba tu conexión e intenta nuevamente.';
+    throw new Error(message);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function declarafyApi(action, options = {}) {
   const method = options.method || 'POST';
   const headers = { 'Accept': 'application/json', 'X-Requested-With': 'DeclarafyWeb' };
@@ -15,28 +30,48 @@ async function declarafyApi(action, options = {}) {
     if (!declarafyCsrfToken) await declarafyLoadSession();
     headers['X-CSRF-Token'] = declarafyCsrfToken;
   }
-  const response = await fetch(`${DECLARAFY_API_ENDPOINT}?action=${encodeURIComponent(action)}`, {
+  const response = await declarafyFetch(`${DECLARAFY_API_ENDPOINT}?action=${encodeURIComponent(action)}`, {
     method,
     credentials: 'same-origin',
     headers,
     body: method === 'GET' ? undefined : JSON.stringify(options.body || {})
   });
-  const payload = await response.json().catch(() => ({}));
+  const raw = await response.text();
+  let payload = {};
+  try { payload = raw ? JSON.parse(raw) : {}; } catch (_) {
+    throw new Error('El servidor devolvió una respuesta inválida. Recarga la página e intenta nuevamente.');
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('El servidor devolvió una respuesta inválida. Recarga la página e intenta nuevamente.');
+  }
   if (!response.ok || payload.ok === false) {
-    const error = new Error(payload.message || `Error del servidor (${response.status})`);
+    const fallback = response.status >= 500
+      ? 'El servidor no pudo completar la operación. Intenta nuevamente.'
+      : `La solicitud no pudo completarse (${response.status}).`;
+    const error = new Error(payload.message || fallback);
     error.code = payload.code || 'server/error';
     throw error;
   }
   if (payload.csrfToken) declarafyCsrfToken = payload.csrfToken;
+  if (!payload || payload.ok !== true || !Object.prototype.hasOwnProperty.call(payload, 'data')) {
+    throw new Error('La respuesta del servidor está incompleta. Recarga la página e intenta nuevamente.');
+  }
   return payload.data;
 }
 
 async function declarafyLoadSession() {
-  const response = await fetch(`${DECLARAFY_API_ENDPOINT}?action=session`, {
+  const response = await declarafyFetch(`${DECLARAFY_API_ENDPOINT}?action=session`, {
     credentials: 'same-origin',
     headers: { 'Accept': 'application/json', 'X-Requested-With': 'DeclarafyWeb' }
   });
-  const payload = await response.json();
+  const raw = await response.text();
+  let payload = {};
+  try { payload = raw ? JSON.parse(raw) : {}; } catch (_) {
+    throw new Error('El servidor devolvió una sesión inválida. Recarga la página e intenta nuevamente.');
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('El servidor devolvió una sesión inválida. Recarga la página e intenta nuevamente.');
+  }
   if (!response.ok || payload.ok === false) throw new Error(payload.message || 'No se pudo iniciar la sesión segura.');
   declarafyCsrfToken = payload.csrfToken || '';
   declarafySessionUser = payload.data?.user || null;

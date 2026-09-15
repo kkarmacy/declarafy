@@ -20,6 +20,7 @@ for (const src of localScripts) {
 }
 
 for (const required of [
+  '.htaccess',
   'api/index.php', 'api/bootstrap.php', 'api/schema.sql', 'api/config.sample.php',
   'api/.htaccess', 'server-api.js', 'reset-password.html'
 ]) {
@@ -33,5 +34,9 @@ if (!/^api\/config\.local\.php$/m.test(gitignore)) fail('api/config.local.php is
 
 const htaccess = fs.readFileSync(path.join(root, 'api/.htaccess'), 'utf8');
 if (!/config\\\.local\\\.php/.test(htaccess)) fail('api/.htaccess does not protect config.local.php');
+
+const rootHtaccess = fs.readFileSync(path.join(root, '.htaccess'), 'utf8');
+if (!/X-Frame-Options "DENY"/.test(rootHtaccess)) fail('root .htaccess does not prevent framing');
+if (!/config\\\.local\\\.php/.test(rootHtaccess)) fail('root .htaccess does not protect config.local.php');
 
 if (!process.exitCode) console.log(`Namecheap deployment structure verified: ${localScripts.length} local scripts and protected PHP/MySQL backend.`);
