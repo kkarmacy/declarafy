@@ -1,5 +1,5 @@
 // Service Worker — DeclaraFY PWA
-const CACHE_NAME = 'declarafy-v13-namecheap';
+const CACHE_NAME = 'declarafy-v14-namecheap';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

@@ -67,7 +67,7 @@ test('AI key stays server-side and requests have quota and time limits', () => {
 });
 
 test('service worker never caches API responses and refreshes old shells', () => {
-  assert.match(serviceWorker, /declarafy-v13-namecheap/);
+  assert.match(serviceWorker, /declarafy-v14-namecheap/);
   assert.match(serviceWorker, /endsWith\('\.css'\)/);
   assert.match(serviceWorker, /url\.pathname\.startsWith\('\/api\/'\)/);
   assert.match(serviceWorker, /e\.request\.mode === 'navigate'/);
@@ -101,9 +101,9 @@ test('canonical host, critical shell CSS and cache versions are deployment-safe'
   assert.doesNotMatch(html, /https:\/\/www\.declarafy\.com/);
   assert.match(html, /id="critical-shell-css"/);
   assert.match(html, /#tp-confirm-overlay:not\(\.show\)/);
-  assert.match(html, /\/app\.js\?v=20260914-1/);
-  assert.match(html, /\/sw\.js\?v=11/);
-  assert.match(version, /2026\.09\.14-1/);
+  assert.match(html, /\/app\.js\?v=20260915-1/);
+  assert.match(html, /\/sw\.js\?v=14/);
+  assert.match(version, /2026\.09\.15-1/);
   const rootHeaders = read('.htaccess');
   assert.match(rootHeaders, /RewriteCond %\{HTTP_HOST\} \^www\\\.declarafy\\\.com\$/);
   assert.match(rootHeaders, /Strict-Transport-Security/);
@@ -117,21 +117,24 @@ test('landing and authenticated panel are sibling screens', () => {
   assert.match(html, /<!-- PANEL -->\s*<div class="screen" id="screen-panel">/);
 });
 
-test('all 145 declared panel tabs resolve to a real section id', () => {
+test('all 125 active panel tabs resolve to a real section id', () => {
   const list = app.match(/const PT_TAB_NAMES = \[([\s\S]*?)\];/);
   assert.ok(list, 'PT_TAB_NAMES declaration is missing');
   const tabs = [...list[1].matchAll(/['"]([^'"]+)['"]/g)].map(match => match[1]);
   const ids = [...html.matchAll(/id="pt([^"]+)"/g)].map(match => match[1]);
   const key = value => value.replace(/[^a-z0-9]/gi, '').toLowerCase();
-  assert.equal(tabs.length, 145);
+  assert.equal(tabs.length, 125);
   assert.deepEqual(tabs.filter(tab => !ids.some(id => key(id) === key(tab))), []);
   assert.match(app, /function _ptSectionId\(tab\)/);
   const navigationTargets = [...new Set([...html.matchAll(/setPTab\(['"]([^'"]+)/g)].map(match => match[1]))];
   assert.deepEqual(navigationTargets.filter(tab => !ids.some(id => key(id) === key(tab))), []);
+  const panelNavigation = html.slice(html.indexOf('<div class="pnav">'), html.indexOf('</div><!-- /pnav -->'));
+  const visibleTargets = [...new Set([...panelNavigation.matchAll(/setPTab\('([^']+)'/g)].map(match => match[1]))];
+  assert.deepEqual(tabs.filter(tab => !visibleTargets.includes(tab)), [], 'every active module must appear in the navigation');
 });
 
-test('the 19 requested specialized modules are visible and open real tools', () => {
-  const expected = ['sucesiones','donaciones','cobranza_coactiva','onp','essalud_senati','notas_credito','percepciones','afp_onp','royalties','cas','no_domiciliados','dividendos','ir_5ta','itf','generador_informes','chat_sesiones','analizador_contratos','proyeccion_afp','verificador_ruc'];
+test('the 17 active specialized modules are visible and open real tools', () => {
+  const expected = ['sucesiones','donaciones','cobranza_coactiva','onp','essalud_senati','notas_credito','percepciones','afp_onp','royalties','cas','no_domiciliados','dividendos','ir_5ta','itf','analizador_contratos','proyeccion_afp','verificador_ruc'];
   const launcher = html.slice(html.indexOf('id="specializedModuleGrid"'), html.indexOf('id="specializedModuleEmpty"'));
   const sectionIds = [...html.matchAll(/id="pt([^"]+)"/g)].map(match => match[1]);
   const normalize = value => value.replace(/[^a-z0-9]/gi, '').toLowerCase();
@@ -141,8 +144,19 @@ test('the 19 requested specialized modules are visible and open real tools', () 
   }
   assert.match(app, /function filterPanelNavigation\(value\)/);
   assert.match(app, /function filterSpecializedModules\(value\)/);
-  assert.match(html, /setPTab\('especializados',this\).*19 módulos/);
+  assert.match(html, /setPTab\('especializados',this\).*17 módulos/);
   assert.match(html, /id="ptEspecializados"/);
+});
+
+test('retired modules are no longer exposed or registered in the product', () => {
+  const retired = ['amortizacion','bal_comprob','calendario_fiscal','chat_sesiones','cierre_empresa','comp_fin','sunat_live','contratos','contratos_gen2','dep_acelerada','despido','favoritos','generador_informes','itan_detalle','libro_diario','poder_notarial','precios_transf','ratios_fin','score_fin','van_tir'];
+  const list = app.match(/const PT_TAB_NAMES = \[([\s\S]*?)\];/);
+  assert.ok(list);
+  for (const module of retired) {
+    assert.doesNotMatch(list[1], new RegExp(`['"]${module}['"]`));
+    assert.doesNotMatch(html, new RegExp(`setPTab\\(['"]${module}['"]`));
+    assert.doesNotMatch(html, new RegExp(`openSpecializedModule\\(['"]${module}['"]`));
+  }
 });
 
 test('SUNAT uses the official CPE OAuth service and protected data opens official portals', () => {
@@ -160,10 +174,7 @@ test('SUNAT uses the official CPE OAuth service and protected data opens officia
   assert.doesNotMatch(app, /DECLARAFY_FN_BASE\/consultaRuc/);
 });
 
-test('chat sessions show real saved history and AFP projection compounds salary annually', () => {
-  const chat = app.slice(app.indexOf('function calcChat()'), app.indexOf('// ── 25. GENERADOR INFORMES'));
-  assert.match(chat, /getHist\(curUser\.email\)/);
-  assert.doesNotMatch(chat, /Consulta sobre RUC y facturación|DeepSeek|tp_chat_sessions/);
+test('AFP projection compounds salary annually', () => {
   const projection = app.slice(app.indexOf('function calcProyAfp()'), app.indexOf('// ── 23. ANALIZADOR CONTRATOS'));
   assert.match(projection, /sueldo \* \(0\.10 \+ comision \+ prima\)/);
   assert.match(projection, /sueldoMensual \*= \(1 \+ crec\)/);

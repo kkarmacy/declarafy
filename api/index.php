@@ -212,7 +212,7 @@ function sunat_validate_cpe(array $config, array $body): array {
 switch ($action) {
     case 'health':
         require_method('GET');
-        respond(['service' => 'declarafy-api', 'status' => 'ok', 'release' => '2026.09.14-1']);
+        respond(['service' => 'declarafy-api', 'status' => 'ok', 'release' => '2026.09.15-1']);
 
     case 'sunat_status':
         require_method('GET');
