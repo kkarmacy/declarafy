@@ -45,7 +45,7 @@ test('el formulario de registro valida datos antes de llamar al servidor', async
   await page.locator('#rEmail').fill('usuario@example.com');
   await page.locator('#rPass').fill('clave-segura-1');
   await page.locator('#rPass2').fill('clave-distinta-2');
-  await page.getByRole('button', { name: 'Crear cuenta gratis' }).click();
+  await page.locator('#authOv').getByRole('button', { name: 'Crear cuenta gratis' }).click();
   await expect(page.locator('#authErr')).toContainText('no coinciden');
 });
 

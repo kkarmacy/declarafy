@@ -16,7 +16,7 @@ const TEST_USER = {
 };
 
 async function mockAuthenticatedApi(page) {
-  await page.route('**/api/index.php**', async route => {
+  await page.route(/\/api\/index\.php(?:\?.*)?$/, async route => {
     const action = new URL(route.request().url()).searchParams.get('action') || 'health';
     const dataByAction = {
       health: { service: 'declarafy-api', status: 'ok' },

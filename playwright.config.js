@@ -19,6 +19,10 @@ module.exports = defineConfig({
     baseURL: externalBaseUrl || 'http://127.0.0.1:4173',
     locale: 'es-PE',
     timezoneId: 'America/Lima',
+    // The application service worker caches requests before Playwright can
+    // fulfill mocked API calls. E2E tests exercise the current checkout, so
+    // cached production assets would make the result both stale and flaky.
+    serviceWorkers: 'block',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
