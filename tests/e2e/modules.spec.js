@@ -70,7 +70,7 @@ test('historial y referidos muestran sus nuevos estados visuales', async ({ page
   await expect(page.locator('.module-empty-state')).toContainText('Aún no tienes conversaciones');
 
   await page.evaluate(() => setPTab('referidos', null));
-  await expect(page.getByRole('heading', { name: 'Sistema de Referidos' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Invita, comparte y gana' })).toBeVisible();
   await expect(page.locator('.ref-share-card')).toBeVisible();
   await expect(page.locator('#refLink')).toContainText('REFE2ETEST');
 });
