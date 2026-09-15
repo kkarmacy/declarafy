@@ -1,0 +1,4 @@
+DeclaraFY 2026.09.14-1
+Frontend: navegación, formularios accesibles, tablas móviles y errores de conexión
+Módulos especializados: 19
+SUNAT: RUC público + SOL + validación CPE oficial

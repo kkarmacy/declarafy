@@ -1,10 +1,13 @@
 // Service Worker — DeclaraFY PWA
-const CACHE_NAME = 'declarafy-v4-namecheap';
+const CACHE_NAME = 'declarafy-v13-namecheap';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/styles.css',
+  '/frontend-polish.css',
+  '/frontend-ui.js',
   '/server-api.js',
+  '/declarafy-logo.svg',
   '/icon.svg',
   '/icon-64.png',
   '/icon-180.png',
@@ -39,16 +42,8 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Firebase SDK: network-first
-  if (url.hostname.includes('gstatic.com') || url.hostname.includes('firebaseio.com')) {
-    e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
-    );
-    return;
-  }
-
-  // JS files: network-first (never cache stale JS)
-  if (url.pathname.endsWith('.js')) {
+  // Code and styles: network-first so deployments cannot leave a mixed UI.
+  if (url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) {
     e.respondWith(
       fetch(e.request).catch(() => caches.match(e.request))
     );

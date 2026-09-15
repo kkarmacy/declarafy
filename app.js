@@ -1,35 +1,8 @@
-// ── LLAMADAS A CLAUDE: directas o mediante el backend PHP seguro ──
+// ── LLAMADAS A IA: exclusivamente mediante el backend PHP seguro ──
 // NOTA: AREAS, SYS, DECLARAFY_PROXY_URL, DECLARAFY_FN_BASE, FREE y ADMIN_EMAIL
 // están definidos en /js/config.js — NO duplicar aquí.
 async function callDeclaraFY(body) {
-  // Direct call when user provided their own API key
-  if (typeof apiKey === 'string' && apiKey.startsWith('sk-ant-')) {
-    const stream = body.stream || false;
-    try {
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: body.model || 'claude-sonnet-4-5',
-          max_tokens: body.max_tokens || 1024,
-          stream,
-          system: body.system,
-          messages: body.messages,
-        }),
-      });
-      console.log('Anthropic response:', resp.status, resp.statusText);
-      return resp;
-    } catch (e) {
-      console.error('Anthropic direct call failed:', e);
-      throw new Error('Error de conexión con Anthropic: ' + e.message);
-    }
-  }
-  // Backend PHP en el mismo dominio. La clave de Anthropic nunca llega al navegador.
+  // La clave del proveedor nunca llega al navegador ni se guarda en localStorage.
   if (!declarafyCsrfToken) await declarafyLoadSession();
   return fetch(DECLARAFY_PROXY_URL, {
     method: 'POST',
@@ -55,11 +28,13 @@ function setArea(btn){
 }
 
 // ── STATE ──
-let apiKey = localStorage.getItem('tp_anthropic_key') || false;
+let apiKey = 'declarafy-proxy';
 let curUser=null,curPlan='basico',curArea='general';
 // Cuenta de administrador — mismo criterio que firestore.rules (isAdmin()).
 // ADMIN_EMAIL y FREE ya están en config.js
-function isAdminUser() { return !!(curUser && curUser.email === ADMIN_EMAIL); }
+function isAdminUser() {
+  return !!(curUser && (curUser.isAdmin === true || String(curUser.email || '').toLowerCase() === ADMIN_EMAIL));
+}
 let msgCount=0,attached=[],convHist=[],convId=null;
 
 // ════════════════════════════════════════
@@ -93,6 +68,10 @@ function _escapeHtml(str) {
   const div = document.createElement('div');
   div.appendChild(document.createTextNode(str));
   return div.innerHTML;
+}
+function _safeToken(value, allowed, fallback) {
+  const token = String(value || '');
+  return allowed.includes(token) ? token : fallback;
 }
 function _highlightMatch(text, query) {
   const safe = _escapeHtml(text);
@@ -149,7 +128,7 @@ function handleFiles(input) {
 }
 function renderChips() {
   const el = document.getElementById('chips'); if (!el) return;
-  el.innerHTML = attached.map((f,i) => `<div class="chip">📎 ${f.name}<button onclick="removeChip(${i})" aria-label="Quitar archivo">×</button></div>`).join('');
+  el.innerHTML = attached.map((f,i) => `<div class="chip">📎 ${_escapeHtml(f.name)}<button onclick="removeChip(${i})" aria-label="Quitar archivo">×</button></div>`).join('');
 }
 function removeChip(i) { attached.splice(i,1); renderChips(); }
 
@@ -208,17 +187,11 @@ function delConv(i, event) {
 // ── Modal "ingresa tu API key" ──
 function saveKey() {
   const inp = document.getElementById('apiInp');
-  const val = inp?.value?.trim() || '';
   const errEl = document.getElementById('apiErr');
-  if (!val.startsWith('sk-ant-')) {
-    if (errEl) errEl.textContent = '❌ La API key debe comenzar con sk-ant-';
-    return;
-  }
-  if (errEl) errEl.textContent = '';
-  localStorage.setItem('tp_anthropic_key', val);
-  apiKey = val;
+  if (inp) inp.value = '';
+  if (errEl) errEl.textContent = 'La clave se configura únicamente en el servidor.';
   document.getElementById('apiOv')?.classList.add('hidden');
-  addNotif('🔑', 'API Key conectada', 'Ahora puedes usar respuestas reales de Claude.');
+  addNotif('🔐', 'Conexión segura', 'DeclaraFY usa la configuración privada del servidor.');
 }
 
 // ── DB ──
@@ -227,7 +200,7 @@ function saveKey() {
 function getUsers(){return {}}
 function saveUsers(){/* retired: never persist user accounts in the browser */}
 function getHist(e){
-  try{return JSON.parse(localStorage.getItem('tp_h_'+btoa(e))||'[]')}catch{return[]}
+  try { const data = JSON.parse(localStorage.getItem('tp_h_'+btoa(e))||'[]'); return Array.isArray(data) ? data : []; } catch { return []; }
 }
 async function getHistAsync(uid) {
   if(!fbReady||!uid) return getHist(curUser?.email||'');
@@ -465,7 +438,7 @@ function exportPDF() {
     return `<div style="margin-bottom:14px;padding:10px 14px;background:${isUser?'#f0f0ff':'#f8f8f0'};border-radius:8px;border-left:3px solid ${isUser?'#555':'#C9A84C'}"><strong style="color:${isUser?'#333':'#8B6914'};font-size:14px">${isUser?'Usuario':'DeclaraFY IA'}</strong><p style="margin:5px 0 0;color:#333;line-height:1.6;font-size:14px">${_escapeHtml(text)}</p></div>`;
   }).join('');
   const win = window.open('', '_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Consulta DeclaraFY</title><style>body{font-family:Arial,sans-serif;max-width:680px;margin:40px auto;color:#333;line-height:1.6}h1{color:#C9A84C;border-bottom:2px solid #C9A84C;padding-bottom:8px;font-size:22px}.meta{font-size:14px;color:#888;margin-bottom:22px}@media print{body{margin:20px}}</style></head><body><h1>DeclaraFY — Consulta Tributaria</h1><div class="meta">Usuario: ${_escapeHtml(curUser?.name||'—')} | Área: ${_escapeHtml(AREAS[curArea]?.label||'General')} | Fecha: ${new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'})}</div>${rows}<hr style="margin:22px 0;border:1px solid #eee"><p style="font-size:14px;color:#999;text-align:center">Documento generado por DeclaraFY.pe — Solo con fines orientativos. Consulta con un profesional para decisiones formales.</p></body></html>`);
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Consulta DeclaraFY</title><style>body{font-family:Arial,sans-serif;max-width:680px;margin:40px auto;color:#333;line-height:1.6}h1{color:#C9A84C;border-bottom:2px solid #C9A84C;padding-bottom:8px;font-size:22px}.meta{font-size:14px;color:#888;margin-bottom:22px}@media print{body{margin:20px}}</style></head><body><h1>DeclaraFY — Consulta Tributaria</h1><div class="meta">Usuario: ${_escapeHtml(curUser?.name||'—')} | Área: ${_escapeHtml(AREAS[curArea]?.label||'General')} | Fecha: ${new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'})}</div>${rows}<hr style="margin:22px 0;border:1px solid #eee"><p style="font-size:14px;color:#999;text-align:center">Documento generado por Declarafy.com — Solo con fines orientativos. Consulta con un profesional para decisiones formales.</p></body></html>`);
   win.document.close();
   setTimeout(() => win.print(), 600);
 }
@@ -493,7 +466,7 @@ function exportDOCX() {
 <w:p><w:r><w:rPr><w:color w:val="888888"/><w:sz w:20"/></w:rPr><w:t xml:space="preserve">Usuario: ${_escapeXml(curUser?.name || '—')} | Fecha: ${new Date().toLocaleDateString('es-PE', {day:'2-digit',month:'long',year:'numeric'})}</w:t></w:r></w:p>
 <w:p><w:r><w:br/></w:r></w:p>
 ${body}
-<w:p><w:r><w:rPr><w:color w:val="999999"/><w:sz w:18"/></w:rPr><w:t xml:space="preserve">Documento generado por DeclaraFY.pe — Solo con fines orientativos.</w:t></w:r></w:p>
+<w:p><w:r><w:rPr><w:color w:val="999999"/><w:sz w:18"/></w:rPr><w:t xml:space="preserve">Documento generado por Declarafy.com — Solo con fines orientativos.</w:t></w:r></w:p>
 </w:body></w:document>`;
   // Generate an .html file that Word can open (no JSZip dependency needed)
   const htmlContent = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Consulta DeclaraFY</title><style>
@@ -509,7 +482,7 @@ h1{color:#C9A84C;border-bottom:2px solid #C9A84C;padding-bottom:8px;font-size:22
 <h1>DeclaraFY — Consulta Tributaria</h1>
 <div class="meta">Usuario: ${_escapeHtml(curUser?.name || '—')} | Área: ${_escapeHtml(AREAS[curArea]?.label || 'General')} | Fecha: ${new Date().toLocaleDateString('es-PE', {day:'2-digit',month:'long',year:'numeric'})}</div>
 ${rows.map(r => `<div class="${r.role === 'Usuario' ? 'msg-user' : 'msg-ai'}"><div class="role ${r.role === 'Usuario' ? 'role-user' : 'role-ai'}">${r.role}</div><p>${_escapeHtml(r.text)}</p></div>`).join('')}
-<hr><p style="font-size:14px;color:#999;text-align:center">Documento generado por DeclaraFY.pe — Solo con fines orientativos.</p>
+<hr><p style="font-size:14px;color:#999;text-align:center">Documento generado por Declarafy.com — Solo con fines orientativos.</p>
 </body></html>`;
   const blob = new Blob([htmlContent], { type: 'application/msword' });
   const url = URL.createObjectURL(blob);
@@ -525,27 +498,41 @@ function _escapeXml(s) {
 // DARK / LIGHT MODE
 // ════════════════════════════════════════
 function toggleTheme() {
-  const isLight = document.body.classList.toggle('light-mode');
-  localStorage.setItem('tp_theme', isLight ? 'light' : 'dark');
-  document.querySelectorAll('[id^="themeBtn"]').forEach(b => b.textContent = isLight ? '🌞' : '🌙');
+  const isDark = document.body.classList.toggle('dark-mode');
+  document.body.classList.remove('light-mode');
+  localStorage.setItem('tp_theme', isDark ? 'dark' : 'light');
+  document.querySelectorAll('[id^="themeBtn"]').forEach(b => {
+    b.textContent = isDark ? '☀️' : '🌙';
+    b.setAttribute('aria-label', isDark ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro');
+    b.setAttribute('aria-pressed', String(isDark));
+  });
 }
 (function applyTheme() {
-  if (localStorage.getItem('tp_theme') === 'light') {
-    document.body.classList.add('light-mode');
-    document.querySelectorAll('[id^="themeBtn"]').forEach(b => b.textContent = '🌞');
-  }
+  const isDark = localStorage.getItem('tp_theme') === 'dark';
+  document.body.classList.toggle('dark-mode', isDark);
+  document.body.classList.remove('light-mode');
+  document.querySelectorAll('[id^="themeBtn"]').forEach(b => {
+    b.textContent = isDark ? '☀️' : '🌙';
+    b.setAttribute('aria-label', isDark ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro');
+    b.setAttribute('aria-pressed', String(isDark));
+  });
 })();
 
 // ════════════════════════════════════════
 // NOTIFICATIONS
 // ════════════════════════════════════════
 const DEFAULT_NOTIFS = [
-  { id:1, icon:'📅', title:'Vencimiento próximo', desc:'Declaración mensual PDT 621 vence en 5 días', time:'Hace 1 hora', read:false },
-  { id:2, icon:'📢', title:'Nueva normativa SUNAT', desc:'R.S. 034-2025/SUNAT: Nuevos cronogramas de vencimiento publicados', time:'Hace 3 horas', read:false },
-  { id:3, icon:'💡', title:'Consejo tributario', desc:'Recuerda: los gastos de representación son deducibles hasta 0.5% de tus ingresos netos', time:'Ayer', read:true },
-  { id:4, icon:'🔔', title:'Bienvenido a DeclaraFY', desc:'Tu cuenta está activa. ¡Empieza consultando con la IA!', time:'Al registrarte', read:true },
+  { id:4, icon:'🔔', title:'Bienvenido a DeclaraFY', desc:'Consulta tus herramientas en el panel. Los vencimientos deben confirmarse con el cronograma oficial de SUNAT.', time:'Bienvenida', read:false },
 ];
-function getNotifs() { try { return JSON.parse(localStorage.getItem('tp_notifs') || 'null') || DEFAULT_NOTIFS; } catch { return DEFAULT_NOTIFS; } }
+function getNotifs() {
+  try {
+    const stored = JSON.parse(localStorage.getItem('tp_notifs') || 'null');
+    if (stored === null) return DEFAULT_NOTIFS.map(item => ({ ...item }));
+    if (!Array.isArray(stored)) return DEFAULT_NOTIFS.map(item => ({ ...item }));
+    // Versions antiguas guardaban tres avisos regulatorios de demostración.
+    return stored.filter(item => item && typeof item === 'object' && ![1, 2, 3].includes(Number(item.id)));
+  } catch { return DEFAULT_NOTIFS.map(item => ({ ...item })); }
+}
 function saveNotifs(n) { localStorage.setItem('tp_notifs', JSON.stringify(n)); }
 function renderNotifs() {
   const notifs = getNotifs();
@@ -553,7 +540,10 @@ function renderNotifs() {
   document.querySelectorAll('.notif-dot').forEach(d => { d.style.display = unread > 0 ? 'flex' : 'none'; d.textContent = unread; });
   const list = document.getElementById('notifList'); if (!list) return;
   if (!notifs.length) { list.innerHTML = '<div class="notif-empty">No tienes notificaciones</div>'; return; }
-  list.innerHTML = notifs.map(n => `<div class="notif-item${n.read ? '' : ' unread'}" onclick="readNotif(${n.id})"><div class="notif-icon">${n.icon}</div><div class="notif-body"><div class="notif-title">${n.title}</div><div class="notif-desc">${n.desc}</div><div class="notif-time">${n.time}</div></div></div>`).join('') + '<div class="notif-mark-all" onclick="markAllRead()">Marcar todo como leído</div>';
+  list.innerHTML = notifs.map(n => {
+    const id = Number.isFinite(Number(n.id)) ? Math.trunc(Number(n.id)) : 0;
+    return `<div class="notif-item${n.read ? '' : ' unread'}" onclick="readNotif(${id})"><div class="notif-icon">${_escapeHtml(n.icon || '🔔')}</div><div class="notif-body"><div class="notif-title">${_escapeHtml(n.title || 'Notificación')}</div><div class="notif-desc">${_escapeHtml(n.desc || '')}</div><div class="notif-time">${_escapeHtml(n.time || '')}</div></div></div>`;
+  }).join('') + '<div class="notif-mark-all" onclick="markAllRead()">Marcar todo como leído</div>';
 }
 function readNotif(id) { const n = getNotifs(); const item = n.find(x => x.id === id); if (item) { item.read = true; saveNotifs(n); renderNotifs(); } }
 function markAllRead() { const n = getNotifs(); n.forEach(x => x.read = true); saveNotifs(n); renderNotifs(); }
@@ -585,7 +575,7 @@ function loadProfileForm() {
   const pn = {basico:'Plan Básico', pro:'Plan Profesional', empresa:'Plan Empresa'};
   document.getElementById('profAv').textContent = (curUser.name || curUser.email || '?').charAt(0).toUpperCase();
   document.getElementById('profName').textContent = curUser.name || '';
-  document.getElementById('profPlan').textContent = pn[curUser.plan] || 'Plan Básico';
+  document.getElementById('profPlan').textContent = isAdminUser() ? 'Superadministrador' : (pn[curUser.plan] || 'Plan Básico');
   document.getElementById('profEmail').textContent = curUser.email;
   document.getElementById('pName').value = curUser.name || '';
   document.getElementById('pRuc').value = curUser.ruc || '';
@@ -619,17 +609,28 @@ function searchHist(query) {
 }
 function renderHistList(h, highlight) {
   const l = document.getElementById('histList'); if (!l) return;
-  if (!h.length) { l.innerHTML = '<div class="hempty">No se encontraron conversaciones.</div>'; return; }
+  const summary = document.getElementById('histSummary');
+  const total = Array.isArray(h) ? h.length : 0;
+  if (summary) summary.textContent = total === 1 ? '1 conversación encontrada' : `${total} conversaciones encontradas`;
+  if (!h.length) {
+    const searching = Boolean((document.getElementById('histSearch')?.value || '').trim());
+    l.innerHTML = searching
+      ? '<div class="module-empty-state"><span aria-hidden="true">🔎</span><strong>No encontramos coincidencias</strong><p>Prueba con otra palabra, área tributaria o parte de tu consulta.</p></div>'
+      : '<div class="module-empty-state"><span aria-hidden="true">💬</span><strong>Aún no tienes conversaciones</strong><p>Realiza tu primera consulta y podrás retomarla desde este espacio.</p><button type="button" class="module-primary-action" onclick="newChat()">Iniciar una consulta</button></div>';
+    return;
+  }
   const allH = getHist(curUser.email);
   l.innerHTML = '';
   [...h].reverse().forEach(c => {
     const i = allH.findIndex(x => x.title === c.title && x.date === c.date);
     const d = document.createElement('div'); d.className = 'hitem';
-    const fu = c.messages.find(m => m.role === 'user');
+    const fu = c.messages?.find(m => m.role === 'user');
     const prev = fu ? fu.content.substring(0, 70) : 'Consulta';
-    const titleHtml = highlight ? _highlightMatch(c.title || 'Consulta', highlight) : (c.title || 'Consulta');
-    const prevHtml = highlight ? _highlightMatch(prev, highlight) : prev;
-    d.innerHTML = `<div class="hl" onclick="loadConv(${i})"><div class="ht">${titleHtml}</div><div class="hp">${prevHtml}${prev.length>=70?'…':''}</div></div><div class="hm"><div class="ha">${c.area||'General'}</div><div class="hd">${c.date}</div></div><button class="hdel" aria-label="Eliminar conversación" onclick="delConv(${i},event)">×</button>`;
+    const titleHtml = highlight ? _highlightMatch(c.title || 'Consulta', highlight) : _escapeHtml(c.title || 'Consulta');
+    const prevHtml = highlight ? _highlightMatch(prev, highlight) : _escapeHtml(prev);
+    d.innerHTML = `<div class="hl"><div class="ht">${titleHtml}</div><div class="hp">${prevHtml}${prev.length>=70?'…':''}</div></div><div class="hm"><div class="ha">${_escapeHtml(c.area||'General')}</div><div class="hd">${_escapeHtml(c.date||'')}</div></div><button type="button" class="hdel" aria-label="Eliminar conversación">×</button>`;
+    d.querySelector('.hl')?.addEventListener('click', () => loadConv(i));
+    d.querySelector('.hdel')?.addEventListener('click', event => delConv(i, event));
     l.appendChild(d);
   });
 }
@@ -766,25 +767,9 @@ async function _sendMsgStreamBase(txt) {
   try {
     const res = await callDeclaraFY({model:'claude-sonnet-4-5', max_tokens:1024, stream:true, system:SYS, messages:convHist});
     if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message||'Error API'); }
-    const reader = res.body.getReader(); const decoder = new TextDecoder();
-    let fullText = '';
-    while (true) {
-      const { done, value } = await reader.read(); if (done) break;
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n');
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const data = line.slice(6); if (data === '[DONE]') continue;
-        try {
-          const json = JSON.parse(data);
-          if (json.type === 'content_block_delta' && json.delta?.type === 'text_delta') {
-            fullText += json.delta.text;
-            b.innerHTML = _escapeHtml(fullText).replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
-            b.appendChild(cursor); msgs.scrollTop = msgs.scrollHeight;
-          }
-        } catch {}
-      }
-    }
+    const payload = await res.json();
+    const fullText = String(payload?.content?.[0]?.text || '');
+    if (!fullText) throw new Error(payload?.error?.message || 'El proveedor devolvió una respuesta vacía.');
     cursor.remove();
     b.innerHTML = _escapeHtml(fullText).replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
     convHist.push({ role:'assistant', content: fullText });
@@ -792,7 +777,7 @@ async function _sendMsgStreamBase(txt) {
     const lastUser = convHist.filter(m => m.role === 'user').slice(-1)[0];
     if (lastUser) tpSaveOfflineResponse(lastUser.content.substring(0, 200), fullText.substring(0, 1500));
   } catch(err) {
-    cursor.remove(); b.innerHTML = `<strong>Error:</strong> ${err.message}`;
+    cursor.remove(); b.innerHTML = `<strong>Error:</strong> ${_escapeHtml(err.message)}`;
     if (err.message.includes('401')) { addNotif('⚠️', 'Sesión expirada', 'Vuelve a iniciar sesión para continuar.'); setTimeout(() => { if (typeof showAuth === 'function') showAuth('login'); }, 400); }
   }
 }
@@ -820,8 +805,16 @@ async function _sendMsgLayer1(txt) {
 }
 
 // Update setPTab to load profile form when visiting perfil tab
-const PT_TAB_NAMES = ['admin','alertas','api_access','bcr','biblioteca','calculadora','calendario','cartas','casos','cdi','cierre','comparado','comparador','contratos','contratos_gen','cripto','cripto_legal','depreciacion','detector_pdt','drawback','eeff','empresa_hub','estadisticas','excel_int','expediente','facturacion','favoritos','fraccionamiento','generador','historial','hs_clasificador','ia_fisc','indecopi','informe','inicio','itan','lavado','liquidacion','moneda','monitor','multas','niif','ocr_factura','pdt621','pdt_xml','perfil','plan_anual','privacidad','pt_modulo','referidos','requerimiento','ret_perc','rtf','sbs','simulador','simulador_esc','smv','sugerencias','sunafil','sunat_api','sunat_inf','sunat_live','terminos','tim','timeline','utilidades','widget','zonas','nomina','moras_sunat','calendario_fiscal','importacion','selector_regimen','pdt_gen','score_fin','radar_norm','bal_comprob','libro_diario','concil_banc','cts_gratif','contratos_gen2','docs_legales','withholding','analisis_avanz','compliance','spot','arbitrios','renta_anual','perdida','despido','tregistro','suspension','flujo_caja','van_tir','comp_fin','guias_remision','validador','precios_transf','tea_multas','rmt_rer','amazonia','itan_detalle','rus','cierre_fiscal','tim_historico','compensacion','exon_detraccion','recurso_multa','saldo_export','horas_extras','reg_agrario','afp_comisiones','asignacion_fam','ratios_fin','amortizacion','dep_acelerada','leasing','conversor_tasas','isc','mineria','cierre_empresa','poder_notarial','verificador_ruc','proyeccion_afp','analizador_contratos','chat_sesiones','generador_informes','itf','ir_5ta','dividendos','no_domiciliados','cas','royalties','afp_onp','percepciones','notas_credito','factura_electronica','rectificatoria','essalud_senati','onp','cobranza_coactiva','donaciones','sucesiones','cripto_portfolio'];
-function _ptSectionId(tab) { return 'pt' + tab.charAt(0).toUpperCase() + tab.slice(1); }
+const PT_TAB_NAMES = ['admin','alertas','api_access','bcr','biblioteca','calculadora','calendario','cartas','casos','cdi','cierre','comparado','comparador','contratos','contratos_gen','cripto','cripto_legal','depreciacion','detector_pdt','drawback','eeff','empresa_hub','especializados','estadisticas','excel_int','expediente','facturacion','favoritos','fraccionamiento','generador','historial','hs_clasificador','ia_fisc','indecopi','informe','inicio','itan','lavado','liquidacion','moneda','monitor','multas','niif','ocr_factura','pdt621','pdt_xml','perfil','plan_anual','privacidad','pt_modulo','referidos','requerimiento','ret_perc','rtf','sbs','simulador','simulador_esc','smv','sugerencias','sunafil','sunat_api','sunat_inf','sunat_live','terminos','tim','timeline','utilidades','widget','zonas','nomina','moras_sunat','calendario_fiscal','importacion','selector_regimen','pdt_gen','score_fin','radar_norm','bal_comprob','libro_diario','concil_banc','cts_gratif','contratos_gen2','docs_legales','withholding','analisis_avanz','compliance','spot','arbitrios','renta_anual','perdida','despido','tregistro','suspension','flujo_caja','van_tir','comp_fin','guias_remision','validador','precios_transf','tea_multas','rmt_rer','amazonia','itan_detalle','rus','cierre_fiscal','tim_historico','compensacion','exon_detraccion','recurso_multa','saldo_export','horas_extras','reg_agrario','afp_comisiones','asignacion_fam','ratios_fin','amortizacion','dep_acelerada','leasing','conversor_tasas','isc','mineria','cierre_empresa','poder_notarial','verificador_ruc','proyeccion_afp','analizador_contratos','chat_sesiones','generador_informes','itf','ir_5ta','dividendos','no_domiciliados','cas','royalties','afp_onp','percepciones','notas_credito','factura_electronica','rectificatoria','essalud_senati','onp','cobranza_coactiva','donaciones','sucesiones','cripto_portfolio'];
+function _ptKey(value) { return String(value || '').replace(/[^a-z0-9]/gi, '').toLowerCase(); }
+function _ptSectionId(tab) {
+  const legacyId = 'pt' + tab.charAt(0).toUpperCase() + tab.slice(1);
+  if (document.getElementById(legacyId)) return legacyId;
+  const wanted = _ptKey(tab);
+  const match = Array.from(document.querySelectorAll('[id^="pt"]'))
+    .find(el => _ptKey(el.id.slice(2)) === wanted);
+  return match?.id || legacyId;
+}
 function setPTab(tab, btn) {
   PT_TAB_NAMES.forEach(t => {
     const el = document.getElementById(_ptSectionId(t));
@@ -835,6 +828,37 @@ function setPTab(tab, btn) {
   }
   if (tab === 'perfil') loadProfileForm();
   if (tab === 'historial') { const s = document.getElementById('histSearch'); if(s) s.value=''; renderHist(); }
+  if (tab === 'chat_sesiones') calcChat();
+  if (tab === 'sunat_live' || tab === 'sunat_api') loadSunatStatus();
+  const content = document.querySelector('#screen-panel > .pnav + div');
+  if (content) content.scrollTop = 0;
+}
+
+function _normalizeModuleSearch(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
+function filterPanelNavigation(value) {
+  const query = _normalizeModuleSearch(value);
+  document.querySelectorAll('.pnav .pntab').forEach(button => {
+    button.hidden = Boolean(query) && !_normalizeModuleSearch(button.textContent).includes(query);
+  });
+}
+
+function openSpecializedModule(tab) {
+  setPTab(tab, null);
+}
+
+function filterSpecializedModules(value) {
+  const query = _normalizeModuleSearch(value);
+  let visible = 0;
+  document.querySelectorAll('#specializedModuleGrid .specialized-card').forEach(card => {
+    const matches = !query || _normalizeModuleSearch(card.dataset.moduleName + ' ' + card.textContent).includes(query);
+    card.hidden = !matches;
+    if (matches) visible += 1;
+  });
+  const empty = document.getElementById('specializedModuleEmpty');
+  if (empty) empty.hidden = visible !== 0;
 }
 
 
@@ -891,31 +915,40 @@ async function finishOnboarding() {
 // REFERIDOS
 // ════════════════════════════════════════
 function getRefCode(email) { return 'REF'+btoa(email).substring(0,8).toUpperCase().replace(/[^A-Z0-9]/g,'X'); }
-function loadReferidos() {
+async function loadReferidos() {
   if(!curUser) return;
-  const code=getRefCode(curUser.email);
+  let overview;
+  try {
+    overview = await declarafyApi('referrals_overview', {method:'GET'});
+  } catch (error) {
+    console.warn('No se pudo cargar Referidos:', error.message);
+    const lb=document.getElementById('refLeaderList');
+    if(lb) lb.innerHTML='<div class="ref-empty ref-empty-error">No se pudieron cargar los referidos. Intenta nuevamente.</div>';
+    return;
+  }
+  const code=overview.code || getRefCode(curUser.email);
+  const link=overview.link || ('https://declarafy.com/?ref='+encodeURIComponent(code));
   const el=document.getElementById('refLink');
-  if(el) el.textContent='declarafy.com/ref/'+code;
-  const us=getUsers(); const all=Object.values(us);
-  const refs=all.filter(u=>u.refBy===code);
-  const active=refs.filter(u=>u.plan!=='basico');
-  if(document.getElementById('refTotal')) document.getElementById('refTotal').textContent=refs.length;
-  if(document.getElementById('refActive')) document.getElementById('refActive').textContent=active.length;
-  if(document.getElementById('refMeses')) document.getElementById('refMeses').textContent=active.length;
-  // Leaderboard
-  const scores={}; all.forEach(u=>{if(u.refBy){scores[u.refBy]=(scores[u.refBy]||0)+1;}});
-  const sorted=Object.entries(scores).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  if(el) el.textContent=link.replace(/^https?:\/\//,'');
+  if(document.getElementById('refTotal')) document.getElementById('refTotal').textContent=overview.total||0;
+  if(document.getElementById('refActive')) document.getElementById('refActive').textContent=overview.active||0;
+  if(document.getElementById('refMeses')) document.getElementById('refMeses').textContent=overview.rewardMonths||0;
+  const sorted=Array.isArray(overview.leaders)?overview.leaders:[];
   const lb=document.getElementById('refLeaderList');
-  if(lb){ if(!sorted.length){lb.innerHTML='<div style="font-size:14px;color:var(--muted);padding:10px 0">Aún no hay referidores. ¡Sé el primero!</div>';return;}
-    lb.innerHTML=sorted.map(([code,cnt],i)=>`<div class="ref-row"><span class="ref-rank">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</span><span class="ref-name">${code}</span><span class="ref-count">${cnt} referidos</span></div>`).join(''); }
+  if(lb){ if(!sorted.length){lb.innerHTML='<div class="ref-empty">Aún no hay referidores. ¡Sé el primero!</div>';return;}
+    lb.innerHTML=sorted.map((entry,i)=>`<div class="ref-row"><span class="ref-rank">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</span><span class="ref-name">${_escapeHtml(entry.code||'')}</span><span class="ref-count">${Number(entry.total)||0} referidos</span></div>`).join(''); }
 }
-function copyRefLink() {
-  const code=getRefCode(curUser.email);
-  const btn = event.currentTarget;
-  navigator.clipboard.writeText('declarafy.com/ref/'+code).then(()=>{
-    if(btn) { btn.textContent='✅ Copiado!'; setTimeout(()=>btn.textContent='Copiar link',2000); }
-  });
-  addNotif('🔗','Link copiado','Tu link de referido fue copiado al portapapeles.');
+async function copyRefLink(event) {
+  const btn = event?.currentTarget;
+  const shown = document.getElementById('refLink')?.textContent?.trim();
+  const link = shown ? (/^https?:\/\//i.test(shown) ? shown : `https://${shown}`) : `https://declarafy.com/?ref=${encodeURIComponent(getRefCode(curUser.email))}`;
+  try {
+    await navigator.clipboard.writeText(link);
+    if(btn) { btn.textContent='✓ Enlace copiado'; setTimeout(()=>btn.textContent='Copiar enlace',2000); }
+    addNotif('🔗','Enlace copiado','Tu enlace de referido fue copiado al portapapeles.');
+  } catch (_) {
+    tpToast('No se pudo copiar automáticamente. Selecciona el enlace y cópialo manualmente.','warn');
+  }
 }
 // Check ref code on register — persist URL param to localStorage
 function checkRefCode() {
@@ -946,7 +979,7 @@ function renderFavoritos() {
   const favs=getFavs(curUser.email);
   const el=document.getElementById('favList'); if(!el) return;
   if(!favs.length){el.innerHTML='<div class="hempty">No tienes respuestas guardadas.<br>En el chat, presiona ⭐ en cualquier respuesta.</div>';return;}
-  el.innerHTML=favs.map((f,i)=>`<div class="fav-item"><div class="fav-item-body"><div class="fav-item-q">❓ ${f.q}</div><div class="fav-item-a">${f.a.replace(/<[^>]*>/g,'').substring(0,120)}…</div><div class="fav-item-meta">${f.area} · ${f.date}</div></div><button class="fav-del" aria-label="Eliminar favorito" onclick="delFav(${i})">×</button></div>`).join('');
+  el.innerHTML=favs.map((f,i)=>`<div class="fav-item"><div class="fav-item-body"><div class="fav-item-q">❓ ${_escapeHtml(f.q)}</div><div class="fav-item-a">${_escapeHtml(String(f.a || '').replace(/<[^>]*>/g,'').substring(0,120))}…</div><div class="fav-item-meta">${_escapeHtml(f.area)} · ${_escapeHtml(f.date)}</div></div><button class="fav-del" aria-label="Eliminar favorito" onclick="delFav(${i})">×</button></div>`).join('');
 }
 function delFav(i) { const f=getFavs(curUser.email); f.splice(i,1); saveFavs(curUser.email,f); renderFavoritos(); }
 
@@ -958,16 +991,20 @@ function renderEstadisticas() {
   const hist=getHist(curUser.email);
   const favs=getFavs(curUser.email);
   const totalMsgs=curUser.mc||0;
+  const joinedAt=curUser.createdAt ? new Date(curUser.createdAt) : null;
+  const memberDays=joinedAt && !Number.isNaN(joinedAt.getTime())
+    ? Math.max(1, Math.floor((Date.now()-joinedAt.getTime())/86400000)+1)
+    : '—';
   const cards=document.getElementById('statsCards');
   if(cards) cards.innerHTML=`
     <div class="stat-card"><div class="stat-v">${totalMsgs}</div><div class="stat-l">Consultas totales</div></div>
     <div class="stat-card"><div class="stat-v">${hist.length}</div><div class="stat-l">Conversaciones</div></div>
     <div class="stat-card"><div class="stat-v">${favs.length}</div><div class="stat-l">Respuestas guardadas</div></div>
-    <div class="stat-card"><div class="stat-v">${Object.keys(getUsers()).length}</div><div class="stat-l">Días como miembro</div></div>`;
-  // Bar chart - simulate monthly data
+    <div class="stat-card"><div class="stat-v">${memberDays}</div><div class="stat-l">Días como miembro</div></div>`;
+  // Sin una serie mensual persistida, solo se representa el total del mes actual.
   const months=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Set','Oct','Nov','Dic'];
   const now=new Date().getMonth();
-  const data=months.map((_,i)=>i<=now?(i===now?Math.max(totalMsgs,1):Math.floor(Math.random()*15)+2):0);
+  const data=months.map((_,i)=>i===now?totalMsgs:0);
   const maxVal=Math.max(...data,1);
   const bc=document.getElementById('barChart');
   if(bc) bc.innerHTML=data.map((v,i)=>`<div class="bar-col"><span class="bar-val">${v||''}</span><div class="bar-inner" style="height:${Math.max((v/maxVal)*100,v>0?5:0)}%"></div><span class="bar-lbl">${months[i]}</span></div>`).join('');
@@ -988,10 +1025,10 @@ function runComparador() {
   const gas=parseFloat(document.getElementById('cmpGastos')?.value)||0;
   const trab=parseInt(document.getElementById('cmpTrab')?.value)||0;
   if(!ing){document.getElementById('compResult').innerHTML='';return;}
-  const uit=5500, uti=Math.max(ing-gas,0);
+  const uit=TAX_RULES.uit[TAX_RULES.currentYear], uti=Math.max(ing-gas,0);
   const resultados=[
-    { name:'NRUS', eligible:ing<=96000&&trab===0, tax:ing<=5000?20:ing<=8000?50:null, detail:'Cuota fija mensual. Solo si ventas ≤ S/96,000/año y sin trabajadores en planilla.', code:'nrus' },
-    { name:'RER', eligible:ing<=525000, tax:ing*0.015*12, detail:`IR: 1.5% sobre ingresos netos. Solo si ingresos ≤ S/525,000/año.`, code:'rer' },
+    { name:'NRUS', eligible:ing<=96000&&trab===0, tax:ing/12<=5000?20:ing/12<=8000?50:null, detail:'Cuota mensual según promedio de ventas. La elegibilidad real también depende de compras, activos, actividad y comprobantes emitidos.', code:'nrus' },
+    { name:'RER', eligible:ing<=525000, tax:ing*0.015, detail:`IR: 1.5% de los ingresos netos anuales ingresados. La elegibilidad real también depende de compras, activos y actividad.`, code:'rer' },
     { name:'RMT', eligible:ing<=1700*uit, tax:uti<=15*uit?uti*0.10:15*uit*0.10+(uti-15*uit)*0.295, detail:`IR: 10% hasta 15 UIT de utilidad, 29.5% por el exceso. Pago a cuenta desde 1%.`, code:'rmt' },
     { name:'Régimen General', eligible:true, tax:uti*0.295, detail:`IR: 29.5% sobre utilidad neta. Sin límite de ingresos. Permite compensar pérdidas.`, code:'rg' },
   ];
@@ -1006,13 +1043,13 @@ function runComparador() {
       <div class="comp-name">${r.name}</div>
       ${r.eligible&&r.tax!==null?`<div class="comp-tax${isBest?' best':''}">${r.name==='NRUS'?`S/${r.tax}/mes`:`S/${Math.round(r.tax).toLocaleString()}/año`}</div>`:'<div style="font-size:14px;color:var(--red)">No elegible</div>'}
       <div class="comp-detail">${r.detail}</div>
-      ${isBest?'<span class="comp-badge rec">✓ Recomendado</span>':''}
+      ${isBest?'<span class="comp-badge rec">Menor IR estimado</span>':''}
       ${!r.eligible?'<span class="comp-badge no">No aplica para ti</span>':''}
     </div>`;
   }).join('');
   const best=eligible.find(r=>r.tax===minTax);
   const rec=document.getElementById('compRec');
-  if(rec&&best){rec.style.display='block';rec.innerHTML=`💡 <strong>Recomendación:</strong> Con ingresos de S/${ing.toLocaleString()} y gastos de S/${gas.toLocaleString()}, el régimen más conveniente sería el <strong style="color:var(--gold)">${best.name}</strong>. Consulta con tu contador para confirmar la elegibilidad y el proceso de acogimiento.`;}
+  if(rec&&best){rec.style.display='block';rec.innerHTML=`💡 <strong>Comparación referencial:</strong> ${best.name} muestra el menor IR estimado con estos datos. No constituye una recomendación de acogimiento: faltan actividad, compras, activos, comprobantes y exclusiones legales.`;}
 }
 
 // ════════════════════════════════════════
@@ -1071,7 +1108,7 @@ function wizExport() {
 // BIBLIOTECA DE NORMAS
 // ════════════════════════════════════════
 const BIB_DATA = [
-  {id:1,name:'Código Tributario — TUO D.S. 133-2013-EF',cat:'ct',tag:'Código Tributario',desc:'Norma fundamental del sistema tributario peruano. Regula la relación jurídica tributaria, obligaciones formales, infracciones y procedimientos.',resumen:`Art. 1: La obligación tributaria nace cuando se realiza el hecho previsto en la ley como generador de dicha obligación.\nArt. 28: La deuda tributaria está constituida por el tributo, las multas y los intereses.\nArt. 33: El interés moratorio (TIM) es el 1.2% mensual (tasa actualizable por SUNAT).\nArt. 43: La acción de la Administración para determinar deuda prescribe a los 4 años (contribuyentes que presentan declaración) o 6 años (los que no presentan).\nArt. 87: Obligaciones formales: inscribirse en RUC, emitir comprobantes, llevar libros contables, permitir fiscalizaciones.\nArt. 166: El régimen de gradualidad permite reducir sanciones por subsanación voluntaria.`},
+  {id:1,name:'Código Tributario — TUO D.S. 133-2013-EF',cat:'ct',tag:'Código Tributario',desc:'Norma fundamental del sistema tributario peruano. Regula la relación jurídica tributaria, obligaciones formales, infracciones y procedimientos.',resumen:`Art. 1: La obligación tributaria nace cuando se realiza el hecho previsto en la ley como generador de dicha obligación.\nArt. 28: La deuda tributaria está constituida por el tributo, las multas y los intereses.\nArt. 33: La TIM es fijada por SUNAT; la tasa vigente en moneda nacional es 0.9% mensual desde el 01/04/2021.\nArt. 43: La acción de la Administración para determinar deuda prescribe a los 4 años (contribuyentes que presentan declaración) o 6 años (los que no presentan).\nArt. 87: Obligaciones formales: inscribirse en RUC, emitir comprobantes, llevar libros contables, permitir fiscalizaciones.\nArt. 166: El régimen de gradualidad permite reducir sanciones por subsanación voluntaria.`},
   {id:2,name:'TUO Ley del IGV — D.S. 055-99-EF',cat:'igv',tag:'IGV',desc:'Regula el Impuesto General a las Ventas. Tasa vigente 18% (16% IGV + 2% IPM). Incluye crédito fiscal, exoneraciones y régimen de percepciones/detracciones.',resumen:`Art. 1: Son operaciones gravadas: venta de bienes, prestación de servicios, contratos de construcción, primera venta de inmuebles e importación.\nArt. 3: El crédito fiscal se aplica sobre el IGV de las adquisiciones que sean permitidas como gasto/costo y destinadas a operaciones gravadas.\nArt. 18-19: Requisitos sustanciales y formales del crédito fiscal. La factura debe estar a nombre del contribuyente y el IGV discriminado.\nArt. 33: Las exportaciones están gravadas con tasa 0% y generan saldo a favor del exportador.\nArt. 44: No generan crédito fiscal: gastos personales, cigarrillos, bebidas alcohólicas (salvo giro del negocio), multas.`},
   {id:3,name:'TUO Ley del IR — D.S. 179-2004-EF',cat:'lir',tag:'Impuesto a la Renta',desc:'Regula el Impuesto a la Renta de todas las categorías. Incluye gastos deducibles, depreciaciones, pagos a cuenta y declaración anual.',resumen:`Art. 6: Están sujetas al IR las personas naturales y jurídicas domiciliadas y no domiciliadas (por rentas de fuente peruana).\nArt. 36: Las personas naturales aplican la deducción del 20% sobre rentas de 4ta categoría (mínimo hasta 7 UIT de renta neta).\nArt. 37: Gastos deducibles 3ra categoría: remuneraciones, depreciaciones, intereses, castigos, donaciones, gastos de representación (0.5% ingresos, máx. 40 UIT), entre otros.\nArt. 44: No deducibles: gastos personales, sanciones, multas, IR propio, donaciones no autorizadas.\nArt. 55: Tasa IR Régimen General: 29.5%. RMT: 10% hasta 15 UIT de renta neta, 29.5% por el exceso.\nArt. 57: Principio del devengado: los ingresos se reconocen en el período en que se ganan, no cuando se cobran.`},
   {id:4,name:'Arancel de Aduanas — D.S. 342-2016-EF',cat:'aduanas',tag:'Aduanas',desc:'Nomenclatura y tasas arancelarias para importaciones. Basado en el Sistema Armonizado. Ad valorem vigente: 0%, 6% y 11%.',resumen:`El Arancel de Aduanas clasifica todas las mercancías según la Nomenclatura del Sistema Armonizado (SA). Las tasas Ad Valorem en Perú son: 0% (mayoría de bienes), 6% y 11% (bienes sensibles como textiles, calzado, arroz).\n\nAdemás del arancel se aplican:\n- IGV: 16% sobre el valor CIF + Ad Valorem\n- IPM: 2%\n- ISC: según tablas (combustibles, autos, bebidas)\n- Derechos antidumping (si aplica)\n- Percepción del IGV: 3.5% o 10%\n\nEl valor en aduana se determina por el Método del Valor de Transacción (Art. VII GATT).`},
@@ -1273,16 +1310,16 @@ const TOUR_STEPS = [
     desc:'Para casos complejos (fiscalizaciones, recursos de apelación, PT, contratos) activa un expediente. Adjunta hasta 8 documentos: PDFs con extracción real de texto, Excel, Word y XML. La IA cruza toda la información y genera un Informe de Conclusiones formal con base legal exacta lista para presentar.' },
   { selector:'#multiFilePanel,.uprow', title:'📎 Análisis multi-documento', position:'top',
     desc:'Sube PDFs, Excel, Word o XML. La IA extrae texto real de los PDFs, cruza datos entre documentos y detecta inconsistencias tributarias. Ideal para analizar balances + contratos + resoluciones SUNAT simultáneamente.' },
-  { selector:'.chat-quota-bar,#chatQuotaBar', title:'📊 Consumo y sincronización Firebase', position:'bottom',
-    desc:'Monitorea tu consumo mensual. Plan Básico: 30 consultas. Plan Pro: ilimitadas. La barra cambia a rojo al 80% de uso. Tus conversaciones se sincronizan con Firebase — están disponibles desde cualquier dispositivo en tiempo real.' },
+  { selector:'.chat-quota-bar,#chatQuotaBar', title:'📊 Consumo y sincronización segura', position:'bottom',
+    desc:'Monitorea tu consumo mensual. Plan Básico: 30 consultas. Plan Pro: ilimitadas. La barra cambia a rojo al 80% de uso. Tus conversaciones se guardan en tu cuenta y están disponibles desde cualquier dispositivo.' },
   { selector:'.chr,.chat-header-right', title:'⚡ Acciones rápidas del chat', position:'bottom',
-    desc:'"📄 PDF" exporta con formato profesional. "💾" archiva en la nube (Firebase). "🔊" lee la respuesta en voz alta. Atajos: Ctrl+S guardar, Ctrl+P exportar, Ctrl+R escuchar, Ctrl+N nueva consulta, Ctrl+H ir al panel. Presiona "?" para ver todos.' },
+    desc:'"📄 PDF" exporta con formato profesional. "💾" guarda en tu cuenta. "🔊" lee la respuesta en voz alta. Atajos: Ctrl+S guardar, Ctrl+P exportar, Ctrl+R escuchar, Ctrl+N nueva consulta, Ctrl+H ir al panel. Presiona "?" para ver todos.' },
   { selector:'#userInput,.ci', title:'✏️ Consulta cualquier tema tributario', position:'top',
     desc:'Pregunta sobre IGV, Renta, ITAN, Drawback, CDIs, Precios de Transferencia, NIIF/NIC, SBS, SMV, SUNAFIL, INDECOPI, BCR, Zonas Especiales, Cripto y más. Enter para enviar, Shift+Enter para nueva línea.' },
 ];
 
 const PANEL_TOUR_STEPS = [
-  { selector:'.pnav,#panelNav', title:'🧭 Más de 90 herramientas tributarias', position:'bottom',
+  { selector:'.pnav,#panelNav', title:'🧭 145 módulos y herramientas tributarias', position:'bottom',
     desc:'El panel integra: Calculadoras (IGV, IR, ITAN, Drawback 3% FOB, Detracciones, Retenciones, Percepciones, Fraccionamiento Art.36 CT, Utilidades D.Leg.892, TIM), Normativa (SBS Ley 26702, SMV D.Leg.861, Tribunal Fiscal RTFs, Informes SUNAT, SUNAFIL, INDECOPI, BCR), Módulos avanzados (PT con 7 herramientas, NIIF/NIC, 8 CDIs, Zonas Especiales, Criptomonedas, Derecho Comparado) y herramientas operativas (Cierre Contable, Expediente Fiscalización, Contratos optimizados, Respuesta a Requerimientos SUNAT).' },
   { selector:'.pnav button', title:'🗂 Casos y Expedientes', position:'bottom',
     desc:'Crea expedientes para casos complejos con wizard de 4 pasos. Constructor de Expediente de Fiscalización con 26 documentos organizados por prioridad CRÍTICO/IMPORTANTE/Normal. Genera el índice formal del expediente listo para presentar ante SUNAT.' },
@@ -1508,7 +1545,7 @@ Usa base legal peruana vigente (LIR, LIGV, CT). Sé profesional y conciso. Máxi
   } catch(err) {
     loading.style.display = 'none';
     preview.style.display = 'block';
-    preview.innerHTML = '<p style="color:var(--red)">Error: ' + err.message + '</p>';
+    preview.innerHTML = '<p style="color:var(--red)">Error: ' + _escapeHtml(err.message) + '</p>';
   }
 }
 
@@ -1516,7 +1553,7 @@ function exportInforme() {
   const win = window.open('','_blank');
   const empresa = document.getElementById('infEmpresa')?.value || 'Empresa';
   const content = document.getElementById('informePreview')?.innerHTML || '';
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Informe Tributario — ${_escapeHtml(empresa)}</title><style>body{font-family:Arial,sans-serif;max-width:700px;margin:40px auto;color:#333;line-height:1.7}h1{color:#C9A84C;border-bottom:2px solid #C9A84C;padding-bottom:8px}h3,h4{color:#8B6914;margin:16px 0 6px}p{margin-bottom:10px;font-size:14px}strong{color:#555}@media print{body{margin:20px}}</style></head><body><h1>Informe Ejecutivo Tributario</h1><p style="font-size:14px;color:#888;margin-bottom:24px">Generado por DeclaraFY · ${new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'})}</p>${content}<hr style="margin:24px 0"><p style="font-size:14px;color:#999;text-align:center">DeclaraFY.pe — Documento orientativo. Consulta con un profesional para decisiones formales.</p></body></html>`);
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Informe Tributario — ${_escapeHtml(empresa)}</title><style>body{font-family:Arial,sans-serif;max-width:700px;margin:40px auto;color:#333;line-height:1.7}h1{color:#C9A84C;border-bottom:2px solid #C9A84C;padding-bottom:8px}h3,h4{color:#8B6914;margin:16px 0 6px}p{margin-bottom:10px;font-size:14px}strong{color:#555}@media print{body{margin:20px}}</style></head><body><h1>Informe Ejecutivo Tributario</h1><p style="font-size:14px;color:#888;margin-bottom:24px">Generado por DeclaraFY · ${new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'})}</p>${content}<hr style="margin:24px 0"><p style="font-size:14px;color:#999;text-align:center">Declarafy.com — Documento orientativo. Consulta con un profesional para decisiones formales.</p></body></html>`);
   win.document.close();
   setTimeout(() => win.print(), 500);
 }
@@ -1695,57 +1732,22 @@ function setSunatTab(tab, btn) {
 
 async function querySunat() {
   const ruc = document.getElementById('sunatRuc')?.value?.trim() || '';
-  if (ruc.length < 11) { tpToast('Ingresa un RUC válido de 11 dígitos.', 'warn'); return; }
+  if (!/^(10|15|17|20)\d{9}$/.test(ruc)) { tpToast('Ingresa un RUC válido de 11 dígitos.', 'warn'); return; }
   const loading = document.getElementById('sunatLoading');
   const result = document.getElementById('sunatResult');
-  loading.style.display = 'block';
-  result.style.display = 'none';
-  await new Promise(r => setTimeout(r, 1200));
   loading.style.display = 'none';
   result.style.display = 'block';
-  // Simulated SUNAT data (in production: call SUNAT API or scraper)
-  const isActive = ruc.charAt(0) === '2';
-  const tipoContrib = ruc.startsWith('10') ? 'Persona Natural' : 'Persona Jurídica';
-  const digito = parseInt(ruc.slice(-1));
-  const regimenes = ['NRUS', 'RER', 'RMT', 'RMT', 'RG', 'RG', 'RMT', 'RER', 'NRUS', 'RG'];
   if (sunatActiveTab === 'ruc') {
-    result.innerHTML = `<div class="sunat-result-title">Estado del RUC ${ruc}</div>
-      <div class="sunat-row"><span class="sunat-row-lbl">RUC</span><span class="sunat-row-val">${ruc}</span></div>
-      <div class="sunat-row"><span class="sunat-row-lbl">Tipo contribuyente</span><span class="sunat-row-val">${tipoContrib}</span></div>
-      <div class="sunat-row"><span class="sunat-row-lbl">Estado</span><span class="sunat-row-val ${isActive?'active':'inactive'}">${isActive?'ACTIVO':'BAJA'} <span class="sunat-badge ${isActive?'green':'red'}">${isActive?'Habido':'No habido'}</span></span></div>
-      <div class="sunat-row"><span class="sunat-row-lbl">Condición domiciliaria</span><span class="sunat-row-val"><span class="sunat-badge green">HABIDO</span></span></div>
-      <div class="sunat-row"><span class="sunat-row-lbl">Régimen tributario</span><span class="sunat-row-val">${regimenes[digito]}</span></div>
-      <div class="sunat-row"><span class="sunat-row-lbl">Fecha inscripción</span><span class="sunat-row-val">15/03/${2015 + digito}</span></div>
-      <div class="sunat-row"><span class="sunat-row-lbl">Actividad económica</span><span class="sunat-row-val" style="color:var(--muted)">Activ. consulta: ${6200 + digito * 10}</span></div>
-      <p style="font-size:14px;color:var(--muted);margin-top:12px">⚠️ Datos simulados. En producción se conecta a la API real de SUNAT o al portal sunat.gob.pe</p>`;
-  } else if (sunatActiveTab === 'deudas') {
-    const deuda = digito % 3 === 0;
-    result.innerHTML = `<div class="sunat-result-title">Deudas pendientes — RUC ${ruc}</div>
-      ${deuda ? `<div class="sunat-row"><span class="sunat-row-lbl">IGV ene-2025</span><span class="sunat-row-val warn">S/ ${(digito * 1240 + 3500).toLocaleString()}</span></div>
-      <div class="sunat-row"><span class="sunat-row-lbl">IR 2024</span><span class="sunat-row-val warn">S/ ${(digito * 2300 + 8000).toLocaleString()}</span></div>
-      <div class="sunat-row"><span class="sunat-row-lbl">Multa Art.176</span><span class="sunat-row-val" style="color:var(--red)">S/ ${(digito * 500 + 1200).toLocaleString()}</span></div>
-      <div class="sunat-row" style="background:rgba(230,57,70,.05);border-radius:8px;padding:8px 10px"><span class="sunat-row-lbl"><strong>Total deuda</strong></span><span class="sunat-row-val" style="color:var(--red);font-size:16px"><strong>S/ ${(digito*4040+12700).toLocaleString()}</strong></span></div>`
-      : `<div style="text-align:center;padding:20px;color:var(--green)">✅ Sin deudas pendientes detectadas.</div>`}
-      <p style="font-size:14px;color:var(--muted);margin-top:12px">⚠️ Datos simulados para demo. Verifica en SUNAT Virtual con tu Clave SOL.</p>`;
-  } else if (sunatActiveTab === 'cpe') {
-    result.innerHTML = `<div class="sunat-result-title">Últimos comprobantes emitidos — RUC ${ruc}</div>
-      <div class="sunat-cp-list">
-        <div class="sunat-cp-item"><span>F001-${1000+digito*12}</span><span style="color:var(--muted)">15/03/2025</span><span>S/ ${(digito*850+2400).toLocaleString()}</span><span class="sunat-badge green">Aceptada</span></div>
-        <div class="sunat-cp-item"><span>F001-${999+digito*12}</span><span style="color:var(--muted)">10/03/2025</span><span>S/ ${(digito*620+1800).toLocaleString()}</span><span class="sunat-badge green">Aceptada</span></div>
-        <div class="sunat-cp-item"><span>B001-${500+digito*8}</span><span style="color:var(--muted)">05/03/2025</span><span>S/ ${(digito*120+450).toLocaleString()}</span><span class="sunat-badge green">Aceptada</span></div>
-        <div class="sunat-cp-item"><span>NC01-${20+digito}</span><span style="color:var(--muted)">01/03/2025</span><span>-S/ ${(digito*200+600).toLocaleString()}</span><span class="sunat-badge gold">Nota créd.</span></div>
-      </div>
-      <p style="font-size:14px;color:var(--muted);margin-top:12px">⚠️ Muestra de los últimos 4 comprobantes. Datos simulados.</p>`;
-  } else {
-    result.innerHTML = `<div class="sunat-result-title">Últimos comprobantes recibidos — RUC ${ruc}</div>
-      <div class="sunat-cp-list">
-        <div class="sunat-cp-item"><span>F123-${2000+digito*15}</span><span style="color:var(--muted)">14/03/2025</span><span>S/ ${(digito*1200+3800).toLocaleString()}</span><span class="sunat-badge green">Aceptada</span></div>
-        <div class="sunat-cp-item"><span>F456-${800+digito*10}</span><span style="color:var(--muted)">08/03/2025</span><span>S/ ${(digito*900+2200).toLocaleString()}</span><span class="sunat-badge gold">Pendiente</span></div>
-        <div class="sunat-cp-item"><span>F789-${300+digito*6}</span><span style="color:var(--muted)">02/03/2025</span><span>S/ ${(digito*400+1100).toLocaleString()}</span><span class="sunat-badge green">Aceptada</span></div>
-      </div>
-      <p style="font-size:14px;color:var(--muted);margin-top:12px">⚠️ Datos simulados. En producción conecta a la API de SUNAT.</p>`;
+    result.innerHTML = '<div class="sunat-api-result"><strong>Consulta pública oficial</strong><p style="margin-top:8px;color:var(--muted)">SUNAT puede solicitar una verificación antes de mostrar los datos.</p></div>';
+    window.open(SUNAT_RUC_PUBLIC_URL, '_blank', 'noopener,noreferrer');
+    return;
   }
-  addNotif('🔍', 'Consulta SUNAT', 'RUC ' + ruc.slice(0,4) + '... consultado exitosamente.');
+  if (sunatActiveTab === 'deudas') {
+    result.innerHTML = '<div class="sunat-api-result"><strong>Información privada</strong><p style="margin-top:8px;color:var(--muted)">Las deudas requieren que el titular ingrese con su Clave SOL.</p></div>';
+    window.open(SUNAT_SOL_URL, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  result.innerHTML = '<div class="sunat-api-result"><strong>Validación individual disponible</strong><p style="margin-top:8px;color:var(--muted)">Usa “Consulta SUNAT” → “Validar comprobante” e ingresa serie, número, fecha y monto.</p></div>';
 }
 
 // ════════════════════════════════════════
@@ -1893,7 +1895,7 @@ function calcTIM() {
   const dVenc = new Date(venc), dPago = new Date(pago);
   if (dPago <= dVenc) { if(res) res.style.display='none'; return; }
   const dias = Math.floor((dPago - dVenc) / (1000*60*60*24));
-  const tasaDiaria = 0.04 / 100; // 1.2% mensual = 0.04% diario
+  const tasaDiaria = TAX_RULES.timDailyPercent / 100;
   const interes = deuda * tasaDiaria * dias;
   const total = (deuda + interes) * (1 - rebaja);
   const fmtS = n => 'S/ ' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -2032,36 +2034,44 @@ function calcMulta() {
 // ════════════════════════════════════════
 // CONVERSOR MONEDA SBS
 // ════════════════════════════════════════
-let fxRates = { USD_PEN_buy:3.720, USD_PEN_sell:3.754, EUR_PEN_buy:4.050, EUR_PEN_sell:4.098 };
+let fxRates = { USD_PEN_buy:null, USD_PEN_sell:null, EUR_PEN_buy:null, EUR_PEN_sell:null };
 let fxDirection = 'USD_PEN';
-function refreshFX() {
-  // Simulate slight variation each refresh (in production: call SBS API)
-  fxRates.USD_PEN_buy = 3.720 + (Math.random() * 0.04 - 0.02);
-  fxRates.USD_PEN_sell = fxRates.USD_PEN_buy + 0.034;
-  fxRates.EUR_PEN_buy = 4.050 + (Math.random() * 0.06 - 0.03);
-  fxRates.EUR_PEN_sell = fxRates.EUR_PEN_buy + 0.048;
-  const fmt = n => n.toFixed(3);
+async function refreshFX() {
+  const fmt = n => Number.isFinite(n) ? n.toFixed(3) : '—';
   const el = (id) => document.getElementById(id);
-  if(el('fxUSDComp')) el('fxUSDComp').textContent = fmt(fxRates.USD_PEN_buy);
-  if(el('fxUSDVenta')) el('fxUSDVenta').textContent = fmt(fxRates.USD_PEN_sell);
-  if(el('fxEURVenta')) el('fxEURVenta').textContent = fmt(fxRates.EUR_PEN_sell);
-  const now = new Date();
-  if(el('fxFecha')) el('fxFecha').textContent = 'Actualizado: ' + now.toLocaleDateString('es-PE') + ' ' + now.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}) + ' (SBS simulado)';
-  renderFXHistory();
-  convertFX();
+  if(el('fxFecha')) el('fxFecha').textContent = 'Consultando fuente oficial BCRP…';
+  try {
+    const payload = await declarafyApi('consultabcrtiposcambio', { method: 'GET' });
+    const latest = Array.isArray(payload?.data) ? payload.data[0] : null;
+    if (!latest || (!Number.isFinite(Number(latest.compra)) && !Number.isFinite(Number(latest.venta)))) throw new Error('El BCRP no devolvió una cotización válida.');
+    fxRates.USD_PEN_buy = Number.isFinite(Number(latest.compra)) ? Number(latest.compra) : Number(latest.venta);
+    fxRates.USD_PEN_sell = Number.isFinite(Number(latest.venta)) ? Number(latest.venta) : Number(latest.compra);
+    fxRates.EUR_PEN_buy = null;
+    fxRates.EUR_PEN_sell = null;
+    if(el('fxUSDComp')) el('fxUSDComp').textContent = fmt(fxRates.USD_PEN_buy);
+    if(el('fxUSDVenta')) el('fxUSDVenta').textContent = fmt(fxRates.USD_PEN_sell);
+    if(el('fxEURVenta')) el('fxEURVenta').textContent = 'No disponible';
+    if(el('fxFecha')) el('fxFecha').textContent = `BCRP · ${latest.fecha || new Date().toLocaleDateString('es-PE')}`;
+    renderFXHistory();
+    convertFX();
+  } catch (error) {
+    fxRates = { USD_PEN_buy:null, USD_PEN_sell:null, EUR_PEN_buy:null, EUR_PEN_sell:null };
+    if(el('fxUSDComp')) el('fxUSDComp').textContent = '—';
+    if(el('fxUSDVenta')) el('fxUSDVenta').textContent = '—';
+    if(el('fxEURVenta')) el('fxEURVenta').textContent = 'No disponible';
+    if(el('fxFecha')) el('fxFecha').textContent = 'No se pudo obtener el tipo de cambio oficial.';
+    renderFXHistory();
+    convertFX();
+  }
 }
 function renderFXHistory() {
   const el = document.getElementById('fxHistory'); if(!el) return;
-  const fmt = n => n.toFixed(3);
+  const fmt = n => Number.isFinite(n) ? n.toFixed(3) : '—';
   const pairs = [
     {pair:'USD/PEN Compra', rate:fxRates.USD_PEN_buy},
     {pair:'USD/PEN Venta', rate:fxRates.USD_PEN_sell},
-    {pair:'EUR/PEN Compra', rate:fxRates.EUR_PEN_buy},
-    {pair:'EUR/PEN Venta', rate:fxRates.EUR_PEN_sell},
-    {pair:'USD/EUR', rate:fxRates.USD_PEN_sell/fxRates.EUR_PEN_sell},
-    {pair:'EUR/USD', rate:fxRates.EUR_PEN_sell/fxRates.USD_PEN_sell},
   ];
-  el.innerHTML = pairs.map(p => `<div class="fx-hist-item"><div class="fx-hist-pair">${p.pair}</div><div class="fx-hist-rate">${fmt(p.rate)}</div><div class="fx-hist-date">Hoy SBS</div></div>`).join('');
+  el.innerHTML = pairs.map(p => `<div class="fx-hist-item"><div class="fx-hist-pair">${p.pair}</div><div class="fx-hist-rate">${fmt(p.rate)}</div><div class="fx-hist-date">BCRP</div></div>`).join('');
 }
 function changeFXPair() {
   fxDirection = document.getElementById('fxPar')?.value || 'USD_PEN';
@@ -2088,7 +2098,7 @@ function convertFX() {
   const rate = rateMap[fxDirection] || fxRates.USD_PEN_sell;
   const result = amt * rate;
   const el = document.getElementById('fxResult');
-  if(el) el.textContent = amt > 0 ? result.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',') : '—';
+  if(el) el.textContent = amt > 0 && Number.isFinite(result) ? result.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',') : '—';
 }
 function swapFX() {
   const pairs = {USD_PEN:'PEN_USD',PEN_USD:'USD_PEN',EUR_PEN:'PEN_EUR',PEN_EUR:'EUR_PEN',USD_EUR:'EUR_USD',EUR_USD:'USD_EUR'};
@@ -2099,57 +2109,56 @@ function swapFX() {
 // ════════════════════════════════════════
 // FACTURACIÓN Y PAGOS
 // ════════════════════════════════════════
-function renderBillingPanel() {
+async function renderBillingPanel() {
   if (!curUser) return;
   const pn = {basico:'Básico',pro:'Profesional',empresa:'Empresa'};
   const pp = {basico:'S/0',pro:'S/190',empresa:'S/750'};
-  document.getElementById('facPlanName').textContent = 'Plan ' + (pn[curUser.plan]||'Básico');
-  document.getElementById('facPlanPrice').innerHTML = (pp[curUser.plan]||'S/0') + '<span style="font-size:14px;color:var(--muted)">/mes</span>';
-  const nextDate = new Date(); nextDate.setMonth(nextDate.getMonth()+1);
-  document.getElementById('facPlanRenew').textContent = 'Próxima renovación: ' + nextDate.toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'});
-  document.getElementById('facNextBill').textContent = pp[curUser.plan]||'S/0';
-  // Simulate payment history
+  document.getElementById('facPlanName').textContent = isAdminUser() ? 'Superadministrador' : ('Plan ' + (pn[curUser.plan]||'Básico'));
+  document.getElementById('facPlanPrice').innerHTML = isAdminUser()
+    ? 'Acceso total<span style="font-size:14px;color:var(--muted)"> · sin cuota comercial</span>'
+    : (pp[curUser.plan]||'S/0') + '<span style="font-size:14px;color:var(--muted)">/mes</span>';
   const hist = document.getElementById('billingHist'); if(!hist) return;
-  if (curUser.plan === 'basico') { hist.innerHTML = '<div class="hempty">Sin historial de pagos. Actualiza a un plan de pago para ver tus facturas.</div>'; return; }
-  const price = curUser.plan === 'pro' ? 190 : 750;
-  const months = ['Mar 2025','Feb 2025','Ene 2025','Dic 2024'];
-  const mesesActivos = 4;
-  document.getElementById('facTotal').textContent = 'S/' + (price*mesesActivos).toLocaleString();
-  document.getElementById('facMeses').textContent = mesesActivos;
-  hist.innerHTML = months.map((m,i) => `<div class="bill-item">
-    <div class="bill-icon">🧾</div>
-    <div class="bill-info">
-      <div class="bill-title">Plan ${pn[curUser.plan]} — ${m}</div>
-      <div class="bill-sub">Suscripción mensual DeclaraFY · ${curUser.email}</div>
-      <span class="bill-status paid">Pagado</span>
-    </div>
-    <div class="bill-amount">
-      S/${price.toLocaleString()}
-      <br><button class="bill-dl" onclick="downloadReceipt('${m}',${price})">📄 Descargar</button>
-    </div>
-  </div>`).join('');
+  hist.innerHTML = '<div class="hempty">Cargando pagos…</div>';
+  try {
+    const data = await declarafyApi('payments_list', { method: 'GET' });
+    const items = Array.isArray(data?.items) ? data.items : [];
+    const subscription = data?.subscription;
+    const paid = items.filter(item => item.status === 'paid');
+    const total = paid.reduce((sum, item) => sum + Number(item.amount_cents || 0), 0) / 100;
+    document.getElementById('facTotal').textContent = 'S/' + total.toFixed(2);
+    document.getElementById('facMeses').textContent = String(paid.length);
+    document.getElementById('facNextBill').textContent = 'No configurado';
+    const end = subscription?.current_period_end ? new Date(subscription.current_period_end.replace(' ', 'T')) : null;
+    document.getElementById('facPlanRenew').textContent = subscription?.status === 'cancel_requested'
+      ? `Cancelación solicitada · acceso hasta ${end && !Number.isNaN(end.valueOf()) ? end.toLocaleDateString('es-PE') : 'fin del período'}`
+      : subscription?.status === 'active' && end && !Number.isNaN(end.valueOf())
+        ? 'Vigencia del plan hasta: ' + end.toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'})
+        : 'Sin renovación programada';
+    if (!items.length) { hist.innerHTML = '<div class="hempty">Sin pagos registrados.</div>'; return; }
+    hist.replaceChildren();
+    items.forEach(item => {
+      const amount = Number(item.amount_cents || 0) / 100;
+      const date = new Date((item.paid_at || item.created_at || '').replace(' ', 'T'));
+      const row = document.createElement('div');
+      row.className = 'bill-item';
+      row.innerHTML = `<div class="bill-icon">🧾</div><div class="bill-info"><div class="bill-title">Plan ${_escapeHtml(pn[item.plan] || item.plan || '')}</div><div class="bill-sub">${_escapeHtml(Number.isNaN(date.valueOf()) ? 'Fecha no disponible' : date.toLocaleDateString('es-PE'))} · ${_escapeHtml(item.provider_charge_id || '')}</div><span class="bill-status ${item.status === 'paid' ? 'paid' : ''}">${_escapeHtml(item.status || '')}</span></div><div class="bill-amount">${_escapeHtml(item.currency || 'PEN')} ${amount.toFixed(2)}</div>`;
+      hist.appendChild(row);
+    });
+  } catch (error) {
+    hist.innerHTML = `<div class="hempty">No se pudo cargar la facturación: ${_escapeHtml(error.message)}</div>`;
+  }
 }
-function downloadReceipt(mes, price) {
-  const win = window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Recibo DeclaraFY</title>
-  <style>body{font-family:Arial,sans-serif;max-width:500px;margin:40px auto;color:#333}
-  .header{background:#1A1A2E;color:#C9A84C;padding:20px;border-radius:8px;text-align:center;margin-bottom:24px}
-  .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;font-size:14px}
-  .total{font-size:16px;font-weight:bold;color:#C9A84C}</style></head><body>
-  <div class="header"><h2 style="margin:0">DeclaraFY</h2><p style="margin:4px 0;font-size:14px;color:rgba(201,168,76,.7)">Recibo de suscripción</p></div>
-  <div class="row"><span>Servicio</span><span>Plan ${curUser?.plan||'Pro'} — ${mes}</span></div>
-  <div class="row"><span>Usuario</span><span>${curUser?.email||'—'}</span></div>
-  <div class="row"><span>Fecha de emisión</span><span>${new Date().toLocaleDateString('es-PE')}</span></div>
-  <div class="row"><span>Método de pago</span><span>Culqi</span></div>
-  <div class="row total"><span><strong>Total</strong></span><span><strong>S/ ${price.toFixed(2)}</strong></span></div>
-  <p style="font-size:14px;color:#999;margin-top:20px;text-align:center">Este recibo puede ser deducido como gasto (Art. 37 LIR) con el comprobante electrónico correspondiente.</p>
-  </body></html>`);
-  win.document.close(); setTimeout(()=>win.print(),400);
-}
-function confirmCancel() {
+async function confirmCancel() {
   if (confirm('¿Estás seguro de que deseas cancelar tu suscripción? Perderás acceso al plan al final del período pagado.')) {
-    addNotif('⚠️','Cancelación solicitada','Tu suscripción será cancelada al vencer el período actual. Lamentamos verte partir.');
-    tpToast('Cancelación registrada. Tu acceso se mantendrá hasta el fin del período pagado.', 'warn');
+    try {
+      const data = await declarafyApi('subscription_cancel', { body: {} });
+      if (!data?.requested) throw new Error('No existe una suscripción activa para cancelar.');
+      addNotif('⚠️','Cancelación solicitada','Tu suscripción será cancelada al vencer el período actual.');
+      tpToast('Cancelación registrada. Tu acceso se mantendrá hasta el fin del período pagado.', 'warn');
+      renderBillingPanel();
+    } catch (error) {
+      tpToast(error.message, 'err');
+    }
   }
 }
 
@@ -2902,23 +2911,27 @@ const ESTADO_LABELS = { pendiente:'Pendiente', revision:'En revisión', implemen
 const PRIO_ICONS = { alta:'🔴', media:'🟡', baja:'🟢' };
 
 function renderSugItem(s, showUser) {
-  const planBadge = s.plan === 'empresa' ? '<span style="font-size:14px;background:rgba(58,134,255,.13);border:1px solid rgba(58,134,255,.22);color:#3A86FF;padding:1px 6px;border-radius:6px">Empresa</span>' : s.plan === 'pro' ? '<span style="font-size:14px;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.22);color:var(--gold);padding:1px 6px;border-radius:6px">Pro</span>' : '';
-  const replyHtml = s.respuesta ? `<div class="sug-reply-box"><div class="sug-reply-label">💬 Respuesta del equipo DeclaraFY</div>${s.respuesta}</div>` : '';
+  const plan = _safeToken(s.plan, ['basico','pro','empresa'], 'basico');
+  const cat = _safeToken(s.cat, Object.keys(CAT_LABELS), 'otro');
+  const estado = _safeToken(s.estado, Object.keys(ESTADO_LABELS), 'pendiente');
+  const prioridad = _safeToken(s.prioridad, Object.keys(PRIO_ICONS), 'media');
+  const planBadge = plan === 'empresa' ? '<span style="font-size:14px;background:rgba(58,134,255,.13);border:1px solid rgba(58,134,255,.22);color:#3A86FF;padding:1px 6px;border-radius:6px">Empresa</span>' : plan === 'pro' ? '<span style="font-size:14px;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.22);color:var(--gold);padding:1px 6px;border-radius:6px">Pro</span>' : '';
+  const replyHtml = s.respuesta ? `<div class="sug-reply-box"><div class="sug-reply-label">💬 Respuesta del equipo DeclaraFY</div>${_escapeHtml(s.respuesta)}</div>` : '';
   return `<div class="sug-item">
     <div class="sug-item-top">
-      <div class="sug-priority-dot ${s.prioridad}"></div>
+      <div class="sug-priority-dot ${prioridad}"></div>
       <div class="sug-item-left">
-        <div class="sug-item-title">${s.titulo}</div>
-        <div class="sug-item-desc">${s.desc}</div>
+        <div class="sug-item-title">${_escapeHtml(s.titulo||'Sin título')}</div>
+        <div class="sug-item-desc">${_escapeHtml(s.desc||'')}</div>
         ${replyHtml}
       </div>
     </div>
     <div class="sug-item-meta">
-      <span class="sug-badge ${s.cat}">${CAT_LABELS[s.cat] || s.cat}</span>
-      <span class="sug-status ${s.estado}">${ESTADO_LABELS[s.estado] || s.estado}</span>
-      ${showUser ? `<span class="sug-item-user">👤 ${s.userName} ${planBadge}</span>` : ''}
-      <span class="sug-item-date">📅 ${s.fecha}</span>
-      <span style="font-size:14px;color:var(--muted)">${PRIO_ICONS[s.prioridad]} ${s.prioridad.charAt(0).toUpperCase()+s.prioridad.slice(1)}</span>
+      <span class="sug-badge ${cat}">${_escapeHtml(CAT_LABELS[cat] || cat)}</span>
+      <span class="sug-status ${estado}">${_escapeHtml(ESTADO_LABELS[estado] || estado)}</span>
+      ${showUser ? `<span class="sug-item-user">👤 ${_escapeHtml(s.userName||'Usuario')} ${planBadge}</span>` : ''}
+      <span class="sug-item-date">📅 ${_escapeHtml(s.fecha||'')}</span>
+      <span style="font-size:14px;color:var(--muted)">${PRIO_ICONS[prioridad]} ${prioridad.charAt(0).toUpperCase()+prioridad.slice(1)}</span>
     </div>
   </div>`;
 }
@@ -3067,11 +3080,23 @@ function updateSugEstado(id, newEstado) {
 // ════════════════════════════════════════
 // INJECT ADMIN SUGS SECTION INTO ADMIN TAB
 // ════════════════════════════════════════
-function renderAdmin() {
-  const us = getUsers(), uArr = Object.values(us);
-  const total = uArr.length, pro = uArr.filter(u => u.plan === 'pro').length, emp = uArr.filter(u => u.plan === 'empresa').length;
-  const ingresos = (pro * 190) + (emp * 750), totalMsgs = uArr.reduce((s, u) => s + (u.mc || 0), 0);
+async function renderAdmin() {
+  if (!isAdminUser()) return;
   const admEl = document.getElementById('admCards');
+  const tbody = document.getElementById('admTbody');
+  const topicsEl = document.getElementById('topTopics');
+  if (admEl) admEl.innerHTML = '<div class="hempty">Cargando información administrativa…</div>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:14px">Cargando usuarios…</td></tr>';
+  try {
+    const overview = await declarafyApi('admin_overview', { method: 'GET' });
+    const uArr = Array.isArray(overview?.users) ? overview.users : [];
+    const totals = overview?.totals || {};
+    const plans = totals.plans || {};
+    const total = Number(totals.users || uArr.length);
+    const pro = Number(plans.pro || 0);
+    const emp = Number(plans.empresa || 0);
+    const ingresos = Number(totals.estimatedMonthlyRevenue || 0);
+    const totalMsgs = Number(totals.messages || 0);
   if (admEl) admEl.innerHTML = `
     <div class="adm-c"><div class="adm-c-l">Usuarios totales</div><div class="adm-c-v">${total}</div><div class="adm-c-s">registrados</div></div>
     <div class="adm-c"><div class="adm-c-l">Plan Pro</div><div class="adm-c-v">${pro}</div><div class="adm-c-s">suscriptores</div></div>
@@ -3079,10 +3104,17 @@ function renderAdmin() {
     <div class="adm-c"><div class="adm-c-l">Ingresos est./mes</div><div class="adm-c-v" style="font-size:15px">S/${ingresos.toLocaleString()}</div><div class="adm-c-s">planes activos</div></div>
     <div class="adm-c"><div class="adm-c-l">Total consultas</div><div class="adm-c-v">${totalMsgs}</div><div class="adm-c-s">realizadas</div></div>
     <div class="adm-c"><div class="adm-c-l">Sugerencias</div><div class="adm-c-v" style="color:var(--gold)">${getAllSugs().length}</div><div class="adm-c-s">recibidas</div></div>`;
-  const topicsEl = document.getElementById('topTopics');
-  if (topicsEl) topicsEl.innerHTML = [{n:'IGV',v:32},{n:'Renta',v:28},{n:'Aduanas',v:15},{n:'Precios Transfer.',v:10},{n:'Planificación',v:8},{n:'NRUS',v:7}].map(t => `<div class="topic-row"><span class="topic-nm">${t.n}</span><div class="topic-track"><div class="topic-bar" style="width:${t.v}%"></div></div><span class="topic-pct">${t.v}%</span></div>`).join('');
-  const tbody = document.getElementById('admTbody');
-  if (tbody) tbody.innerHTML = uArr.map(u => `<tr><td>${_escapeHtml(u.name||'')}</td><td style="color:var(--muted);font-size:14px">${_escapeHtml(u.email||'')}</td><td><span class="pp ${_escapeHtml(u.plan||'')}">${_escapeHtml(u.plan||'')}</span></td><td>${u.mc||0}</td><td style="color:var(--muted)">${u.since||'—'}</td></tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:14px">No hay usuarios aún</td></tr>';
+    const topics = Array.isArray(overview?.topics) ? overview.topics : [];
+    const topicTotal = topics.reduce((sum, topic) => sum + Number(topic.count || 0), 0) || 1;
+    if (topicsEl) topicsEl.innerHTML = topics.length
+      ? topics.map(topic => { const pct = Math.round(Number(topic.count || 0) * 100 / topicTotal); return `<div class="topic-row"><span class="topic-nm">${_escapeHtml(topic.name||'General')}</span><div class="topic-track"><div class="topic-bar" style="width:${pct}%"></div></div><span class="topic-pct">${pct}%</span></div>`; }).join('')
+      : '<div class="hempty">Todavía no hay conversaciones suficientes para calcular temas.</div>';
+    if (tbody) tbody.innerHTML = uArr.map(u => `<tr><td>${_escapeHtml(u.name||'')}</td><td style="color:var(--muted);font-size:14px">${_escapeHtml(u.email||'')}</td><td><span class="pp ${_escapeHtml(u.plan||'')}">${_escapeHtml(u.plan||'')}</span></td><td>${Number(u.mc||0)}</td><td style="color:var(--muted)">${_escapeHtml(u.since||'—')}</td></tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:14px">No hay usuarios aún</td></tr>';
+  } catch (error) {
+    if (admEl) admEl.innerHTML = `<div class="hempty" style="color:var(--red)">${_escapeHtml(error.message)}</div>`;
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:14px">No se pudo cargar la lista.</td></tr>';
+    if (topicsEl) topicsEl.innerHTML = '<div class="hempty">No se pudieron cargar los temas.</div>';
+  }
   // Sugerencias section in admin
   let admSugSection = document.getElementById('adminSugSection');
   if (!admSugSection) {
@@ -3102,6 +3134,7 @@ const _origSetPTabV9 = setPTab;
 setPTab = function(tab, btn) {
   _origSetPTabV9(tab, btn);
   if (tab === 'sugerencias') initSugerencias();
+  if (tab === 'admin') renderAdmin();
 }
 
 // Auto-notify users when their suggestion status changes
@@ -3583,7 +3616,7 @@ function exportCasoInforme(caso, texto) {
   <span><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'})}</span>
 </div>
 ${html}
-<div class="footer">Informe generado por DeclaraFY.pe · Solo con fines orientativos · Validar con contador o abogado tributarista para decisiones formales</div>
+<div class="footer">Informe generado por Declarafy.com · Solo con fines orientativos · Validar con contador o abogado tributarista para decisiones formales</div>
 </body></html>`);
   win.document.close();
   setTimeout(() => win.print(), 600);
@@ -3602,21 +3635,31 @@ function renderCasos() {
     return;
   }
   const urgColors = { normal:'var(--muted)', urgente:'var(--gold)', critico:'var(--red)' };
-  el.innerHTML = filtered.map(c => `<div class="sug-item" style="cursor:pointer" onclick="loadCaso('${c.id}')">
+  el.replaceChildren();
+  filtered.forEach(c => {
+    const tipo = _safeToken(c.tipo, Object.keys(TIPO_LABELS), 'otro');
+    const urgencia = _safeToken(c.urgencia, ['normal','urgente','critico'], 'normal');
+    const item = document.createElement('div');
+    item.className = 'sug-item';
+    item.style.cursor = 'pointer';
+    item.innerHTML = `
     <div class="sug-item-top">
-      <div class="sug-priority-dot" style="background:${urgColors[c.urgencia||'normal']};margin-top:4px;flex-shrink:0"></div>
+      <div class="sug-priority-dot" style="background:${urgColors[urgencia]};margin-top:4px;flex-shrink:0"></div>
       <div class="sug-item-left">
-        <div class="sug-item-title">${c.nombre}</div>
-        <div class="sug-item-desc">${c.empresa ? c.empresa + (c.ruc ? ' · RUC ' + c.ruc : '') : 'Sin empresa especificada'} · ${c.periodo||'Período no especificado'}</div>
+        <div class="sug-item-title">${_escapeHtml(c.nombre||'Caso sin nombre')}</div>
+        <div class="sug-item-desc">${_escapeHtml(c.empresa ? c.empresa + (c.ruc ? ' · RUC ' + c.ruc : '') : 'Sin empresa especificada')} · ${_escapeHtml(c.periodo||'Período no especificado')}</div>
         <div class="sug-item-meta" style="margin-top:6px">
-          <span class="sug-badge nueva-funcion">${TIPO_LABELS[c.tipo]||c.tipo}</span>
-          <span class="sug-badge ${c.urgencia==='critico'?'bug':c.urgencia==='urgente'?'gold':'otro'}">${c.urgencia?.toUpperCase()||'NORMAL'}</span>
+          <span class="sug-badge nueva-funcion">${_escapeHtml(TIPO_LABELS[tipo]||tipo)}</span>
+          <span class="sug-badge ${urgencia==='critico'?'bug':urgencia==='urgente'?'gold':'otro'}">${urgencia.toUpperCase()}</span>
           ${c.archivos?.length ? `<span style="font-size:14px;color:var(--muted)">📎 ${c.archivos.length} archivo(s)</span>` : ''}
-          <span class="sug-item-date">📅 ${c.fecha}</span>
+          <span class="sug-item-date">📅 ${_escapeHtml(c.fecha||'')}</span>
         </div>
       </div>
     </div>
-  </div>`).join('');
+  `;
+    item.addEventListener('click', () => loadCaso(String(c.id||'')));
+    el.appendChild(item);
+  });
 }
 
 function filterCasos(f, btn) {
@@ -3942,8 +3985,16 @@ function renderFBStatus() {
 const _origSendMsgFB = _sendMsgLayer2;
 async function sendMsg(txt) {
   const result = await _origSendMsgFB(txt);
-  // Update mc in firebase after successful message
-  if (curUser && fbReady) incrementMsgCount();
+  // El backend ya consumió la cuota atómicamente; aquí solo refrescamos el perfil.
+  if (curUser && fbReady) {
+    declarafyApi('profile_get', { method: 'GET' }).then(data => {
+      if (data?.user) {
+        curUser = {...curUser, ...data.user};
+        curPlan = curUser.plan || curPlan;
+        loadPanel();
+      }
+    }).catch(error => console.warn('No se pudo refrescar la cuota:', error.message));
+  }
   return result;
 }
 
@@ -3951,13 +4002,15 @@ function loadPanel() {
   if (!curUser) return;
   const pn = {basico:'Básico',pro:'Profesional',empresa:'Empresa'};
   const el = (id) => document.getElementById(id);
-  if (el('pcPlan')) el('pcPlan').textContent = pn[curUser.plan] || 'Básico';
-  if (el('pcPlanD')) el('pcPlanD').textContent = curUser.plan === 'basico' ? `${FREE} consultas al mes` : 'Consultas ilimitadas';
-  if (el('pcTag')) el('pcTag').textContent = 'Activo';
+  const admin = isAdminUser();
+  if (el('adminTab')) el('adminTab').style.display = admin ? '' : 'none';
+  if (el('pcPlan')) el('pcPlan').textContent = admin ? 'Superadministrador' : (pn[curUser.plan] || 'Básico');
+  if (el('pcPlanD')) el('pcPlanD').textContent = admin ? 'Acceso total · sin cuota comercial' : (curUser.plan === 'basico' ? `${FREE} consultas al mes` : 'Consultas ilimitadas');
+  if (el('pcTag')) el('pcTag').textContent = admin ? 'Administrador' : 'Activo';
   if (el('pcCount')) el('pcCount').textContent = curUser.mc || 0;
   if (el('pcConvs')) el('pcConvs').textContent = getHist(curUser.email).length;
   if (el('pcSince')) el('pcSince').textContent = curUser.since || '—';
-  if (el('chatPlanLbl')) el('chatPlanLbl').textContent = 'Plan ' + (pn[curUser.plan] || 'Básico');
+  if (el('chatPlanLbl')) el('chatPlanLbl').textContent = admin ? 'Superadministrador' : ('Plan ' + (pn[curUser.plan] || 'Básico'));
   updateQuotaBars();
   renderHist();
   // Async load from Firestore in background
@@ -3970,7 +4023,7 @@ function loadPanel() {
       if (doc.exists) {
         const fresh = doc.data();
         Object.assign(curUser, fresh);
-        if (el('pcPlan')) el('pcPlan').textContent = pn[fresh.plan]||'Básico';
+        if (el('pcPlan')) el('pcPlan').textContent = isAdminUser() ? 'Superadministrador' : (pn[fresh.plan]||'Básico');
         if (el('pcCount')) el('pcCount').textContent = fresh.mc||0;
         updateQuotaBars();
       }
@@ -4055,20 +4108,7 @@ const BCR_NORMAS = [
    detalle:`<h4>Art. 61 LIR — Diferencias de cambio</h4><div class="reg-detail-art">Ganancia de cambio: Tributable como ingreso ordinario del ejercicio.</div><div class="reg-detail-art">Pérdida de cambio: Deducible como gasto si es inherente al giro del negocio.</div><div class="reg-detail-art">Excepción: Las diferencias de cambio de activos fijos adquiridos en ME deben activarse y no deducirse directamente.</div><strong>Tipo de cambio a usar:</strong> El tipo de cambio SBS publicado en la fecha de la transacción o del cierre contable, según corresponda.`},
 ];
 
-const BCR_HIST = [
-  {fecha:'Mar 2025',compra:3.705,venta:3.762,var:+0.012},
-  {fecha:'Feb 2025',compra:3.692,venta:3.748,var:-0.008},
-  {fecha:'Ene 2025',compra:3.698,venta:3.756,var:+0.025},
-  {fecha:'Dic 2024',compra:3.671,venta:3.731,var:-0.014},
-  {fecha:'Nov 2024',compra:3.685,venta:3.742,var:+0.031},
-  {fecha:'Oct 2024',compra:3.652,venta:3.711,var:-0.005},
-  {fecha:'Set 2024',compra:3.658,venta:3.717,var:+0.018},
-  {fecha:'Ago 2024',compra:3.638,venta:3.699,var:+0.022},
-  {fecha:'Jul 2024',compra:3.614,venta:3.677,var:-0.003},
-  {fecha:'Jun 2024',compra:3.617,venta:3.681,var:+0.009},
-  {fecha:'May 2024',compra:3.606,venta:3.671,var:-0.021},
-  {fecha:'Abr 2024',compra:3.627,venta:3.694,var:+0.018},
-];
+const BCR_HIST = [];
 
 // ════════════════════════════════════════
 // DATA — ZONAS ESPECIALES
@@ -4257,46 +4297,50 @@ function setBCRTab(tab,btn){
   if(tab==='historico')renderBCRTable();
   if(tab==='normas')renderRegList('bcrNormasList',BCR_NORMAS,'','todos','#3A86FF');
 }
-function renderBCRRates(){
+async function renderBCRRates(){
   const el=document.getElementById('bcrRates');if(!el)return;
-  const today=new Date();
-  const base=3.720+Math.sin(today.getDate()*0.3)*0.03;
-  const rates=[
-    {lbl:'USD Compra',val:(base).toFixed(3),date:'Hoy SBS'},
-    {lbl:'USD Venta',val:(base+0.034).toFixed(3),date:'Hoy SBS'},
-    {lbl:'EUR Venta',val:(base*1.09).toFixed(3),date:'Hoy SBS'},
-    {lbl:'Tasa referencia BCR',val:'4.75%',date:'Feb 2025'},
-  ];
-  el.innerHTML=rates.map(r=>`<div class="bcr-card"><div class="bcr-label">${r.lbl}</div><div class="bcr-rate">${r.val}</div><div class="bcr-date">${r.date}</div></div>`).join('');
+  el.innerHTML='<div style="color:var(--muted)">Consultando BCRP…</div>';
+  try{
+    const payload=await declarafyApi('consultabcrtiposcambio',{method:'GET'});
+    const rows=Array.isArray(payload?.data)?payload.data:[];
+    BCR_HIST.splice(0,BCR_HIST.length,...rows.map((row,index)=>({fecha:String(row.fecha||''),compra:row.compra==null?null:Number(row.compra),venta:row.venta==null?null:Number(row.venta),var:index<rows.length-1&&row.venta!=null&&rows[index+1].venta!=null?Number(row.venta)-Number(rows[index+1].venta):0})).filter(row=>Number.isFinite(row.compra)||Number.isFinite(row.venta)));
+    const latest=BCR_HIST[0];
+    if(!latest)throw new Error('Sin cotizaciones disponibles.');
+    const rates=[{lbl:'USD Compra',val:Number.isFinite(latest.compra)?latest.compra.toFixed(3):'—',date:latest.fecha},{lbl:'USD Venta',val:Number.isFinite(latest.venta)?latest.venta.toFixed(3):'—',date:latest.fecha}];
+    el.innerHTML=rates.map(r=>`<div class="bcr-card"><div class="bcr-label">${r.lbl}</div><div class="bcr-rate">${r.val}</div><div class="bcr-date">${_escapeHtml(r.date)}</div></div>`).join('');
+    renderBCRTable();
+  }catch(error){el.innerHTML=`<div style="color:var(--red)">${_escapeHtml(error.message)}</div>`;renderBCRTable();}
 }
 function renderBCRTable(){
   const el=document.getElementById('bcrTable');if(!el)return;
+  if(!BCR_HIST.length){el.innerHTML='<tbody><tr><td style="color:var(--muted)">Sin datos oficiales cargados.</td></tr></tbody>';return;}
   el.innerHTML='<thead><tr><th>Período</th><th>Compra</th><th>Venta</th><th>Variación</th><th>Uso tributario</th></tr></thead><tbody>'+
   BCR_HIST.map(r=>{
     const varClass=r.var>0?'bcr-positive':r.var<0?'bcr-negative':'bcr-neutral';
     const varStr=(r.var>0?'+':'')+r.var.toFixed(3);
-    return `<tr><td>${r.fecha}</td><td>${r.compra.toFixed(3)}</td><td style="color:var(--gold)">${r.venta.toFixed(3)}</td><td class="${varClass}">${varStr}</td><td style="color:var(--muted);font-size:14px">Ventas al exterior</td></tr>`;
+    return `<tr><td>${_escapeHtml(r.fecha)}</td><td>${Number.isFinite(r.compra)?r.compra.toFixed(3):'—'}</td><td style="color:var(--gold)">${Number.isFinite(r.venta)?r.venta.toFixed(3):'—'}</td><td class="${varClass}">${varStr}</td><td style="color:var(--muted);font-size:14px">Fuente BCRP</td></tr>`;
   }).join('')+'</tbody>';
 }
-function calcBCR(){
+async function calcBCR(){
   const monto=parseFloat(document.getElementById('bcrMonto')?.value)||0;
   const from=document.getElementById('bcrFrom')?.value||'USD';
   const op=document.getElementById('bcrOp')?.value||'venta';
-  const fecha=document.getElementById('bcrFecha')?.value;
   const el=document.getElementById('bcrResult');if(!monto||!el)return;
-  const base=3.720+Math.random()*0.04;
-  const rates={USD_compra:base,USD_venta:base+0.034,EUR_venta:base*1.09,GBP_venta:base*1.27,JPY_venta:base/148};
-  const rateKey=from+'_'+(op==='compra'?'compra':'venta');
-  const tc=rates[rateKey]||rates['USD_venta'];
-  const resultado=monto*tc;
-  const fmtS=n=>'S/ '+n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
   el.style.display='block';
-  el.innerHTML=`<div style="font-size:14px;color:var(--muted);margin-bottom:8px">${from} ${op} — ${fecha||'Hoy'}</div>
-  <div class="tim-total">${fmtS(resultado)}</div>
-  <div style="font-size:14px;color:var(--muted);margin-bottom:14px">${monto.toLocaleString()} ${from} × ${tc.toFixed(3)} = ${fmtS(resultado)}</div>
-  <div class="tim-row"><span class="tim-row-lbl">Tipo de cambio SBS utilizado</span><span class="tim-row-val gold">${tc.toFixed(3)}</span></div>
-  <div class="tim-row"><span class="tim-row-lbl">Base legal</span><span class="tim-row-val" style="font-size:14px;color:var(--muted)">Art. 50 RLIR / Res. SBS</span></div>
-  <p style="font-size:14px;color:var(--muted);margin-top:8px">Para declarar en tu DJ, usa el TC SBS de la fecha exacta de la operación. TC simulado — verificar en sbs.gob.pe</p>`;
+  if(from!=='USD'){
+    el.innerHTML='<div style="color:var(--muted)">La fuente oficial configurada solo entrega USD/PEN. No se calculará otra moneda con una tasa inventada.</div>';
+    return;
+  }
+  el.innerHTML='<div style="color:var(--muted)">Consultando BCRP…</div>';
+  try{
+    const payload=await declarafyApi('consultabcrtiposcambio',{method:'GET'});
+    const latest=Array.isArray(payload?.data)?payload.data[0]:null;
+    const tc=Number(op==='compra'?latest?.compra:latest?.venta);
+    if(!Number.isFinite(tc))throw new Error('El BCRP no devolvió una tasa válida.');
+    const resultado=monto*tc;
+    const fmtS=n=>'S/ '+n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+    el.innerHTML=`<div style="font-size:14px;color:var(--muted);margin-bottom:8px">USD ${op} — ${_escapeHtml(latest?.fecha||'último dato BCRP')}</div><div class="tim-total">${fmtS(resultado)}</div><div style="font-size:14px;color:var(--muted);margin-bottom:14px">${monto.toLocaleString()} USD × ${tc.toFixed(3)} = ${fmtS(resultado)}</div><div class="tim-row"><span class="tim-row-lbl">Tipo de cambio BCRP utilizado</span><span class="tim-row-val gold">${tc.toFixed(3)}</span></div><p style="font-size:14px;color:var(--muted);margin-top:8px">Dato oficial BCRP. Para otra fecha, usa la cotización oficial correspondiente a esa operación.</p>`;
+  }catch(error){el.innerHTML=`<div style="color:var(--red)">${_escapeHtml(error.message)}</div>`;}
 }
 
 // ── ZONAS ──
@@ -4898,7 +4942,7 @@ function exportLocalFile() {
   win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Local File PT — ${empresa}</title><style>body{font-family:'Times New Roman',serif;max-width:750px;margin:40px auto;color:#1a1a2e;line-height:1.8;font-size:14px}.header{background:#1a1a2e;color:#C39CE0;padding:24px;border-radius:6px;margin-bottom:24px}h2{font-size:16px;margin:0 0 6px;font-family:Georgia,serif}h3{color:#6B4E9E;margin:16px 0 6px;font-size:14px}.lf-box{background:#f8f7ff;border:1px solid #ddd;border-radius:5px;padding:10px 14px;margin-bottom:8px;font-size:14px}strong{color:#4B3580}@media print{body{margin:20px}}</style></head><body>
   <div class="header"><h2>LOCAL FILE — Expediente Técnico de Precios de Transferencia</h2><p style="margin:0;font-size:14px;color:rgba(195,156,224,.8)">DeclaraFY · Módulo de Precios de Transferencia · Perú</p></div>
   ${content}
-  <hr style="margin:24px 0;border-color:#ddd"><p style="font-size:14px;color:#999;text-align:center">Documento generado por DeclaraFY.pe · Solo orientativo · Validar con especialista en PT antes de presentar</p>
+  <hr style="margin:24px 0;border-color:#ddd"><p style="font-size:14px;color:#999;text-align:center">Documento generado por Declarafy.com · Solo orientativo · Validar con especialista en PT antes de presentar</p>
   </body></html>`);
   win.document.close(); setTimeout(()=>win.print(),500);
 }
@@ -4974,9 +5018,9 @@ function exportInformePT() {
   const content = document.getElementById('ptInformePreview')?.innerHTML||'';
   const win = window.open('','_blank');
   win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Informe PT — ${empresa}</title><style>body{font-family:'Times New Roman',serif;max-width:760px;margin:40px auto;color:#1a1a2e;line-height:1.85;font-size:14px}.lf-box{background:#f8f7ff;border:1px solid #ddd;border-radius:5px;padding:10px 14px;margin-bottom:8px;font-size:14px}h2{font-family:Georgia,serif;font-size:17px;color:#4B3580;border-bottom:2px solid #C39CE0;padding-bottom:8px;margin-bottom:16px}h3{color:#6B4E9E;font-size:14px;margin:14px 0 6px}strong{color:#4B3580}@media print{body{margin:20px}}</style></head><body>
-  <div style="background:#1a1a2e;color:#C39CE0;padding:20px;border-radius:6px;margin-bottom:20px;font-family:Georgia,serif"><div style="font-size:16px;margin-bottom:4px">Informe Ejecutivo — Precios de Transferencia</div><div style="font-size:14px;opacity:.7">DeclaraFY.pe · Módulo PT · Art. 32-A LIR · D.S. 008-2023-EF</div></div>
+  <div style="background:#1a1a2e;color:#C39CE0;padding:20px;border-radius:6px;margin-bottom:20px;font-family:Georgia,serif"><div style="font-size:16px;margin-bottom:4px">Informe Ejecutivo — Precios de Transferencia</div><div style="font-size:14px;opacity:.7">Declarafy.com · Módulo PT · Art. 32-A LIR · D.S. 008-2023-EF</div></div>
   ${content}
-  <hr style="margin:20px 0;border-color:#ddd"><p style="font-size:14px;text-align:center;color:#999">Documento generado por DeclaraFY.pe · Solo orientativo · Validar con especialista en PT antes de presentar a SUNAT</p></body></html>`);
+  <hr style="margin:20px 0;border-color:#ddd"><p style="font-size:14px;text-align:center;color:#999">Documento generado por Declarafy.com · Solo orientativo · Validar con especialista en PT antes de presentar a SUNAT</p></body></html>`);
   win.document.close(); setTimeout(()=>win.print(),500);
 }
 
@@ -5098,7 +5142,7 @@ Sé específico y cita normas exactas.`;
   try {
     const res = await callDeclaraFY({model:'claude-sonnet-4-5',max_tokens:800,system:'Eres un inspector senior de SUNAT con 20 años de experiencia en fiscalizaciones. Conoces exactamente cómo SUNAT selecciona y fiscaliza contribuyentes peruanos.',messages:[{role:'user',content:prompt}]});
     const data = await res.json();
-    el.innerHTML = (data.content?.[0]?.text||'Sin respuesta').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong style="color:var(--red)">$1</strong>');
+    el.innerHTML = _mdFormat(data.content?.[0]?.text || 'Sin respuesta');
   } catch(e) { el.innerHTML = 'Error: '+safeHTML(e.message); }
 }
 
@@ -5184,7 +5228,7 @@ function exportReq() {
   const content = document.getElementById('reqResponse')?.innerHTML||'';
   const numero = document.getElementById('reqNumero')?.value||'SUNAT';
   const win = window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Respuesta Req. ${numero}</title><style>body{font-family:'Times New Roman',serif;max-width:720px;margin:40px auto;color:#1a1a2e;line-height:1.85;font-size:14px}h3{color:#8B6914;font-size:15px;border-bottom:1px solid #ddd;padding-bottom:5px}h4{color:#555;font-size:14px;margin:12px 0 5px}.req-section{background:#fffef0;border:1px solid #ddd;padding:8px 12px;border-radius:5px;margin-bottom:8px;font-size:14px}.req-art-cite{background:#EEF4FF;border:1px solid #C5D8FF;border-radius:4px;padding:2px 7px;font-size:14px;color:#2C5CC5;display:inline-block;margin:2px}.req-checklist-mini{padding-left:14px}.req-check-mini{padding:3px 0;font-size:14px}.cont-warning{background:#FFFBEA;border-left:3px solid #C9A84C;padding:8px 12px;font-size:14px;margin:8px 0}@media print{body{margin:20px}}</style></head><body>${content}<hr style="margin:20px 0"><p style="font-size:14px;text-align:center;color:#999">Generado por DeclaraFY.pe — Borrador para revisión profesional antes de presentar</p></body></html>`);
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Respuesta Req. ${numero}</title><style>body{font-family:'Times New Roman',serif;max-width:720px;margin:40px auto;color:#1a1a2e;line-height:1.85;font-size:14px}h3{color:#8B6914;font-size:15px;border-bottom:1px solid #ddd;padding-bottom:5px}h4{color:#555;font-size:14px;margin:12px 0 5px}.req-section{background:#fffef0;border:1px solid #ddd;padding:8px 12px;border-radius:5px;margin-bottom:8px;font-size:14px}.req-art-cite{background:#EEF4FF;border:1px solid #C5D8FF;border-radius:4px;padding:2px 7px;font-size:14px;color:#2C5CC5;display:inline-block;margin:2px}.req-checklist-mini{padding-left:14px}.req-check-mini{padding:3px 0;font-size:14px}.cont-warning{background:#FFFBEA;border-left:3px solid #C9A84C;padding:8px 12px;font-size:14px;margin:8px 0}@media print{body{margin:20px}}</style></head><body>${content}<hr style="margin:20px 0"><p style="font-size:14px;text-align:center;color:#999">Generado por Declarafy.com — Borrador para revisión profesional antes de presentar</p></body></html>`);
   win.document.close(); setTimeout(()=>win.print(),500);
 }
 function copyReq() {
@@ -5441,9 +5485,9 @@ Usa lenguaje jurídico formal peruano. Cita las normas aplicables en cada cláus
     const r=await callDeclaraFY({model:'claude-sonnet-4-5',max_tokens:2500,system:'Eres un abogado tributarista peruano que redacta contratos con cláusulas tributarias optimizadas según la legislación vigente.',messages:[{role:'user',content:prompt}]});
     const d=await r.json();
     loading.style.display='none'; preview.style.display='block'; if(actions) actions.style.display='flex';
-    preview.innerHTML=`<div class="cont-header"><h2>${cfg.title}</h2><div style="font-size:14px;color:var(--muted)">Lima, ${new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'})}</div></div>`+
-    (d.content?.[0]?.text||'').replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')+
-    `<div class="cont-footer">Documento generado por DeclaraFY.pe · Borrador para revisión de abogado antes de firmar</div>`;
+    preview.innerHTML=`<div class="cont-header"><h2>${_escapeHtml(cfg.title)}</h2><div style="font-size:14px;color:var(--muted)">Lima, ${new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'long',year:'numeric'})}</div></div>`+
+    _mdFormat(d.content?.[0]?.text || 'Sin respuesta')+
+    `<div class="cont-footer">Documento generado por Declarafy.com · Borrador para revisión de abogado antes de firmar</div>`;
     addNotif('📜','Contrato generado',cfg.title+' con cláusulas tributarias listo para revisión.');
   }catch(e){loading.style.display='none';preview.style.display='block';preview.innerHTML='<p style="color:var(--red)">Error: '+safeHTML(e.message)+'</p>';}
 }
@@ -5463,7 +5507,7 @@ function exportContrato(){
   const content=document.getElementById('contPreview')?.innerHTML||'';
   const tipo=CONT_FORMS[contTypeSel]?.title||'Contrato';
   const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${tipo}</title><style>body{font-family:'Times New Roman',serif;max-width:740px;margin:40px auto;color:#1a1a2e;line-height:1.9;font-size:14px}.cont-header{text-align:center;border-bottom:2px solid #4CAF50;padding-bottom:14px;margin-bottom:18px}.cont-header h2{font-size:16px;font-family:Georgia,serif;color:#2E7D32;margin-bottom:4px}.clause-title{font-weight:700;text-transform:uppercase;font-size:14px;margin:14px 0 4px;color:#1a1a2e}.clause-body{font-size:14px;color:#333}.cont-warning{background:#f9fff9;border-left:3px solid #4CAF50;padding:8px 12px;font-size:14px;margin:8px 0;color:#333}.cont-footer{margin-top:24px;padding-top:12px;border-top:1px solid #ddd;font-size:14px;color:#999;text-align:center}.cont-tax-tag{display:inline-block;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:4px;padding:2px 7px;font-size:14px;color:#2E7D32;margin:2px}@media print{body{margin:20px}}</style></head><body>${content}<hr style="margin:24px 0"><p style="font-size:14px;text-align:center;color:#999">Generado por DeclaraFY.pe · Borrador orientativo · Validar con abogado antes de firmar</p></body></html>`);
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${tipo}</title><style>body{font-family:'Times New Roman',serif;max-width:740px;margin:40px auto;color:#1a1a2e;line-height:1.9;font-size:14px}.cont-header{text-align:center;border-bottom:2px solid #4CAF50;padding-bottom:14px;margin-bottom:18px}.cont-header h2{font-size:16px;font-family:Georgia,serif;color:#2E7D32;margin-bottom:4px}.clause-title{font-weight:700;text-transform:uppercase;font-size:14px;margin:14px 0 4px;color:#1a1a2e}.clause-body{font-size:14px;color:#333}.cont-warning{background:#f9fff9;border-left:3px solid #4CAF50;padding:8px 12px;font-size:14px;margin:8px 0;color:#333}.cont-footer{margin-top:24px;padding-top:12px;border-top:1px solid #ddd;font-size:14px;color:#999;text-align:center}.cont-tax-tag{display:inline-block;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:4px;padding:2px 7px;font-size:14px;color:#2E7D32;margin:2px}@media print{body{margin:20px}}</style></head><body>${content}<hr style="margin:24px 0"><p style="font-size:14px;text-align:center;color:#999">Generado por Declarafy.com · Borrador orientativo · Validar con abogado antes de firmar</p></body></html>`);
   win.document.close();setTimeout(()=>win.print(),500);
 }
 function copyContrato(){
@@ -5641,8 +5685,8 @@ function calcFracc(){
   const tableEl=document.getElementById('fraccTable');
   const actEl=document.getElementById('fraccActions');
   if(!deuda||!fecha){if(sumEl)sumEl.style.display='none';if(tableWrap)tableWrap.style.display='none';if(actEl)actEl.style.display='none';return;}
-  const TIM_MENSUAL=0.012; // 1.2% mensual
-  const TIM_FRACCIONAMIENTO=0.008; // TIM fraccionamiento = 80% de TIM
+  const TIM_MENSUAL=TAX_RULES.timMonthlyPercent/100;
+  const TIM_FRACCIONAMIENTO=TIM_MENSUAL*0.8;
   const fmtS=n=>'S/ '+n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
   // Cuota = deuda * (r * (1+r)^n) / ((1+r)^n - 1)
   const r=TIM_FRACCIONAMIENTO;
@@ -5654,7 +5698,7 @@ function calcFracc(){
   sumEl.style.display='grid';
   sumEl.innerHTML=[
     {v:fmtS(deuda),l:'Deuda original'},{v:fmtS(cuotaFija),l:'Cuota mensual fija'},
-    {v:fmtS(totalIntereses),l:'Intereses totales (TIM 0.8%/mes)'},{v:fmtS(totalPagar),l:'Total a pagar'},
+    {v:fmtS(totalIntereses),l:`Intereses totales (${(TIM_FRACCIONAMIENTO*100).toFixed(2)}%/mes)`},{v:fmtS(totalPagar),l:'Total a pagar'},
     {v:n+' cuotas',l:'Plazo'},{v:(n/12).toFixed(1)+' años',l:'Duración'},
   ].map(c=>`<div class="fracc-card"><div class="fracc-card-v">${c.v}</div><div class="fracc-card-l">${c.l}</div></div>`).join('');
   // Table
@@ -5805,7 +5849,7 @@ Identifica: 1) Gastos probablemente no deducibles, 2) Diferencias temporarias im
   try{
     const r=await callDeclaraFY({model:'claude-sonnet-4-5',max_tokens:700,system:'Eres un auditor tributario peruano senior. Analizas EEFF identificando riesgos tributarios específicos con base legal exacta.',messages:[{role:'user',content:prompt}]});
     const dt=await r.json();
-    el.innerHTML=(dt.content?.[0]?.text||'').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong style="color:#9B59B6">$1</strong>');
+    el.innerHTML=_mdFormat(dt.content?.[0]?.text || 'Sin respuesta');
   }catch(e){el.innerHTML='Error: '+safeHTML(e.message);}
 }
 
@@ -5873,7 +5917,7 @@ function copyCarta(){navigator.clipboard.writeText(document.getElementById('cart
 // ════════════════════════════════════════
 const MONITOR_DATA=[
   {fecha:'15 Mar 2025',titulo:'D.S. 012-2025-EF — Cronograma declaración anual IR 2024',impacto:'Establece fechas para la DJ Anual de IR 2024. Los contribuyentes del RG y RMT con rentas de 3ra categoría deben declarar entre marzo y abril 2025 según su dígito de RUC.',cat:'ir',nuevo:true,importante:true,regimenes:['RG','RMT']},
-  {fecha:'08 Mar 2025',titulo:'R.S. 042-2025/SUNAT — Actualización de tasas TIM',impacto:'La TIM se mantiene en 1.2% mensual para deudas en soles. Sin cambios respecto al período anterior. La TIM para fraccionamiento continúa en 0.8% mensual.',cat:'ir',nuevo:true,importante:false,regimenes:['Todos']},
+  {fecha:'01 Abr 2021',titulo:'R.S. 044-2021/SUNAT — TIM en moneda nacional',impacto:'La TIM para deudas en moneda nacional es 0.9% mensual desde el 1 de abril de 2021. Para aplazamiento o fraccionamiento se aplica el 80% de la TIM vigente.',cat:'ir',nuevo:false,importante:true,regimenes:['Todos']},
   {fecha:'01 Feb 2025',titulo:'D.S. 008-2025-EF — UIT 2025 fijada en S/5,350',impacto:'La UIT 2025 sube a S/5,350 (aumento de S/200 vs 2024). Impacta en: límites de deducción 4ta categoría (7 UIT = S/37,450), renta de 4ta mínima (S/37,450 anuales), escalas del RMT (15 UIT = S/80,250), multas SUNAT.',cat:'sunat',nuevo:true,importante:true,regimenes:['Todos']},
   {fecha:'15 Ene 2025',titulo:'D.Leg. 1623 — IGV plataformas digitales (implementación plena)',impacto:'Las plataformas digitales extranjeras (Netflix, Spotify, Adobe, Google Ads, Meta Ads) deben cobrar IGV (18%) a sus usuarios peruanos. El banco retiene automáticamente. Las empresas pueden usar como crédito fiscal.',cat:'igv',nuevo:false,importante:true,regimenes:['RG','RMT','RER']},
   {fecha:'10 Ene 2025',titulo:'R.S. 008-2025/SUNAT — Cronograma vencimientos 2025',impacto:'Se publica el cronograma de vencimientos para declaraciones y pagos del ejercicio 2025. Los plazos varían según el último dígito de RUC.',cat:'sunat',nuevo:false,importante:true,regimenes:['Todos']},
@@ -5975,7 +6019,7 @@ function generarIndiceExp(){
 function exportExpPDF(){
   const content=document.getElementById('expIndice')?.innerHTML||'';
   const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Expediente Fiscalización</title><style>body{font-family:'Times New Roman',serif;max-width:700px;margin:40px auto;color:#1a1a2e;font-size:14px;line-height:1.8}@media print{body{margin:20px}}</style></head><body><h2 style="color:#C41E0A;font-family:Georgia,serif">Expediente de Fiscalización SUNAT</h2>${content}<hr style="margin:20px 0"><p style="font-size:14px;color:#999;text-align:center">Generado por DeclaraFY.pe</p></body></html>`);
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Expediente Fiscalización</title><style>body{font-family:'Times New Roman',serif;max-width:700px;margin:40px auto;color:#1a1a2e;font-size:14px;line-height:1.8}@media print{body{margin:20px}}</style></head><body><h2 style="color:#C41E0A;font-family:Georgia,serif">Expediente de Fiscalización SUNAT</h2>${content}<hr style="margin:20px 0"><p style="font-size:14px;color:#999;text-align:center">Generado por Declarafy.com</p></body></html>`);
   win.document.close();setTimeout(()=>win.print(),400);
 }
 
@@ -6096,12 +6140,12 @@ function setDBKTab(tab, btn) {
 
 function calcDBK() {
   const fob=parseFloat(document.getElementById('dbkFOB')?.value)||0;
-  const tc=parseFloat(document.getElementById('dbkTC')?.value)||3.75;
+  const tc=parseFloat(document.getElementById('dbkTC')?.value)||0;
   const tasa=parseFloat(document.getElementById('dbkTasa')?.value)||3;
   const nExp=parseInt(document.getElementById('dbkNumExp')?.value)||1;
   const costoIns=parseFloat(document.getElementById('dbkCostoIns')?.value)||0;
   const aranceles=parseFloat(document.getElementById('dbkAranceles')?.value)||0;
-  const el=document.getElementById('dbkResult'); if(!el||!fob) return;
+  const el=document.getElementById('dbkResult'); if(!el||!fob||!tc) return;
   const fobPEN=fob*tc;
   const restitPEN=fobPEN*(tasa/100);
   const restitUSD=restitPEN/tc;
@@ -6720,7 +6764,7 @@ function exportInformeMensual() {
   const content=document.getElementById('infPreview')?.innerHTML||'';
   const estudio=document.getElementById('infEstudio')?.value||'Estudio';
   const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Informe — ${c?.nombre||'Cliente'}</title><style>body{font-family:'Times New Roman',serif;max-width:680px;margin:40px auto;color:#1a1a2e;line-height:1.85;font-size:14px}.inf-header{border-bottom:2px solid ${infColor};padding-bottom:12px;margin-bottom:16px}.inf-logo{font-size:16px;font-weight:bold;color:${infColor};margin-bottom:3px}.inf-section{background:#f8f8ff;border-left:3px solid ${infColor};padding:8px 12px;margin-bottom:8px;border-radius:0 5px 5px 0;font-size:14px}.inf-alert{background:#fff5f5;border:1px solid #fcc;border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:14px}.inf-ok{background:#f0fff4;border:1px solid #9be9a8;border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:14px}@media print{body{margin:20px}}</style></head><body>${content}<hr style="margin:20px 0"><p style="font-size:14px;text-align:center;color:#999">Generado por ${estudio} · DeclaraFY.pe</p></body></html>`);
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Informe — ${c?.nombre||'Cliente'}</title><style>body{font-family:'Times New Roman',serif;max-width:680px;margin:40px auto;color:#1a1a2e;line-height:1.85;font-size:14px}.inf-header{border-bottom:2px solid ${infColor};padding-bottom:12px;margin-bottom:16px}.inf-logo{font-size:16px;font-weight:bold;color:${infColor};margin-bottom:3px}.inf-section{background:#f8f8ff;border-left:3px solid ${infColor};padding:8px 12px;margin-bottom:8px;border-radius:0 5px 5px 0;font-size:14px}.inf-alert{background:#fff5f5;border:1px solid #fcc;border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:14px}.inf-ok{background:#f0fff4;border:1px solid #9be9a8;border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:14px}@media print{body{margin:20px}}</style></head><body>${content}<hr style="margin:20px 0"><p style="font-size:14px;text-align:center;color:#999">Generado por ${estudio} · Declarafy.com</p></body></html>`);
   win.document.close(); setTimeout(()=>win.print(),400);
 }
 function copyInforme(){navigator.clipboard.writeText(document.getElementById('infPreview')?.innerText||'').then(()=>{event.target.textContent='✅ Copiado!';setTimeout(()=>event.target.textContent='📋 Copiar',2000);});}
@@ -6799,7 +6843,7 @@ Proporciona: 1) Los 3 riesgos más importantes que SUNAT podría detectar, 2) Ac
   try{
     const r=await callDeclaraFY({model:'claude-sonnet-4-5',max_tokens:600,system:'Eres un auditor tributario peruano senior. Das recomendaciones concretas y accionables.',messages:[{role:'user',content:prompt}]});
     const dt=await r.json();
-    el.innerHTML=(dt.content?.[0]?.text||'').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong style="color:var(--red)">$1</strong>');
+    el.innerHTML=_mdFormat(dt.content?.[0]?.text || 'Sin respuesta');
   }catch(e){el.innerHTML='Error: '+safeHTML(e.message);}
 }
 
@@ -6877,7 +6921,7 @@ function exportDossier() {
   const cliente=crmClients.find(c=>c.id===id);
   const content=document.getElementById('dossierTimeline')?.innerHTML||'';
   const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Dossier — ${cliente?.nombre||'Cliente'}</title><style>body{font-family:'Times New Roman',serif;max-width:680px;margin:40px auto;color:#1a1a2e;font-size:14px;line-height:1.7}.dossier-item{margin-bottom:14px;padding-left:18px;border-left:2px solid #3A86FF}.dossier-item.fiscal{border-left-color:#E63946}.dossier-item.multa{border-left-color:#C9A84C}.dossier-item.pago{border-left-color:#4CAF50}.dossier-date{font-size:14px;color:#666}.dossier-title{font-weight:bold;margin:2px 0}.dossier-desc{color:#444}.dossier-amount{font-weight:bold;margin-top:3px}@media print{body{margin:20px}}</style></head><body><h2 style="font-family:Georgia,serif;color:#1A1A2E">Dossier Tributario</h2><h3>${cliente?.nombre||''} — RUC ${cliente?.ruc||''}</h3>${content}<hr><p style="font-size:14px;text-align:center;color:#999">Generado por DeclaraFY.pe</p></body></html>`);
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Dossier — ${cliente?.nombre||'Cliente'}</title><style>body{font-family:'Times New Roman',serif;max-width:680px;margin:40px auto;color:#1a1a2e;font-size:14px;line-height:1.7}.dossier-item{margin-bottom:14px;padding-left:18px;border-left:2px solid #3A86FF}.dossier-item.fiscal{border-left-color:#E63946}.dossier-item.multa{border-left-color:#C9A84C}.dossier-item.pago{border-left-color:#4CAF50}.dossier-date{font-size:14px;color:#666}.dossier-title{font-weight:bold;margin:2px 0}.dossier-desc{color:#444}.dossier-amount{font-weight:bold;margin-top:3px}@media print{body{margin:20px}}</style></head><body><h2 style="font-family:Georgia,serif;color:#1A1A2E">Dossier Tributario</h2><h3>${cliente?.nombre||''} — RUC ${cliente?.ruc||''}</h3>${content}<hr><p style="font-size:14px;text-align:center;color:#999">Generado por Declarafy.com</p></body></html>`);
   win.document.close();setTimeout(()=>win.print(),400);
 }
 
@@ -7016,7 +7060,7 @@ function exportDDPDF(){
   const content=document.getElementById('ddInformeResult')?.innerHTML||'';
   const target=document.getElementById('ddTarget')?.value||'Target';
   const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>DD Tributario — ${target}</title><style>body{font-family:'Times New Roman',serif;max-width:720px;margin:40px auto;color:#1a1a2e;line-height:1.85;font-size:14px}h2{font-family:Georgia,serif;color:#1A1A2E}@media print{body{margin:20px}}</style></head><body><h2>Informe de Due Diligence Tributario</h2><h3>Target: ${target}</h3>${content}<hr><p style="font-size:14px;text-align:center;color:#999">DeclaraFY.pe — Documento confidencial</p></body></html>`);
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>DD Tributario — ${target}</title><style>body{font-family:'Times New Roman',serif;max-width:720px;margin:40px auto;color:#1a1a2e;line-height:1.85;font-size:14px}h2{font-family:Georgia,serif;color:#1A1A2E}@media print{body{margin:20px}}</style></head><body><h2>Informe de Due Diligence Tributario</h2><h3>Target: ${target}</h3>${content}<hr><p style="font-size:14px;text-align:center;color:#999">Declarafy.com — Documento confidencial</p></body></html>`);
   win.document.close();setTimeout(()=>win.print(),400);
 }
 
@@ -7952,10 +7996,8 @@ function safeHTML(str) {
       FORBID_ATTR: ['onerror','onload','onclick','onmouseover']
     });
   }
-  // Fallback si DOMPurify no carga
-  return str
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
+  // Si DOMPurify no carga, no se permite HTML: se muestra como texto.
+  return _escapeHtml(String(str));
 }
 
 function renderAIResponse(el, rawText) {
@@ -8214,14 +8256,9 @@ function tpValidateRUCFormat(ruc) {
 async function tpValidateRUCOnline(ruc) {
   const fmt = tpValidateRUCFormat(ruc);
   if (!fmt.valid) return fmt;
-  try {
-    const res = await fetch(`https://api.apis.net.pe/v2/sunat/ruc?numero=${ruc}`,
-      { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(4000) });
-    if (!res.ok) return { valid: true, online: false, ...fmt };
-    const data = await res.json();
-    return { valid: true, online: true, nombre: data.razonSocial || data.nombre,
-      estado: data.estado, condicion: data.condicion, tipo: fmt.tipo };
-  } catch { return { valid: true, online: false, ...fmt }; }
+  // La verificación de formato y dígito de control es local. La consulta de
+  // identidad SUNAT solo se muestra en el módulo que usa un proveedor autenticado.
+  return { ...fmt, online: false, source: 'validacion-local' };
 }
 
 async function tpValidateRUCField(inputEl, badgeId) {
@@ -8240,7 +8277,7 @@ async function tpValidateRUCField(inputEl, badgeId) {
     badge.textContent = '✗ ' + result.msg;
     badge.style.cssText = 'font-size:14px;margin-left:6px;padding:2px 8px;border-radius:8px;background:rgba(230,57,70,.12);color:var(--red)';
   } else {
-    const label = result.online && result.nombre ? `✓ ${result.nombre}` : `✓ ${result.tipo}`;
+    const label = result.online && result.nombre ? `✓ ${result.nombre}` : `✓ RUC válido · ${result.tipo}`;
     badge.textContent = label;
     badge.style.cssText = 'font-size:14px;margin-left:6px;padding:2px 8px;border-radius:8px;background:rgba(76,175,80,.12);color:var(--green)';
   }
@@ -8365,37 +8402,6 @@ function tpDeletePrompt(idx) {
 }
 
 // ══════════════════════════════════════════════════════════
-// HISTORIAL — Búsqueda con resaltado de coincidencias
-// ══════════════════════════════════════════════════════════
-function tpHighlight(text, query) {
-  if (!query || !text) return text || '';
-  const safe = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return text.replace(new RegExp(safe, 'gi'), m => `<span class="hs-match">${m}</span>`);
-}
-
-const _origRenderHistList = renderHistList;
-renderHistList = function(h) {
-  const l = document.getElementById('histList');
-  if (!l) return;
-  if (!h.length) { l.innerHTML = '<div class="hempty">No se encontraron conversaciones.</div>'; return; }
-  const allH = getHist(curUser.email);
-  const q = (document.getElementById('histSearch')?.value || '').trim();
-  l.innerHTML = '';
-  [...h].reverse().forEach(c => {
-    const i = allH.findIndex(x => x.title === c.title && x.date === c.date);
-    const d = document.createElement('div');
-    d.className = 'hitem';
-    const fu = c.messages?.find(m => m.role === 'user');
-    const rawPrev = fu ? fu.content.substring(0, 80) : 'Consulta';
-    const rawTitle = c.title || 'Consulta';
-    const displayTitle = q ? tpHighlight(rawTitle, q) : rawTitle;
-    const displayPrev  = q ? tpHighlight(rawPrev, q)  : rawPrev;
-    d.innerHTML = `<div class="hl" onclick="loadConv(${i})"><div class="ht">${displayTitle}</div><div class="hp">${displayPrev}${rawPrev.length>=80?'…':''}</div></div><div class="hm"><div class="ha">${c.area||'General'}</div><div class="hd">${c.date}</div></div><button class="hdel" aria-label="Eliminar" onclick="delConv(${i},event)">×</button>`;
-    l.appendChild(d);
-  });
-};
-
-// ══════════════════════════════════════════════════════════
 // PDF CON MEMBRETE DEL ESTUDIO
 // ══════════════════════════════════════════════════════════
 function exportPDF() {
@@ -8438,7 +8444,7 @@ function exportPDF() {
     <span>🗓 ${fecha}</span>
   </div>
   ${rows}
-  <div class="footer">Documento generado por ${estudio} vía DeclaraFY.pe · Solo con fines orientativos · Consulta con un profesional para decisiones formales.</div>
+  <div class="footer">Documento generado por ${estudio} vía Declarafy.com · Solo con fines orientativos · Consulta con un profesional para decisiones formales.</div>
 </body></html>`);
   win.document.close();
   setTimeout(() => win.print(), 600);
@@ -8481,7 +8487,7 @@ async function tpQuickSend() {
     const res = await callDeclaraFY({ model:'claude-sonnet-4-5', max_tokens:600, system: sysPrompt, messages:[{role:'user',content:query}] });
     const data = await res.json();
     const text = data?.content?.[0]?.text || 'Sin respuesta.';
-    respEl.innerHTML = text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    respEl.innerHTML = _mdFormat(text);
     tpSaveOfflineResponse(query, text);
     tpAuditLog('query', 'Consulta rápida: ' + query.substring(0,60));
   } catch(e) {
@@ -8547,7 +8553,7 @@ function tpCheckTaxDeadlines(force) {
         setTimeout(() => {
           new Notification('📅 DeclaraFY — Vencimiento próximo', {
             body: `${dl.label} vence ${daysLeft === 0 ? 'HOY' : 'en ' + daysLeft + ' día(s)'}`,
-            icon: 'https://www.declarafy.com/favicon.ico',
+            icon: 'https://declarafy.com/favicon.ico',
             tag: 'tp-dl-' + idx,
           });
         }, 2000 + idx * 1500);
@@ -8557,7 +8563,7 @@ function tpCheckTaxDeadlines(force) {
       setTimeout(() => {
         new Notification('📅 DeclaraFY — Recordatorio mensual', {
           body: `Este mes vence: ${dl.label}`,
-          icon: 'https://www.declarafy.com/favicon.ico',
+          icon: 'https://declarafy.com/favicon.ico',
           tag: 'tp-dlm-' + idx,
         });
       }, 3000 + idx * 1500);
@@ -8737,7 +8743,7 @@ async function tpApiGenerateKey() {
   const labelInput = document.getElementById('apiKeyLabel');
   const label = labelInput ? labelInput.value.trim() || 'Sin nombre' : 'Sin nombre';
   try {
-    const data = await _tpCallFunction('generateApiKey', { label });
+    const data = await _tpCallFunction('generateapikey', { label });
     _tpLastGeneratedKey = data.rawKey;
     document.getElementById('apiNewKeyValue').textContent = data.rawKey;
     document.getElementById('apiNewKeyBox').style.display = 'block';
@@ -8761,7 +8767,7 @@ async function tpApiListKeys() {
   if (!list) return;
   list.innerHTML = '<div style="color:var(--muted);font-size:14px">Cargando keys...</div>';
   try {
-    const data = await _tpCallFunction('listApiKeys');
+    const data = await _tpCallFunction('listapikeys');
     const keys = (Array.isArray(data) ? data : []).sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
     if (keys.length === 0) {
       list.innerHTML = '<div style="color:var(--muted);font-size:14px">Aún no tienes API keys. Genera la primera arriba.</div>';
@@ -8786,7 +8792,7 @@ async function tpApiListKeys() {
 async function tpApiRevokeKey(keyId) {
   if (!confirm('¿Revocar esta API key? Las integraciones que la usen dejarán de funcionar de inmediato.')) return;
   try {
-    await _tpCallFunction('revokeApiKey', { keyId });
+    await _tpCallFunction('revokeapikey', { keyId });
     addNotif('✅', 'Key revocada', 'La API key fue revocada correctamente.');
     tpApiListKeys();
   } catch (e) {
@@ -8966,7 +8972,7 @@ Explica brevemente qué es cada concepto y por qué le corresponde, en 4-5 líne
     });
     const data = await res.json();
     const text = data.content?.[0]?.text || 'No se pudo generar la explicación.';
-    box.innerHTML = text.replace(/\n/g, '<br>');
+    box.innerHTML = _mdFormat(text);
   } catch (e) {
     console.error('tpLiquidacionAIInsight error:', e);
     box.innerHTML = '<span style="color:var(--red)">Error generando la explicación. Intenta de nuevo.</span>';
@@ -8986,45 +8992,62 @@ function setSunatLiveTab(tab, btn) {
   if (btn) { btn.classList.add('active'); btn.style.background = 'rgba(58,134,255,.7)'; }
 }
 
-async function tpConsultaRuc() {
-  const ruc = (document.getElementById('sunatLiveRuc')?.value || '').replace(/\D/g, '');
-  const box = document.getElementById('sunatLiveResult');
-  if (!box) return;
-  if (ruc.length !== 11) {
-    box.style.display = 'block';
-    box.innerHTML = '<div style="color:var(--red);font-size:14px">El RUC debe tener 11 dígitos.</div>';
-    return;
-  }
-  box.style.display = 'block';
-  box.innerHTML = '<div style="color:var(--muted);font-size:14px">Consultando SUNAT...</div>';
+const SUNAT_RUC_PUBLIC_URL = 'https://e-consultaruc.sunat.gob.pe/';
+const SUNAT_SOL_URL = 'https://e-menu.sunat.gob.pe/';
+
+function _validPeruvianRuc(ruc) {
+  if (!/^(10|15|17|20)[0-9]{9}$/.test(ruc)) return false;
+  const weights = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  const sum = weights.reduce((total, weight, index) => total + Number(ruc[index]) * weight, 0);
+  const remainder = sum % 11;
+  return Number(ruc[10]) === (remainder === 0 ? 0 : 11 - remainder);
+}
+
+async function loadSunatStatus() {
+  const targets = document.querySelectorAll('[data-sunat-status]');
+  if (!targets.length) return;
   try {
-    const res = await _tpAuthedFetch(`${DECLARAFY_FN_BASE}/consultaRuc`, {
-      method: 'POST',
-      body: JSON.stringify({ ruc }),
-    });
-    const data = await res.json();
-    if (!res.ok || data.success === false) {
-      box.innerHTML = `<div style="color:var(--red);font-size:14px">${data.error?.message || data.message || 'No se encontró información para ese RUC.'}</div>`;
-      return;
-    }
-    const d = data.data || data;
-    const estadoColor = (d.estado || '').toUpperCase() === 'ACTIVO' ? 'var(--green,#2ECC71)' : 'var(--red)';
-    box.innerHTML = `
-      <div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:16px">
-        <div style="font-size:15px;font-weight:600;margin-bottom:6px">${_escapeHtml(d.nombre_o_razon_social || d.razon_social || '—')}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:14px">
-          <div><span style="color:var(--muted)">RUC:</span> ${_escapeHtml(d.numero_documento || ruc)}</div>
-          <div><span style="color:var(--muted)">Estado:</span> <strong style="color:${estadoColor}">${_escapeHtml(d.estado || '—')}</strong></div>
-          <div><span style="color:var(--muted)">Condición:</span> ${_escapeHtml(d.condicion || '—')}</div>
-          <div><span style="color:var(--muted)">Ubigeo:</span> ${_escapeHtml(d.ubigeo || '—')}</div>
-          <div style="grid-column:1/-1"><span style="color:var(--muted)">Dirección:</span> ${_escapeHtml(d.direccion || '—')}</div>
-        </div>
-      </div>`;
-  } catch (e) {
-    console.error('tpConsultaRuc error:', e);
-    box.innerHTML = '<div style="color:var(--red);font-size:14px">Error de conexión consultando SUNAT.</div>';
+    const status = await declarafyApi('sunat_status', { method: 'GET' });
+    const cpe = status.officialCpe
+      ? '<strong>✅ Validación CPE</strong>API oficial conectada'
+      : '<strong>⚠️ Validación CPE</strong>Faltan credenciales API SUNAT';
+    const html = `<div class="sunat-status-item">${cpe}</div>
+      <div class="sunat-status-item"><strong>✅ Consulta RUC</strong>Portal público oficial disponible</div>
+      <div class="sunat-status-item"><strong>🔐 Deudas y PDT</strong>Acceso personal mediante Clave SOL</div>`;
+    targets.forEach(target => { target.innerHTML = html; });
+  } catch (error) {
+    targets.forEach(target => { target.innerHTML = `<div class="sunat-status-item"><strong>⚠️ Estado no disponible</strong>${_escapeHtml(error.message)}</div>`; });
   }
 }
+
+function openSunatRucOfficial() {
+  const ruc = (document.getElementById('sunatLiveRuc')?.value || '').replace(/\D/g, '');
+  const box = document.getElementById('sunatLiveResult');
+  if (!_validPeruvianRuc(ruc)) {
+    if (box) {
+      box.style.display = 'block';
+      box.innerHTML = '<div style="color:var(--red);font-size:14px">Ingresa un RUC peruano válido de 11 dígitos.</div>';
+    }
+    return;
+  }
+  if (box) {
+    box.style.display = 'block';
+    box.innerHTML = '<div class="sunat-api-result"><strong>RUC válido localmente</strong><p style="margin-top:8px;color:var(--muted)">Se abrió la consulta oficial de SUNAT. Completa allí la verificación solicitada por SUNAT.</p></div>';
+  }
+  window.open(SUNAT_RUC_PUBLIC_URL, '_blank', 'noopener,noreferrer');
+}
+
+function openSunatSol(section) {
+  const targetId = section === 'pdt' ? 'sunatPdtResult' : 'sunatDeudasResult';
+  const box = document.getElementById(targetId);
+  if (box) {
+    box.style.display = 'block';
+    box.innerHTML = '<div class="sunat-api-result"><strong>Acceso protegido por SUNAT</strong><p style="margin-top:8px;color:var(--muted)">Se abrió SUNAT Operaciones en Línea. Ingresa personalmente con tu RUC, usuario y Clave SOL.</p></div>';
+  }
+  window.open(SUNAT_SOL_URL, '_blank', 'noopener,noreferrer');
+}
+
+function tpConsultaRuc() { openSunatRucOfficial(); }
 
 async function tpValidarComprobante() {
   const rucEmisor = (document.getElementById('cpeRuc')?.value || '').replace(/\D/g, '');
@@ -9047,12 +9070,16 @@ async function tpValidarComprobante() {
   box.style.display = 'block';
   box.innerHTML = '<div style="color:var(--muted);font-size:14px">Validando ante SUNAT...</div>';
   try {
-    const response = await _tpAuthedFetch(`${DECLARAFY_FN_BASE}/validarComprobante`, {
-      method: 'POST',
-      body: JSON.stringify({ rucEmisor, tipoComprobante, serie, numero, fechaEmision, monto })
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || data.verificado !== true) {
+    const data = await declarafyApi('consultasunatcomprobantes', { body: {
+      ruc: rucEmisor,
+      tipo: 'cpe',
+      codComp: tipoComprobante,
+      numeroSerie: serie,
+      numero,
+      fechaEmision,
+      monto: Number(monto)
+    }});
+    if (data.verificado !== true) {
       const message = data.mensaje || data.error || 'No fue posible verificar el comprobante con la fuente CPE.';
       box.innerHTML = `<div style="color:var(--red);font-size:14px">⚠️ ${_escapeHtml(message)}</div>`;
       return;
@@ -9066,6 +9093,9 @@ async function tpValidarComprobante() {
           <div><strong>Comprobante:</strong> ${_escapeHtml(tipoComprobante)} ${_escapeHtml(serie)}-${_escapeHtml(numero)}</div>
           <div><strong>Fecha:</strong> ${_escapeHtml(fechaEmision)}</div>
           <div><strong>Estado CPE:</strong> ${_escapeHtml(data.estado_cpe || 'desconocido')}</div>
+          <div><strong>Estado RUC:</strong> ${_escapeHtml(data.estado_ruc || 'desconocido')}</div>
+          <div><strong>Condición:</strong> ${_escapeHtml(data.condicion_ruc || 'desconocida')}</div>
+          <div><strong>Fuente:</strong> ${_escapeHtml(data.fuente || 'SUNAT')}</div>
           <div>${_escapeHtml(data.mensaje || '')}</div>
         </div>
       </div>`;
@@ -9259,7 +9289,7 @@ async function tpGuardarRecordatorios() {
   }
 
   try {
-    await _tpCallFunction('updateNotifPrefs', { whatsapp, notifWhatsapp, ruc });
+    await _tpCallFunction('updatenotifprefs', { whatsapp, notifWhatsapp, ruc });
     if (ok) { ok.style.color = ''; ok.textContent = notifWhatsapp ? '✅ Recordatorios activados. Te avisaremos por WhatsApp.' : '✅ Preferencias guardadas.'; }
   } catch (e) {
     console.error('tpGuardarRecordatorios error:', e);
@@ -9273,13 +9303,15 @@ async function tpGuardarRecordatorios() {
 const TP_FN_BASE = DECLARAFY_FN_BASE;
 
 async function tpAuthFetch(url, options = {}) {
-  const user = typeof firebase !== 'undefined' && firebase.auth().currentUser;
-  const token = user ? await user.getIdToken() : null;
+  if (!declarafyCsrfToken) await declarafyLoadSession();
   return fetch(url, {
     ...options,
+    credentials: 'same-origin',
     headers: {
+      'Accept': 'application/json',
       'Content-Type': 'application/json',
-      ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+      'X-Requested-With': 'DeclarafyWeb',
+      'X-CSRF-Token': declarafyCsrfToken,
       ...(options.headers || {})
     }
   });
@@ -9302,13 +9334,8 @@ async function tpConsultaSunat(tipo) {
   resultEl.innerHTML = '<div style="color:var(--muted)">🔄 Consultando SUNAT...</div>';
   try {
     const backendTipo = tipo === 'deudas' ? 'deuda' : tipo === 'pdt' ? 'pdt' : 'ruc';
-    const response = await tpAuthFetch(`${TP_FN_BASE}/consultaSunatComprobantes`, {
-      method: 'POST',
-      body: JSON.stringify({ ruc, tipo: backendTipo })
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || !payload.ok) throw new Error(payload.error || 'La consulta SUNAT no pudo completarse');
-    renderSunatResult(payload.data || {}, tipo, targetId);
+    const data = await declarafyApi('consultasunatcomprobantes', { body: { ruc, tipo: backendTipo } });
+    renderSunatResult(data || {}, tipo, targetId);
   } catch(e) {
     resultEl.innerHTML = `<div style="color:var(--red)">Error: ${safeHTML(e.message)}</div>`;
   }
@@ -9334,6 +9361,19 @@ function renderSunatResult(data, tipo, targetId) {
         <div><strong>${esc(p.formulario || p.codigo || 'N/A')}</strong> — ${esc(p.descripcion || p.periodo || '')}</div>
         <div>Fecha presentación: ${esc(p.fechaPresentacion || p.fecha || 'N/A')} | Estado: ${esc(p.estado || 'N/A')}</div>
       </div>`).join('');
+  } else if (tipo === 'cpe') {
+    const items = data.comprobantes || data.items || data.data || [];
+    if (!Array.isArray(items) || !items.length) {
+      el.innerHTML = '<div style="color:var(--muted)">La fuente consultada no reportó comprobantes.</div>';
+      return;
+    }
+    el.innerHTML = `<div class="sunat-result-title">Comprobantes reportados por SUNAT</div><div class="sunat-cp-list">${items.slice(0, 50).map(item => {
+      const numero = item.numero || item.serieNumero || item.comprobante || 'N/A';
+      const fecha = item.fecha || item.fechaEmision || 'N/A';
+      const monto = Number(item.monto || item.total || 0);
+      const estado = item.estado || 'N/A';
+      return `<div class="sunat-cp-item"><span>${esc(numero)}</span><span>${esc(fecha)}</span><span>S/ ${monto.toFixed(2)}</span><span>${esc(estado)}</span></div>`;
+    }).join('')}</div>`;
   } else {
     el.innerHTML = `<div style="font-size:14px;line-height:1.8">
       <div><strong>Razón Social:</strong> ${esc(data.razonSocial || data.nombre_o_razon_social || 'N/A')}</div>
@@ -9362,21 +9402,10 @@ async function tpConsultaBCR() {
   resultEl.style.display = 'block';
   resultEl.innerHTML = '<div style="color:var(--muted)">🔄 Consultando BCRP...</div>';
   try {
-    const response = await fetch('https://estadisticas.bcrp.gob.pe/rest/es/estadisticas/PM06252AA/ultimos/7/datos', {
-      headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(8000)
-    });
-    if (!response.ok) throw new Error(`BCR API returned ${response.status}`);
-    const data = await response.json();
+    const data = await declarafyApi('consultabcrtiposcambio', { method: 'GET' });
     renderBCRResult(data);
   } catch(e) {
-    // BCR API may block CORS — try fallback via proxy
-    try {
-      const res = await fetch(`${TP_FN_BASE}/consultaBCRTiposCambio`);
-      const data = await res.json();
-      if (data.ok) { renderBCRResult(data.data); return; }
-    } catch(_) {}
-    resultEl.innerHTML = `<div style="color:var(--red)">Error: ${safeHTML(e.message)}</div>`;
+    resultEl.innerHTML = `<div style="color:var(--red)">Error: ${_escapeHtml(e.message)}</div>`;
   }
 }
 
@@ -9388,8 +9417,8 @@ function renderBCRResult(data) {
   el.innerHTML = `<div style="font-size:14px">
     <div style="font-weight:500;color:var(--gold);margin-bottom:8px">Tipos de Cambio — BCRP</div>
     ${items.slice(0, 10).map(d => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)">
-      <span>${d.fecha || d.serie || ''}</span>
-      <span style="color:var(--gold)">S/ ${(d.precio || d.valor || 0).toFixed(3)}</span>
+      <span>${_escapeHtml(d.fecha || d.serie || '')}</span>
+      <span style="color:var(--gold)">S/ ${Number(d.precio || d.valor || 0).toFixed(3)}</span>
     </div>`).join('')}
   </div>`;
 }
@@ -9401,32 +9430,20 @@ async function tpConsultaSBS(tipo) {
   const resultEl = document.getElementById('sbsApiResult');
   if (!resultEl) return;
   resultEl.style.display = 'block';
-  resultEl.innerHTML = '<div style="color:var(--muted)">🔄 Consultando SBS...</div>';
-  try {
-    let url;
-    if (tipo === 'pension' || tipo === 'pensiones') {
-      url = 'https://www.sbs.gob.pe/app/statistics/pension/702/702-PRIMA/1/1';
-    } else if (tipo === 'seguro' || tipo === 'seguros') {
-      url = 'https://www.sbs.gob.pe/app/statistics/insurance/500/500-PRIMA/1/1';
-    }
-    if (!url) throw new Error('Tipo no soportado');
-    const response = await fetch(url, {
-      headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(8000)
-    });
-    const data = await response.json();
-    renderSBSApiResult(data, tipo);
-  } catch(e) {
-    resultEl.innerHTML = `<div style="color:var(--red)">Error: ${safeHTML(e.message)}</div>`;
-  }
+  const label = tipo === 'pensiones' || tipo === 'pension' ? 'pensiones' : 'seguros';
+  resultEl.innerHTML = `<div style="font-size:14px;padding:12px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
+    <div style="font-weight:500;color:var(--blue);margin-bottom:6px">Consulta oficial SBS — ${_escapeHtml(label)}</div>
+    <p style="color:var(--muted);margin:0 0 10px">La SBS no ofrece este resultado como una API pública estable. Para evitar mostrar información incompleta, abre su portal oficial.</p>
+    <a class="bp" href="https://www.sbs.gob.pe/" target="_blank" rel="noopener noreferrer">Abrir portal oficial SBS ↗</a>
+  </div>`;
 }
 
 function renderSBSApiResult(data, tipo) {
   const el = document.getElementById('sbsApiResult');
   if (!el) return;
   el.innerHTML = `<div style="font-size:14px;padding:10px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">
-    <div style="font-weight:500;color:var(--blue);margin-bottom:8px">🏦 Datos SBS — ${tipo}</div>
-    <pre style="white-space:pre-wrap;font-size:14px;color:var(--text);max-height:300px;overflow-y:auto">${JSON.stringify(data, null, 2)}</pre>
+    <div style="font-weight:500;color:var(--blue);margin-bottom:8px">🏦 Datos SBS — ${_escapeHtml(tipo)}</div>
+    <pre style="white-space:pre-wrap;font-size:14px;color:var(--text);max-height:300px;overflow-y:auto">${_escapeHtml(JSON.stringify(data, null, 2))}</pre>
   </div>`;
 }
 
@@ -9459,7 +9476,7 @@ async function tpConfigWhatsApp() {
     registerKVScope('whatsapp_enabled', () => 'tp_whatsapp_enabled');
     const btn = document.querySelector('[onclick*="tpConfigWhatsApp"]');
     if (btn) { btn.textContent = '✅ Configurado'; btn.style.background = 'var(--green)'; }
-    tpToast('✅ WhatsApp configurado. Recibirás alertas de vencimientos tributarios.', 'ok');
+    tpToast('Preferencia guardada. El envío se habilitará cuando se conecte WhatsApp Business API.', 'ok');
   } catch(e) {
     tpToast('Error: ' + e.message, 'err');
   }
@@ -9510,16 +9527,9 @@ async function tpExportarHistorial() {
 // ════════════════════════════════════════════════════════════
 async function callAlternativeAI(provider, messages, system) {
   try {
-    const res = await tpAuthFetch(`${TP_FN_BASE}/callAlternativeAI`, {
-      method: 'POST',
-      body: JSON.stringify({ provider, messages, system, max_tokens: 2048 })
-    });
-    if (!res.ok) {
-      return { error: 'Función no disponible sin Blaze plan. Se requiere para proteger las API keys de DeepSeek/OpenAI.' };
-    }
-    return await res.json();
+    return await declarafyApi('callalternativeai', { body: { provider, messages, system, max_tokens: 2048 } });
   } catch(e) {
-    return { error: 'IA alternativa requiere Cloud Functions (Blaze plan). Usa Claude como alternativa.' };
+    return { error: e.message || 'El proveedor de IA alternativa no está disponible.' };
   }
 }
 
@@ -9528,7 +9538,7 @@ async function sendMsgDeepSeek() {
   const msg = inp?.value?.trim();
   const provider = document.getElementById('aiProvider')?.value || 'deepseek';
   if (!msg) return;
-  if (!curUser || curPlan === 'basico') {
+  if (!curUser || (!isAdminUser() && curPlan === 'basico')) {
     tpToast('IA alternativa disponible para planes Profesional/Empresa.', 'warn'); return;
   }
   inp.value = '';
@@ -9552,7 +9562,6 @@ const TASAS_ONP = { '50': 0.13, '60': 0.11 };
 
 function calcNomina() {
   const bruto = parseFloat(document.getElementById('nomBruto')?.value) || 0;
-  const regimen = document.getElementById('nomRegimen')?.value || 'rmt';
   const dias = parseInt(document.getElementById('nomDias')?.value) || 30;
   const bono = parseFloat(document.getElementById('nomBono')?.value) || 0;
   const box = document.getElementById('nomResult');
@@ -9562,41 +9571,12 @@ function calcNomina() {
   const remDiaria = remBruto / 30;
   const remProporcional = remDiaria * dias;
 
-  // EsSalud: 9% del empleado
+  // EsSalud es aporte del empleador; no se descuenta al trabajador.
   const essalud = remProporcional * 0.09;
-  // AFP: promedio ~13%
+  // Referencia previsional; la tasa AFP exacta depende de AFP/comisión/seguro.
   const afp = remProporcional * 0.13;
-  // ONP: 13% si 50, 11% si 60 (usamos AFP como default)
-  const onp = remProporcional * 0.13;
-
-  // Impuesto a la Renta - 5ta categoría
-  let retencion = 0;
-  const mensual7 = remProporcional * 0.07;
-  const mensual8 = remProporcional * 0.08;
-  if (regimen === '5cat' || regimen === 'rg') {
-    // Cálculo gradual 5ta categoría
-    if (remProporcional <= 2150) retencion = 0;
-    else if (remProporcional <= 2600) retencion = (remProporcional - 2150) * 0.08;
-    else if (remProporcional <= 4250) retencion = 36 + (remProporcional - 2600) * 0.10;
-    else if (remProporcional <= 6550) retencion = 201 + (remProporcional - 4250) * 0.17;
-    else if (remProporcional <= 10750) retencion = 592 + (remProporcional - 6550) * 0.20;
-    else if (remProporcional <= 13950) retencion = 1432 + (remProporcional - 10750) * 0.23;
-    else if (remProporcional <= 21550) retencion = 2168 + (remProporcional - 13950) * 0.27;
-    else if (remProporcional <= 43550) retencion = 4220 + (remProporcional - 21550) * 0.30;
-    else retencion = 10820 + (remProporcional - 43550) * 0.34;
-  }
-
-  // RMT
-  let rmtCuota = 0;
-  if (regimen === 'rmt') {
-    if (remProporcional <= 1500) rmtCuota = remProporcional * 0.01;
-    else if (remProporcional <= 2500) rmtCuota = 15 + (remProporcional - 1500) * 0.015;
-    else rmtCuota = 30 + (remProporcional - 2500) * 0.03;
-  }
-
-  const totalDescuentos = afp + essalud + retencion + rmtCuota;
-  const neto = remProporcional - totalDescuentos;
-  const costTotal = remProporcional + essalud * 1.5;
+  const neto = remProporcional - afp;
+  const costTotal = remProporcional + essalud;
 
   box.style.display = 'block';
   box.innerHTML = `<div class="sunat-api-result">
@@ -9606,14 +9586,12 @@ function calcNomina() {
       <tr><td>+ Bonificaciones</td><td style="text-align:right">S/ ${bono.toFixed(2)}</td></tr>
       <tr><td><strong>Rem. Proporcional (${dias} días)</strong></td><td style="text-align:right"><strong>S/ ${remProporcional.toFixed(2)}</strong></td></tr>
       <tr><td colspan="2" style="border-bottom:none;padding:4px"></td></tr>
-      <tr><td style="color:var(--red)">− EsSalud (9%)</td><td style="text-align:right;color:var(--red)">S/ ${essalud.toFixed(2)}</td></tr>
-      <tr><td style="color:var(--red)">− AFP (~13%)</td><td style="text-align:right;color:var(--red)">S/ ${afp.toFixed(2)}</td></tr>
-      ${retencion > 0 ? `<tr><td style="color:var(--red)">− Retención 5ta Cat.</td><td style="text-align:right;color:var(--red)">S/ ${retencion.toFixed(2)}</td></tr>` : ''}
-      ${rmtCuota > 0 ? `<tr><td style="color:var(--red)">− Cuota RMT</td><td style="text-align:right;color:var(--red)">S/ ${rmtCuota.toFixed(2)}</td></tr>` : ''}
+      <tr><td style="color:var(--red)">− Aporte previsional referencial (~13%)</td><td style="text-align:right;color:var(--red)">S/ ${afp.toFixed(2)}</td></tr>
+      <tr><td>EsSalud 9% (empleador)</td><td style="text-align:right">S/ ${essalud.toFixed(2)}</td></tr>
       <tr><td colspan="2" style="border-bottom:none;padding:4px"></td></tr>
-      <tr><td><strong style="color:var(--green)">Neto a recibir</strong></td><td style="text-align:right"><strong style="color:var(--green);font-size:16px">S/ ${neto.toFixed(2)}</strong></td></tr>
+      <tr><td><strong style="color:var(--green)">Neto antes de IR 5ta</strong></td><td style="text-align:right"><strong style="color:var(--green);font-size:16px">S/ ${neto.toFixed(2)}</strong></td></tr>
       <tr><td><strong>Costo total empresa</strong></td><td style="text-align:right;color:var(--gold)"><strong>S/ ${costTotal.toFixed(2)}</strong></td></tr>
-    </table>
+    </table><div style="margin-top:10px;font-size:14px;color:var(--muted)">Estimación básica: selecciona el sistema previsional y usa la proyección anual completa para calcular una retención de quinta categoría real.</div>
   </div>`;
 }
 
@@ -9622,46 +9600,30 @@ function calcNomina() {
 // ════════════════════════════════════════════════════════════════
 function calcMoras() {
   const monto = parseFloat(document.getElementById('moraMonto')?.value) || 0;
-  const tipo = document.getElementById('moraTipo')?.value || 'igv';
   const fVen = document.getElementById('moraFechaVen')?.value;
   const fPago = document.getElementById('moraFechaPago')?.value;
   const box = document.getElementById('moraResult');
   if (!box || !monto || !fVen || !fPago) return;
 
   const d1 = new Date(fVen), d2 = new Date(fPago);
-  const dias = Math.max(0, Math.floor((d2 - d1) / 86400000));
+  const dias = Math.floor((d2 - d1) / 86400000);
+  if (!Number.isFinite(dias)) { box.style.display = 'none'; return; }
   if (dias <= 0) { box.style.display = 'block'; box.innerHTML = '<div style="color:var(--green)">✅ No hay mora. La fecha de pago es anterior al vencimiento.</div>'; return; }
-
-  // Interés moratorio: tasa mensual 1.5% (SUNAT)
-  const tasaMensual = 0.015;
-  const meses = Math.ceil(dias / 30);
-  const interes = monto * tasaMensual * meses;
-
-  // Multa por no declarar: 25% o 50% según tipo
-  let multa = 0;
-  if (tipo === 'ple') {
-    multa = monto * 0.25; // 25% PDT
-  } else if (tipo === 'igv' || tipo === 'renta') {
-    multa = monto * 0.40; // 40% tributo
-  }
-
-  const recargo = monto * 0.01 * Math.ceil(dias / 30);
-  const total = monto + interes + multa + recargo;
+  const interest = monto * (TAX_RULES.timDailyPercent / 100) * dias;
+  const total = monto + interest;
 
   box.style.display = 'block';
   box.innerHTML = `<div class="sunat-api-result">
     <table>
-      <tr><th colspan="2" style="color:var(--red)">Calculadora de Moras SUNAT</th></tr>
+      <tr><th colspan="2" style="color:var(--red)">Interés moratorio referencial</th></tr>
       <tr><td>Monto original</td><td style="text-align:right">S/ ${monto.toFixed(2)}</td></tr>
-      <tr><td>Días de mora</td><td style="text-align:right">${dias} días (${meses} meses)</td></tr>
+      <tr><td>Días de mora</td><td style="text-align:right">${dias}</td></tr>
       <tr><td colspan="2" style="border-bottom:none;padding:4px"></td></tr>
-      <tr><td style="color:var(--red)">+ Interés moratorio (1.5%/mes)</td><td style="text-align:right;color:var(--red)">S/ ${interes.toFixed(2)}</td></tr>
-      <tr><td style="color:var(--red)">+ Multa (${tipo === 'ple' ? '25%' : '40%'})</td><td style="text-align:right;color:var(--red)">S/ ${multa.toFixed(2)}</td></tr>
-      <tr><td style="color:var(--red)">+ Recargo (1%/mes)</td><td style="text-align:right;color:var(--red)">S/ ${recargo.toFixed(2)}</td></tr>
+      <tr><td style="color:var(--red)">+ TIM (${TAX_RULES.timDailyPercent}% diario)</td><td style="text-align:right;color:var(--red)">S/ ${interest.toFixed(2)}</td></tr>
       <tr><td colspan="2" style="border-bottom:none;padding:4px"></td></tr>
-      <tr><td><strong style="color:var(--red)">Total a pagar</strong></td><td style="text-align:right"><strong style="color:var(--red);font-size:16px">S/ ${total.toFixed(2)}</strong></td></tr>
-      <tr><td>Recargo por pronto pago</td><td style="text-align:right;color:var(--green)">-S/ ${(total - monto).toFixed(2)}</td></tr>
+      <tr><td><strong style="color:var(--red)">Deuda más interés</strong></td><td style="text-align:right"><strong style="color:var(--red);font-size:16px">S/ ${total.toFixed(2)}</strong></td></tr>
     </table>
+    <div style="margin-top:10px;font-size:14px;color:var(--muted)">No se agrega una multa automática: su importe depende de la infracción, régimen de gradualidad y fecha aplicable. Confirma el valor final en SUNAT.</div>
   </div>`;
 }
 
@@ -9672,52 +9634,18 @@ function calcCalendarioFiscal() {
   const ruc = document.getElementById('calRuc')?.value?.trim();
   const regimen = document.getElementById('calRegimen')?.value || 'rmt';
   const box = document.getElementById('calendarioResult');
-  if (!box || !ruc || ruc.length !== 11) return;
-
-  const ultimoDigito = parseInt(ruc.slice(-1));
-  const deadlineDay = 12 + ultimoDigito;
-
-  const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Setiembre','Octubre','Noviembre','Diciembre'];
-  const year = new Date().getFullYear();
-
-  let cronograma = [];
-  for (let m = 0; m < 12; m++) {
-    const vencimiento = `${deadlineDay}/${String(m + 1).padStart(2, '0')}/${year}`;
-    let pdts = [];
-    if (regimen === 'rmt' || regimen === 'rg') {
-      pdts.push('PDT 621 (IGV)');
-      if (m === 11) pdts.push('PDT 622 (Renta Anual)');
-    } else if (regimen === 'rer') {
-      pdts.push('PDT 621 (IGV)');
-      if (m === 2) pdts.push('DJ RER Anual');
-    } else if (regimen === 'nrus') {
-      pdts.push('PDT 1400 (NRUS)');
-    }
-    const hoy = new Date();
-    const fechaVen = new Date(year, m, deadlineDay);
-    const diff = Math.floor((fechaVen - hoy) / 86400000);
-    let estado = '⏳';
-    let colorEstado = 'var(--muted)';
-    if (diff < 0) { estado = '✅ Pagado'; colorEstado = 'var(--green)'; }
-    else if (diff <= 3) { estado = '🔴 Urgente'; colorEstado = 'var(--red)'; }
-    else if (diff <= 7) { estado = '🟡 Próximo'; colorEstado = 'var(--gold)'; }
-
-    cronograma.push(`<tr>
-      <td><strong>${meses[m]}</strong></td>
-      <td style="text-align:center">${deadlineDay}</td>
-      <td>${pdts.join(', ')}</td>
-      <td style="color:${colorEstado};font-size:14px">${estado}</td>
-    </tr>`);
-  }
-
+  if (!box || !/^\d{11}$/.test(ruc || '')) return;
+  const obligations = {
+    rmt: ['IGV/Renta mensual', 'Pago a cuenta del IR', 'Declaración anual cuando corresponda'],
+    rg: ['IGV/Renta mensual', 'Pago a cuenta del IR', 'Declaración anual cuando corresponda'],
+    rer: ['IGV/Renta mensual'],
+    nrus: ['Cuota mensual NRUS'],
+  }[regimen] || [];
   box.style.display = 'block';
   box.innerHTML = `<div class="sunat-api-result">
-    <div style="font-size:14px;font-weight:500;color:var(--gold);margin-bottom:8px">📅 Cronograma ${year} — RUC ${ruc} — Último dígito: ${ultimoDigito}</div>
-    <table>
-      <tr><th>Mes</th><th>Vence</th><th>Formularios</th><th>Estado</th></tr>
-      ${cronograma.join('')}
-    </table>
-    <div style="margin-top:10px;font-size:14px;color:var(--muted)">Régimen: ${regimen.toUpperCase()} | Día de vencimiento: ${deadlineDay} de cada mes</div>
+    <div style="font-size:14px;font-weight:500;color:var(--gold);margin-bottom:8px">📅 Obligaciones habituales — RUC ${_escapeHtml(ruc)}</div>
+    <ul>${obligations.map(item => `<li>${item}</li>`).join('')}</ul>
+    <div style="margin-top:10px;font-size:14px;color:var(--muted)">DeclaraFY no inventa una fecha a partir del último dígito. Los vencimientos cambian por período y cronograma oficial; verifica la fecha exacta en SUNAT antes de pagar o declarar.</div>
   </div>`;
 }
 
@@ -9726,34 +9654,21 @@ function calcCalendarioFiscal() {
 // ════════════════════════════════════════════════════════════════
 function calcImportacion() {
   const cif = parseFloat(document.getElementById('impCif')?.value) || 0;
-  const tc = parseFloat(document.getElementById('impTC')?.value) || 3.752;
+  const tc = parseFloat(document.getElementById('impTC')?.value) || 0;
   const arancel = parseFloat(document.getElementById('impArancel')?.value) || 0;
   const tipo = document.getElementById('impTipo')?.value || 'general';
-  const peso = parseFloat(document.getElementById('impPeso')?.value) || 0;
   const box = document.getElementById('impResult');
-  if (!box || !cif) return;
+  if (!box || !cif || !tc) return;
 
   const cifSoles = cif * tc;
 
   // Derecho advalorem
   const advalorem = cifSoles * (arancel / 100);
 
-  // IGV aduanero: 16% sobre (CIF + advalorem)
+  // IGV + IPM: 18% sobre la base simplificada ingresada.
   const baseIgv = cifSoles + advalorem;
-  const igv = baseIgv * 0.16;
-
-  // SPF (Seguro de Privatización de Fondos) — simplificado
-  const spf = cifSoles * 0.002;
-
-  // THC (Terminal Handling Charges) — estimado
-  const thc = peso > 0 ? Math.max(peso * 0.15, 120) : 200;
-
-  // Almacenaje estimado (15 días gratis, luego S/ 6.5/m³/día)
-  const almacenaje = 0;
-
-  const totalTributos = advalorem + igv + spf;
-  const totalCosto = totalTributos + thc + almacenaje;
-  const totalUSD = totalCosto / tc;
+  const igvIpm = baseIgv * 0.18;
+  const totalTributos = advalorem + igvIpm;
 
   box.style.display = 'block';
   box.innerHTML = `<div class="sunat-api-result">
@@ -9763,15 +9678,11 @@ function calcImportacion() {
       <tr><td>Valor CIF</td><td style="text-align:right">USD ${cif.toLocaleString()} (S/ ${cifSoles.toFixed(2)})</td></tr>
       <tr><td colspan="2" style="border-bottom:none;padding:4px"></td></tr>
       <tr><td style="color:var(--red)">Derecho advalorem (${arancel}%)</td><td style="text-align:right;color:var(--red)">S/ ${advalorem.toFixed(2)}</td></tr>
-      <tr><td style="color:var(--red)">IGV aduanero (16%)</td><td style="text-align:right;color:var(--red)">S/ ${igv.toFixed(2)}</td></tr>
-      <tr><td style="color:var(--red)">SPF (0.2%)</td><td style="text-align:right;color:var(--red)">S/ ${spf.toFixed(2)}</td></tr>
-      <tr><td style="color:var(--red)">THC</td><td style="text-align:right;color:var(--red)">S/ ${thc.toFixed(2)}</td></tr>
+      <tr><td style="color:var(--red)">IGV + IPM (18%)</td><td style="text-align:right;color:var(--red)">S/ ${igvIpm.toFixed(2)}</td></tr>
       <tr><td colspan="2" style="border-bottom:none;padding:4px"></td></tr>
       <tr><td><strong style="color:var(--red)">Total tributos</strong></td><td style="text-align:right"><strong style="color:var(--red)">S/ ${totalTributos.toFixed(2)}</strong></td></tr>
-      <tr><td><strong>Total costos importación</strong></td><td style="text-align:right"><strong style="color:var(--gold);font-size:15px">S/ ${totalCosto.toFixed(2)}</strong></td></tr>
-      <tr><td><strong>Total USD</strong></td><td style="text-align:right;color:var(--text)"><strong>USD ${totalUSD.toFixed(2)}</strong></td></tr>
     </table>
-    <div style="margin-top:10px;font-size:14px;color:var(--muted)">* THC y almacenaje son estimados. Valores reales varían según agencia aduanera.</div>
+    <div style="margin-top:10px;font-size:14px;color:var(--muted)">Estimación simplificada. No incluye ISC, percepción, derechos antidumping, despacho, transporte, seguro, almacenaje ni otros cargos que requieren la subpartida y documentos reales.</div>
   </div>`;
 }
 
@@ -9786,33 +9697,20 @@ function calcRegimen() {
   const box = document.getElementById('regimenResult');
   if (!box || !ingresos) return;
 
-  const utilidad = ingresos - gastos;
-  const renta5cat = Math.max(0, utilidad * 0.24);
-
-  // RMT
-  let rmtMensual = 0;
-  if (ingresos / 12 <= 1500) rmtMensual = (ingresos / 12) * 0.01;
-  else if (ingresos / 12 <= 2500) rmtMensual = 15 + ((ingresos / 12) - 1500) * 0.015;
-  else rmtMensual = 30 + ((ingresos / 12) - 2500) * 0.03;
-  const rmtAnual = rmtMensual * 12;
-  const rmtImpuesto = renta5cat * 0.5;
-
-  // RG - 8% de gastos
-  const rgImpuesto = Math.max(0, utilidad) * 0.24;
-
-  // RER - 1.5% de ingresos
+  const utilidad = Math.max(0, ingresos - gastos);
+  const uit = TAX_RULES.uit[TAX_RULES.currentYear];
+  const rmtImpuesto = Math.min(utilidad, 15 * uit) * 0.10 + Math.max(0, utilidad - 15 * uit) * 0.295;
+  const rgImpuesto = utilidad * 0.295;
   const rerImpuesto = ingresos * 0.015;
-
-  // NRUS - tope 70 UIT
-  const nrusMensual = ingresos / 12 * 0.01;
-  const nrusAnual = nrusMensual * 12;
+  const nrusMonthlyAverage = ingresos / 12;
+  const nrusAnual = (nrusMonthlyAverage <= 5000 ? 20 : nrusMonthlyAverage <= 8000 ? 50 : NaN) * 12;
 
   const regimenes = [
-    { nombre: 'RMT', impuesto: rmtImpuesto, descripcion: 'Régimen MYPE Tributario. Ideal para microempresas con utilidad moderada.', requisitos: 'Ingresos ≤ 500 UIT', color: '#2ECC71' },
-    { nombre: 'RER', impuesto: rerImpuesto, descripcion: 'Régimen Especial. Paga 1.5% de tus ingresos netos.', requisitos: 'Ingresos ≤ 420 UIT', color: '#3A86FF' },
-    { nombre: 'RG', impuesto: rgImpuesto, descripcion: 'Régimen General. Tributa sobre la renta neta.', requisitos: 'Sin límite', color: '#E8A020' },
-    { nombre: 'NRUS', impuesto: nrusAnual, descripcion: 'Nuevo RUS. Cuota fija según actividad.', requisitos: 'Ingresos ≤ 70 UIT', color: '#9B59B6' }
-  ];
+    { nombre: 'RMT', impuesto: rmtImpuesto, eligible: ingresos <= 1700 * uit, descripcion: 'IR anual sobre la renta neta.', requisitos: 'Ingresos ≤ 1,700 UIT', color: '#2ECC71' },
+    { nombre: 'RER', impuesto: rerImpuesto, eligible: ingresos <= 525000, descripcion: 'Pago definitivo de 1.5% de ingresos.', requisitos: 'Ingresos y compras ≤ S/525,000; revisar exclusiones', color: '#3A86FF' },
+    { nombre: 'RG', impuesto: rgImpuesto, eligible: true, descripcion: 'IR anual sobre la renta neta.', requisitos: 'Sin límite de ingresos', color: '#E8A020' },
+    { nombre: 'NRUS', impuesto: nrusAnual, eligible: Number.isFinite(nrusAnual) && trab === 0, descripcion: 'Cuota mensual según categoría.', requisitos: 'Hasta S/8,000 mensuales; revisar exclusiones', color: '#9B59B6' }
+  ].filter(item => item.eligible);
 
   regimenes.sort((a, b) => a.impuesto - b.impuesto);
   const mejor = regimenes[0];
@@ -9829,11 +9727,11 @@ function calcRegimen() {
       </tr>`).join('')}
     </table>
     <div style="margin-top:12px;padding:12px;background:rgba(46,204,113,.08);border:1px solid rgba(46,204,113,.25);border-radius:8px">
-      <div style="font-size:14px;font-weight:600;color:var(--green)">Recomendación: ${mejor.nombre}</div>
+      <div style="font-size:14px;font-weight:600;color:var(--green)">Menor IR estimado: ${mejor.nombre}</div>
       <div style="font-size:14px;color:var(--muted);margin-top:4px">${mejor.descripcion}</div>
-      <div style="font-size:14px;margin-top:4px">Ahorro anual vs. régimen más caro: <strong style="color:var(--green)">S/ ${(regimenes[regimenes.length - 1].impuesto - mejor.impuesto).toFixed(2)}</strong></div>
+      <div style="font-size:14px;margin-top:4px">Diferencia referencial frente al mayor resultado: <strong style="color:var(--green)">S/ ${(regimenes[regimenes.length - 1].impuesto - mejor.impuesto).toFixed(2)}</strong></div>
     </div>
-    <div style="margin-top:8px;font-size:14px;color:var(--muted)">* Cálculo simplificado. Consulta con un contador para el análisis completo.</div>
+    <div style="margin-top:8px;font-size:14px;color:var(--muted)">* No es una recomendación de cambio de régimen. La elegibilidad depende también de actividad, compras, activos, comprobantes y exclusiones.</div>
   </div>`;
 }
 
@@ -9881,8 +9779,10 @@ function calcPDT() {
     </table>`;
   } else if (tipo === '622') {
     const rentaAnual = Math.max(0, ingresos - gastos);
-    const impRenta = rentaAnual * 0.24;
-    const cta5 = Math.max(0, impRenta - igvCobrado * 0.12);
+    const uit = TAX_RULES.uit[TAX_RULES.currentYear];
+    const impRenta = regimen === 'rmt'
+      ? Math.min(rentaAnual, 15 * uit) * 0.10 + Math.max(0, rentaAnual - 15 * uit) * 0.295
+      : rentaAnual * 0.295;
 
     validaciones.push({ check: ruc.length === 11, msg: 'RUC válido' });
     validaciones.push({ check: rentaAnual > 0, msg: 'Utilidad positiva' });
@@ -9895,20 +9795,19 @@ function calcPDT() {
       <tr><td>Costos y gastos</td><td style="text-align:right">S/ ${gastos.toFixed(2)}</td></tr>
       <tr><td><strong>Renta neta</strong></td><td style="text-align:right"><strong>S/ ${rentaAnual.toFixed(2)}</strong></td></tr>
       <tr><td><strong>Impuesto a la Renta</strong></td><td style="text-align:right"><strong style="color:var(--red)">S/ ${impRenta.toFixed(2)}</strong></td></tr>
-      <tr><td>Cuota 5ta categoría pagada</td><td style="text-align:right">S/ ${igvCobrado.toFixed(2)}</td></tr>
-      <tr><td><strong>Saldo a pagar</strong></td><td style="text-align:right"><strong style="color:var(--red);font-size:15px">S/ ${cta5.toFixed(2)}</strong></td></tr>
+      <tr><td colspan="2" style="font-size:14px;color:var(--muted)">El saldo final requiere pagos a cuenta, créditos, pérdidas y adiciones/deducciones reales.</td></tr>
     </table>`;
   } else {
     // PDT 1400 - NRUS
-    const cuota = regimen === 'nrus' ? ingresos / 12 * 0.01 : 0;
-    validaciones.push({ check: ingresos / 12 <= 5200, msg: 'Ingresos dentro del límite NRUS' });
+    const cuota = regimen === 'nrus' ? (ingresos <= 5000 ? 20 : ingresos <= 8000 ? 50 : 0) : 0;
+    validaciones.push({ check: ingresos <= 8000, msg: 'Ingresos mensuales dentro del límite NRUS' });
 
     contenido = `<table>
       <tr><th colspan="2">PDT 1400 — NRUS ${periodo}</th></tr>
       <tr><td>RUC</td><td style="text-align:right">${ruc}</td></tr>
       <tr><td colspan="2" style="border-bottom:none;padding:4px"></td></tr>
       <tr><td>Ingresos del mes</td><td style="text-align:right">S/ ${ingresos.toFixed(2)}</td></tr>
-      <tr><td>Cuota mensual NRUS (1%)</td><td style="text-align:right">S/ ${cuota.toFixed(2)}</td></tr>
+      <tr><td>Cuota mensual NRUS</td><td style="text-align:right">S/ ${cuota.toFixed(2)}</td></tr>
       <tr><td colspan="2" style="border-bottom:none;padding:4px"></td></tr>
       <tr><td><strong>Cuota a pagar</strong></td><td style="text-align:right"><strong style="color:var(--red);font-size:15px">S/ ${cuota.toFixed(2)}</strong></td></tr>
     </table>`;
@@ -9921,7 +9820,7 @@ function calcPDT() {
       <div style="font-size:14px;font-weight:500;margin-bottom:6px">Validaciones:</div>
       ${validaciones.map(v => `<div style="font-size:14px;color:${v.check ? 'var(--green)' : 'var(--red)'}">${v.check ? '✅' : '❌'} ${v.msg}</div>`).join('')}
     </div>
-    <div style="margin-top:8px;font-size:14px;color:var(--muted)">* Borrador para revisión. Presenta en SUNAT Operaciones en Línea.</div>
+    <div style="margin-top:8px;font-size:14px;color:var(--muted)">* Vista previa orientativa; no genera ni presenta un PDT. Verifica los importes y declara exclusivamente en SUNAT Operaciones en Línea.</div>
   </div>`;
 }
 
@@ -10394,7 +10293,7 @@ var ARB_TIPO={casa:1.0,depto:0.85,comercial:1.4,oficina:1.1,terreno:0.5,industri
 function calcArbitrios(){var d=document.getElementById('arbitrios_distrito')?.value||'otro';var t=document.getElementById('arbitrios_tipo')?.value||'casa';var u=document.getElementById('arbitrios_uso')?.value||'residencial';var a=parseFloat(document.getElementById('arbitrios_area')?.value)||0;var al=parseFloat(document.getElementById('arbitrios_area_libre')?.value)||0;var an=parseInt(document.getElementById('arbitrios_anio')?.value)||2020;var s=document.getElementById('arbitrios_svcs')?.value||'completo';var b=document.getElementById('arbitriosResult');if(!b)return;if(!a){b.style.display='none';return;}var r=ARBITRIOS_RATES[d]||ARBITRIOS_RATES.otro;var uc=ARB_USO[u]||1.0;var tc=ARB_TIPO[t]||1.0;var ant=Math.max(0.7,1-Math.max(0,2026-an)*0.005);var ae=a+al*0.3;var lim=0,par=0,ser=0;if(s==='completo'||s==='limpieza')lim=r.limpieza*a*uc*tc*ant;if(s==='completo')par=r.parques*ae*uc*tc*ant;if(s==='completo'||s==='serenazgo')ser=r.serenazgo*a*uc*tc*ant;var anual=lim+par+ser;var riesgo=r.riesgo||'Medio';var cr=riesgo==='Bajo'?'#2e7d32':riesgo==='Medio'?'#f57f17':'#c62828';var h='<div class="sunat-api-result"><table><tr><th colspan="2">Arbitrios - '+d.charAt(0).toUpperCase()+d.slice(1).replace(/_/g,' ')+'</th></tr>';if(lim>0)h+='<tr><td>Limpieza publica</td><td>S/ '+lim.toFixed(2)+'</td></tr>';if(par>0)h+='<tr><td>Parques y jardines</td><td>S/ '+par.toFixed(2)+'</td></tr>';if(ser>0)h+='<tr><td>Serenazgo</td><td>S/ '+ser.toFixed(2)+'</td></tr>';h+='<tr><td><strong>Total anual</strong></td><td><strong>S/ '+anual.toFixed(2)+'</strong></td></tr><tr><td>Total mensual</td><td>S/ '+(anual/12).toFixed(2)+'</td></tr><tr><td>Riesgo distrital</td><td style="color:'+cr+';font-weight:bold">'+riesgo+'</td></tr><tr><td colspan="2" style="font-size:14px;color:var(--muted);text-align:center">Valores referenciales</td></tr></table></div>';b.style.display='block';b.innerHTML=h;}
 
 // ── 3. RENTA ANUAL ──
-var RENTA_UIT={2025:5350,2024:5150,2023:4950};
+var RENTA_UIT={...TAX_RULES.uit};
 var RENTA_BRACKETS=[{lim:5,rate:0.08},{lim:20,rate:0.14},{lim:35,rate:0.17},{lim:45,rate:0.20},{lim:Infinity,rate:0.30}];
 function calcRentaAnual(){var yr=parseInt(document.getElementById('renta_year')?.value)||2025;var cat=document.getElementById('renta_cat')?.value||'tercera';var ing=parseFloat(document.getElementById('renta_ingresos')?.value)||0;var cost=parseFloat(document.getElementById('renta_costos')?.value)||0;var gast=parseFloat(document.getElementById('renta_gastos')?.value)||0;var afpT=document.getElementById('renta_afp')?.value||'no';var afpM=parseFloat(document.getElementById('renta_afp_monto')?.value)||0;var deps=parseInt(document.getElementById('renta_deps')?.value)||0;var dedAd=parseFloat(document.getElementById('renta_deduc')?.value)||0;var dedOt=parseFloat(document.getElementById('renta_deduc_otras')?.value)||0;var b=document.getElementById('rentaResult');if(!b)return;if(!ing){b.style.display='none';return;}var uit=RENTA_UIT[yr]||RENTA_UIT[2025];var dedF=Math.min(dedAd,3*uit);var rNet=ing-cost-gast;if(cat==='tercera'||cat==='cuarta'||cat==='quinta')rNet-=7*uit;if(afpT!=='no')rNet-=afpM;rNet-=dedF;rNet-=deps*0.5*uit;rNet-=dedOt;rNet=Math.max(0,rNet);var imp=0;var brRows='';var prev=0;var rem=rNet;for(var i=0;i<RENTA_BRACKETS.length;i++){var bk=RENTA_BRACKETS[i];var bBase=Math.min(Math.max(0,rem),(bk.lim-prev)*uit);if(bBase>0){var tax=bBase*bk.rate;imp+=tax;var lbl=bk.lim===Infinity?'Mas de '+prev+' UIT':'Hasta '+bk.lim+' UIT';brRows+='<tr><td>'+lbl+' ('+(bk.rate*100).toFixed(0)+'%)</td><td>S/ '+bBase.toFixed(2)+'</td><td>S/ '+tax.toFixed(2)+'</td></tr>';rem-=bBase;}prev=bk.lim;if(rem<=0)break;}var ef=rNet>0?(imp/ing*100):0;var h='<div class="sunat-api-result"><table><tr><th colspan="3">Renta Anual '+yr+' (UIT: S/ '+uit+')</th></tr><tr><td>Ingresos brutos</td><td colspan="2">S/ '+ing.toFixed(2)+'</td></tr><tr><td>(-) Costos deducibles</td><td colspan="2">S/ '+cost.toFixed(2)+'</td></tr><tr><td>(-) Gastos deducibles</td><td colspan="2">S/ '+gast.toFixed(2)+'</td></tr><tr><td>(-) Deduc. 7 UIT</td><td colspan="2">S/ '+(7*uit).toFixed(2)+'</td></tr>';if(afpT!=='no')h+='<tr><td>(-) Aportes '+afpT.toUpperCase()+'</td><td colspan="2">S/ '+afpM.toFixed(2)+'</td></tr>';if(dedF>0)h+='<tr><td>(-) Deduc. adicional max 3 UIT</td><td colspan="2">S/ '+dedF.toFixed(2)+'</td></tr>';if(deps>0)h+='<tr><td>(-) Deduc. '+deps+' dependiente(s)</td><td colspan="2">S/ '+(deps*0.5*uit).toFixed(2)+'</td></tr>';if(dedOt>0)h+='<tr><td>(-) Otras deducciones</td><td colspan="2">S/ '+dedOt.toFixed(2)+'</td></tr>';h+='<tr><td><strong>Renta neta imponible</strong></td><td colspan="2"><strong>S/ '+rNet.toFixed(2)+'</strong></td></tr>'+brRows+'<tr><td><strong>Impuesto calculado</strong></td><td colspan="2"><strong>S/ '+imp.toFixed(2)+'</strong></td></tr><tr><td>Tasa efectiva</td><td colspan="2">'+ef.toFixed(2)+'%</td></tr><tr><td colspan="3" style="font-size:14px;color:var(--muted);text-align:center">Simulacion referencial</td></tr></table></div>';b.style.display='block';b.innerHTML=h;}
 
@@ -10429,10 +10328,56 @@ function calcValidador(){var t=document.getElementById('valTipoDoc')?.value||'RU
 function calcPreciosTransf(){var m=parseFloat(document.getElementById('ptMonto')?.value)||0;var mg=parseFloat(document.getElementById('ptMargen')?.value)||0;var cRaw=document.getElementById('ptComparables')?.value||'';var intv=document.getElementById('ptIntervalo')?.value||'95';var b=document.getElementById('preciosTransfResult');if(!b)return;if(!m||!mg||!cRaw.trim()){b.style.display='none';return;}var nums=cRaw.split(/[\/\n,;\s]+/).map(function(s){return parseFloat(s.trim());}).filter(function(n){return !isNaN(n)&&isFinite(n);});if(nums.length<2){b.style.display='block';b.innerHTML='<div class="sunat-api-result"><span style="color:#E8A020">Ingrese al menos 2 comparables</span></div>';return;}var sorted=[].concat(nums).sort(function(a,b){return a-b;});var n=sorted.length;var min=sorted[0],max=sorted[n-1];var med=n%2===0?(sorted[n/2-1]+sorted[n/2])/2:sorted[Math.floor(n/2)];var q1,q3;if(intv==='95'){var pQ1=0.25*(n+1),pQ3=0.75*(n+1);q1=pQ1===Math.floor(pQ1)?sorted[pQ1-1]:sorted[Math.floor(pQ1)-1]+(pQ1-Math.floor(pQ1))*(sorted[Math.floor(pQ1)]-sorted[Math.floor(pQ1)-1]);q3=pQ3===Math.floor(pQ3)?sorted[pQ3-1]:sorted[Math.floor(pQ3)-1]+(pQ3-Math.floor(pQ3))*(sorted[Math.floor(pQ3)]-sorted[Math.floor(pQ3)-1]);}else{q1=min;q3=max;}if(n<4&&intv==='95'){q1=min;q3=max;}var dentro=mg>=q1&&mg<=q3;var aj=0;if(!dentro)aj=mg<q1?q1-mg:q3-mg;var ajM=(aj/100)*m;var cRows='';for(var i=0;i<sorted.length;i++){cRows+='<tr><td>'+(i+1)+'</td><td>'+sorted[i].toFixed(2)+'%</td></tr>';}b.style.display='block';b.innerHTML='<div class="sunat-api-result"><table><tr><th colspan="4">Analisis de Rango Intercuartil</th></tr><tr><td>N comparables</td><td>'+n+'</td><td>Intervalo</td><td>'+(intv==='95'?'Q1-Q3':'Min-Max')+'</td></tr><tr><td>Minimo</td><td>'+min.toFixed(2)+'%</td><td>Maximo</td><td>'+max.toFixed(2)+'%</td></tr><tr><td>Q1</td><td>'+q1.toFixed(2)+'%</td><td>Q3</td><td>'+q3.toFixed(2)+'%</td></tr><tr><td>Mediana</td><td colspan="3">'+med.toFixed(2)+'%</td></tr><tr><td>Su margen</td><td colspan="3">'+mg.toFixed(2)+'%</td></tr><tr style="background:'+(dentro?'rgba(76,175,80,.2)':'rgba(244,67,54,.2)')+'"><td><strong>Resultado</strong></td><td colspan="3">'+(dentro?'Dentro del rango':'Fuera del rango')+'</td></tr>'+(aj>0?'<tr><td>Ajuste</td><td colspan="3">'+aj.toFixed(2)+'% (S/ '+ajM.toFixed(2)+')</td></tr>':'')+'<tr><th colspan="4">Comparables</th></tr><tr><th>#</th><th>Valor</th><th colspan="2"></th></tr>'+cRows+'</table></div>';}
 
 // ── 14. TEA MULTAS ──
-function calcTEAMultas(){var an=document.getElementById('teaAnio')?.value||'2025';var u=parseFloat(document.getElementById('teaUits')?.value)||0;var tm=document.getElementById('teaTipoMulta')?.value||'tributaria';var fN=document.getElementById('teaFechaNotif')?.value||'';var fP=document.getElementById('teaFechaPago')?.value||'';var fr=document.getElementById('teaFraccion')?.value||'no';var b=document.getElementById('teaMultasResult');if(!b)return;var uits={'2025':5350,'2024':5150,'2023':4950,'2022':4600,'2021':4400,'2020':4300,'2019':4200,'2018':4150,'2017':4050,'2016':3950,'2015':3850,'2014':3800,'2013':3700};var vU=uits[an]||0;var mS=u*vU;if(!u||!fN||!fP){b.style.display=mS?'block':'none';if(b.style.display==='block')b.innerHTML='<div class="sunat-api-result"><span style="color:#E8A020">Complete todos los campos</span></div>';return;}var f1=new Date(fN),f2=new Date(fP);var dias=Math.round((f2-f1)/86400000);if(dias<0){b.style.display='block';b.innerHTML='<div class="sunat-api-result"><span style="color:#E8A020">Pago debe ser posterior a notificacion</span></div>';return;}var tM=tm==='tributaria'?0.015:0.012;if(fr==='ref')tM=0.005;else if(fr==='aplazamiento')tM=0.010;var tea=Math.pow(1+tM,12)-1;var int=mS*(Math.pow(1+tM/30,dias)-1);var total=mS+int;b.style.display='block';b.innerHTML='<div class="sunat-api-result"><table><tr><th colspan="2">Liquidacion Multa</th></tr><tr><td>Anio/UIT</td><td>'+an+' / S/ '+vU.toFixed(2)+'</td></tr><tr><td>Multa (S/)</td><td>S/ '+mS.toFixed(2)+' ('+u+' UIT)</td></tr><tr><td>Dias mora</td><td>'+dias+'</td></tr><tr><td>Tasa mensual</td><td>'+(tM*100).toFixed(2)+'%</td></tr><tr><td>Interes</td><td>S/ '+int.toFixed(2)+'</td></tr><tr><td><strong>Total a pagar</strong></td><td><strong>S/ '+total.toFixed(2)+'</strong></td></tr><tr><td><strong>TEA</strong></td><td><strong>'+(tea*100).toFixed(4)+'%</strong></td></tr></table></div>';}
+function calcTEAMultas() {
+  const year = Number(document.getElementById('teaAnio')?.value || TAX_RULES.currentYear);
+  const units = Number(document.getElementById('teaUits')?.value || 0);
+  const notified = document.getElementById('teaFechaNotif')?.value || '';
+  const paid = document.getElementById('teaFechaPago')?.value || '';
+  const box = document.getElementById('teaMultasResult');
+  if (!box) return;
+  const uit = TAX_RULES.uit[year];
+  if (!units || !uit || !notified || !paid) { box.style.display = 'none'; return; }
+  const start = new Date(notified);
+  const end = new Date(paid);
+  const days = Math.floor((end - start) / 86400000);
+  if (days < 0) {
+    box.style.display = 'block';
+    box.innerHTML = '<div class="sunat-api-result"><span style="color:#E8A020">La fecha de pago debe ser posterior a la notificación.</span></div>';
+    return;
+  }
+  const principal = units * uit;
+  const usesLegalRate = start >= new Date(TAX_RULES.fineLegalInterestFrom + 'T00:00:00');
+  const interest = usesLegalRate ? null : principal * (TAX_RULES.timDailyPercent / 100) * days;
+  box.style.display = 'block';
+  box.innerHTML = `<div class="sunat-api-result"><table><tr><th colspan="2">Estimación de multa</th></tr><tr><td>Año / UIT</td><td>${year} / S/ ${uit.toFixed(2)}</td></tr><tr><td>Capital</td><td>S/ ${principal.toFixed(2)} (${units} UIT)</td></tr><tr><td>Días</td><td>${days}</td></tr><tr><td>Interés</td><td>${interest === null ? 'Requiere tasa de interés legal' : 'S/ ' + interest.toFixed(2)}</td></tr><tr><td><strong>Total estimado</strong></td><td><strong>${interest === null ? 'Pendiente de tasa legal' : 'S/ ' + (principal + interest).toFixed(2)}</strong></td></tr></table>${usesLegalRate ? '<p style="margin-top:10px;color:var(--muted)">Desde el 01/01/2024 la TIM no se aplica a multas; corresponde la tasa de interés legal. No se inventa una tasa: confirma el total en SUNAT o con la tasa legal SBS aplicable.</p>' : ''}</div>`;
+}
 
 // ── 15. RMT VS RER ──
-function calcRMTRER(){var ing=parseFloat(document.getElementById('rmt_rer_ingresos')?.value)||0;var cost=parseFloat(document.getElementById('rmt_rer_costos')?.value)||0;var comp=parseFloat(document.getElementById('rmt_rer_compras')?.value)||0;var trab=parseInt(document.getElementById('rmt_rer_trab')?.value)||1;var serv=document.getElementById('rmt_rer_servicio')?.value||'no';var fact=document.getElementById('rmt_rer_facturas_ant')?.value||'no';var b=document.getElementById('rmt_rerResult');if(!b)return;if(!ing){b.style.display='none';return;}var UIT=5150,lim=525000;var cumple=ing<lim;var rNet=Math.max(0,ing-cost);var rmtIR,rmtPct;if(ing<=300*UIT){rmtIR=ing*0.01;rmtPct='1%';}else{rmtIR=300*UIT*0.01+(ing-300*UIT)*0.295;rmtPct='1% hasta 300 UIT, luego 29.5%';}var rmtIGV=ing*0.18;var rmtTot=rmtIR+rmtIGV;var rerIR=ing*0.015;var rerIGV=ing*0.18;var rerTot=rerIR+rerIGV;var dif=rmtTot-rerTot;var rec;if(fact==='si')rec='RER no aplica (facturo > S/525K)';else if(!cumple)rec='RER no aplica (ingresos > S/525K)';else if(serv==='si'&&ing>150000)rec='RER puede no aplicar (servicio > S/150K)';else rec=dif>=0?'Recomendado: RER':'Recomendado: RMT';b.style.display='block';b.innerHTML='<div class="sunat-api-result"><table><tr><th>Concepto</th><th>RMT</th><th>RER</th></tr><tr><td>IR Anual</td><td>S/ '+rmtIR.toFixed(2)+'</td><td>S/ '+rerIR.toFixed(2)+'</td></tr><tr><td>IGV 18%</td><td>S/ '+rmtIGV.toFixed(2)+'</td><td>S/ '+rerIGV.toFixed(2)+'</td></tr><tr><td><strong>Total</strong></td><td><strong>S/ '+rmtTot.toFixed(2)+'</strong></td><td><strong>S/ '+rerTot.toFixed(2)+'</strong></td></tr><tr><td>Diferencia</td><td colspan="2">'+(dif>=0?'RER ahorra':'RMT ahorra')+' S/ '+Math.abs(dif).toFixed(2)+'</td></tr><tr><td>Renta neta</td><td colspan="2">S/ '+rNet.toFixed(2)+'</td></tr><tr><td>Limite RER</td><td colspan="2">'+(cumple?'Cumple S/525K':'Excede S/525K')+'</td></tr></table><div style="margin-top:8px;padding:8px;background:var(--dark2);border-radius:6px;font-weight:500;text-align:center">'+rec+'</div></div>';}
+function calcRMTRER() {
+  const ingresos = parseFloat(document.getElementById('rmt_rer_ingresos')?.value) || 0;
+  const costos = parseFloat(document.getElementById('rmt_rer_costos')?.value) || 0;
+  const compras = parseFloat(document.getElementById('rmt_rer_compras')?.value) || 0;
+  const actividadExcluida = document.getElementById('rmt_rer_servicio')?.value === 'si';
+  const activosExcedidos = document.getElementById('rmt_rer_facturas_ant')?.value === 'si';
+  const box = document.getElementById('rmt_rerResult');
+  if (!box || !ingresos) { if (box) box.style.display = 'none'; return; }
+  const uit = TAX_RULES.uit[TAX_RULES.currentYear];
+  const rentaNeta = Math.max(0, ingresos - costos);
+  const rmtIR = Math.min(rentaNeta, 15 * uit) * 0.10 + Math.max(0, rentaNeta - 15 * uit) * 0.295;
+  const rerIR = ingresos * 0.015;
+  const rmtEligible = ingresos <= 1700 * uit;
+  const rerEligible = ingresos <= 525000 && compras <= 525000 && !actividadExcluida && !activosExcedidos;
+  const difference = Math.abs(rmtIR - rerIR);
+  const lower = rmtIR <= rerIR ? 'RMT' : 'RER';
+  box.style.display = 'block';
+  box.innerHTML = `<div class="sunat-api-result"><table>
+    <tr><th>Concepto</th><th>RMT</th><th>RER</th></tr>
+    <tr><td>Base usada</td><td>Renta neta: S/ ${rentaNeta.toFixed(2)}</td><td>Ingresos: S/ ${ingresos.toFixed(2)}</td></tr>
+    <tr><td>IR anual estimado</td><td>S/ ${rmtIR.toFixed(2)}</td><td>S/ ${rerIR.toFixed(2)}</td></tr>
+    <tr><td>Elegibilidad preliminar</td><td>${rmtEligible ? 'Dentro del límite de ingresos' : 'Excede 1,700 UIT'}</td><td>${rerEligible ? 'Sin exclusiones declaradas' : 'No elegible con los datos ingresados'}</td></tr>
+    <tr><td>Diferencia de IR</td><td colspan="2">${lower} resulta menor por S/ ${difference.toFixed(2)}</td></tr>
+  </table><div style="margin-top:8px;padding:8px;background:var(--dark2);border-radius:6px;font-size:14px">Comparación referencial de IR. El IGV no se suma como costo del régimen y la elección exige revisar actividad, activos, compras, comprobantes y demás exclusiones.</div></div>`;
+}
 
 // ── 16. AMAZONIA ──
 function calcAmazonia(){var z=document.getElementById('amazonia_zona')?.value||'amazonia';var bf=document.getElementById('amazonia_beneficio')?.value||'todo';var ing=parseFloat(document.getElementById('amazonia_ingresos')?.value)||0;var pct=parseFloat(document.getElementById('amazonia_pct')?.value)||0;var ven=document.getElementById('amazonia_venta')?.value||'no';var con=document.getElementById('amazonia_constituida')?.value||'si';var box=document.getElementById('amazoniaResult');if(!box)return;if(!ing||!pct){box.style.display='none';return;}var iZ=ing*pct/100;var igvA=iZ*0.18/1.18;var zonas={amazonia:{nombre:'Amazonia (Ley 27037)',igv:true,irR:true,irE:true,cred:true,tasaIR:'10%',legal:'Ley 27037'},ceticos:{nombre:'CETICOS (Ley 27688)',igv:true,irR:true,irE:false,cred:false,tasaIR:'15%',legal:'Ley 27688'},zoftacna:{nombre:'ZOFRATACNA',igv:true,irR:true,irE:false,cred:false,tasaIR:'15%',legal:'DS'},altoandina:{nombre:'Altoandina',igv:false,irR:true,irE:false,cred:false,tasaIR:'10-15%',legal:'Ley 27688'},fronteriza:{nombre:'Fronteriza Norte',igv:true,irR:true,irE:false,cred:false,tasaIR:'15%',legal:'Ley 27688'}};var zo=zonas[z]||zonas.amazonia;var aIGV=zo.igv&&(bf==='todo'||bf==='igv');var aIR=zo.irR&&(bf==='todo'||bf==='ir_reducida');var aIRex=zo.irE&&(bf==='todo'||bf==='ir_exonerado');var aCred=zo.cred&&(bf==='todo'||bf==='credito');var irA=0,irTxt='No aplica';if(aIRex&&z==='amazonia'&&con==='si'){irTxt='IR exonerado 10 anios';irA=iZ*0.295;}else if(aIR){irA=iZ*(0.295-parseFloat(zo.tasaIR)/100);irTxt='Tasa reducida: '+zo.tasaIR;}var ahorro=(aIGV?igvA:0)+irA;box.style.display='block';box.innerHTML='<div class="sunat-api-result"><table><tr><th colspan="2">'+zo.nombre+'</th></tr><tr><td>Base legal</td><td>'+zo.legal+'</td></tr><tr><td>Ingresos zona</td><td>S/ '+iZ.toFixed(2)+'</td></tr><tr><td>Exoneracion IGV</td><td>'+(aIGV?'S/ '+igvA.toFixed(2):'No aplica')+'</td></tr><tr><td>Beneficio IR</td><td>'+irTxt+'</td></tr><tr><td><strong>Ahorro total</strong></td><td><strong>S/ '+ahorro.toFixed(2)+'</strong></td></tr></table></div>';}
@@ -10450,11 +10395,8 @@ function calcRus() {
   if (!box) return;
   if (!ingresos) { box.style.display = 'none'; return; }
   let catSugerida = 0, cuota = 0, tope = 0;
-  if (ingresos <= 5000) { catSugerida = 1; cuota = 25; tope = 60000; }
-  else if (ingresos <= 8000) { catSugerida = 2; cuota = 45; tope = 96000; }
-  else if (ingresos <= 13000) { catSugerida = 3; cuota = 85; tope = 156000; }
-  else if (ingresos <= 20000) { catSugerida = 4; cuota = 120; tope = 240000; }
-  else if (ingresos <= 30000) { catSugerida = 5; cuota = 170; tope = 360000; }
+  if (ingresos <= 5000) { catSugerida = 1; cuota = 20; tope = 60000; }
+  else if (ingresos <= 8000) { catSugerida = 2; cuota = 50; tope = 96000; }
   else { catSugerida = 0; cuota = 0; tope = 0; }
   const pagoTrimestral = cuota * 3;
   const pagoAnual = cuota * 12;
@@ -10473,7 +10415,7 @@ function calcRus() {
       <tr><td style="padding:4px 8px">Pago Anual</td><td style="padding:4px 8px;font-weight:600">S/ ${pagoAnual.toFixed(2)}</td></tr>
       <tr><td style="padding:4px 8px">Tope Máx. Facturación Anual</td><td style="padding:4px 8px;font-weight:600">S/ ${tope.toFixed(2)}</td></tr>
       <tr><td style="padding:4px 8px">¿Puede acogerse?</td><td style="padding:4px 8px;font-weight:600;color:${puedeAcogerse ? 'var(--green)' : '#e74c3c'}">${puedeAcogerse ? 'Sí' : 'No (emite facturas o excede límite)'}</td></tr>
-      ` : '<tr><td style="padding:4px 8px;color:#e74c3c" colspan="2">⚠ Ingresos exceden S/ 30,000 — no aplica NRUS</td></tr>'}
+      ` : '<tr><td style="padding:4px 8px;color:#e74c3c" colspan="2">⚠ Ingresos exceden S/ 8,000 mensuales — no aplica NRUS</td></tr>'}
     </table>
   </div>`;
 }
@@ -10619,7 +10561,7 @@ function calcExonDetraccion() {
 
 // ── 6. RECURSO MULTA SUNAT ──
 function calcRecursoMulta() {
-  const uits = {2020:4300, 2021:4400, 2022:4600, 2023:4950, 2024:5150, 2025:5350, 2026:5600};
+  const uits = TAX_RULES.uit;
   const tipo = document.getElementById('rm_tipo')?.value || 'reclamacion';
   const multaUit = parseFloat(document.getElementById('rm_uit')?.value) || 0;
   const anio = parseInt(document.getElementById('rm_anio')?.value) || 2025;
@@ -10636,14 +10578,12 @@ function calcRecursoMulta() {
   const diffTime = Math.abs(d2 - d1);
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   const diasHabiles = Math.round(diffDays * 5 / 7);
-  const timMensual = 1.2;
-  const mesesTrans = diffDays / 30;
-  const interes = multaSoles * (timMensual / 100) * mesesTrans;
-  const totalPagar = multaSoles + interes;
-  const plazos = { reclamacion: { max: 20, desc: '20 días hábiles', prob: 40 }, apelacion: { max: 15, desc: '15 días hábiles', prob: 25 }, quebrantamiento: { max: 0, desc: 'No aplica', prob: 60 } };
+  const usesLegalRate = d1 >= new Date(TAX_RULES.fineLegalInterestFrom + 'T00:00:00');
+  const interes = usesLegalRate ? null : multaSoles * (TAX_RULES.timDailyPercent / 100) * diffDays;
+  const totalPagar = interes === null ? null : multaSoles + interes;
+  const plazos = { reclamacion: { max: 20, desc: '20 días hábiles' }, apelacion: { max: 15, desc: '15 días hábiles' }, quebrantamiento: { max: 0, desc: 'No aplica' } };
   const p = plazos[tipo];
   const dentroPlazo = p.max === 0 ? 'N/A' : diasHabiles <= p.max ? '✅ Dentro de plazo' : '❌ Fuera de plazo';
-  const probExito = p.prob;
   const recText = { reclamacion: 'Reclamación', apelacion: 'Apelación', quebrantamiento: 'Quebrantamiento' }[tipo];
   const infText = { formal: 'Formal', sustancial: 'Sustancial' }[infraccion];
   box.style.display = 'block';
@@ -10659,12 +10599,11 @@ function calcRecursoMulta() {
       <tr><td>Días hábiles estimados</td><td>${diasHabiles} días</td></tr>
       <tr><td>Plazo máximo</td><td>${p.desc}</td></tr>
       <tr><td>Estado del plazo</td><td>${dentroPlazo}</td></tr>
-      <tr><td>Intereses moratorios (TIM ${timMensual}%)</td><td>S/ ${interes.toFixed(2)}</td></tr>
-      <tr><td><strong>Total si se pierde</strong></td><td><strong>S/ ${totalPagar.toFixed(2)}</strong></td></tr>
-      <tr><td>Probabilidad de éxito</td><td>${probExito}%</td></tr>
+      <tr><td>Intereses</td><td>${interes === null ? 'Requiere tasa de interés legal' : 'S/ ' + interes.toFixed(2)}</td></tr>
+      <tr><td><strong>Total estimado</strong></td><td><strong>${totalPagar === null ? 'Pendiente de tasa legal' : 'S/ ' + totalPagar.toFixed(2)}</strong></td></tr>
       <tr><td>Fraccionamiento</td><td>${fraccion === 'si' ? '✅ Sí' : '❌ No'}</td></tr>
     </table>
-    <div style="margin-top:12px;padding:12px;background:var(--accent);border-radius:6px;font-weight:600;text-align:center">${probExito >= 50 ? '✅ Alta probabilidad de éxito' : probExito >= 30 ? '⚠️ Probabilidad moderada' : '❌ Baja probabilidad de éxito'}</div>
+    <div style="margin-top:12px;padding:12px;background:var(--accent);border-radius:6px">${usesLegalRate ? 'Desde el 01/01/2024 corresponde interés legal, no TIM. Confirma la tasa y el plazo antes de presentar el recurso.' : 'Los días hábiles son una aproximación y no descuentan feriados ni suspensiones.'}</div>
   </div>`;
 }
 
@@ -11242,7 +11181,7 @@ function calcPoder() {
 }
 
 // ── 21. VERIFICADOR RUC ──
-function calcRuc() {
+async function calcRuc() {
   const ruc = document.getElementById('ruc_num')?.value.replace(/\D/g, '') || '';
   const consulta = document.getElementById('ruc_consulta')?.value || 'ruc';
   const nombre = document.getElementById('ruc_nombre')?.value || '';
@@ -11264,16 +11203,8 @@ function calcRuc() {
     box.innerHTML = `<div class="sunat-api-result" style="border-left:4px solid #ef4444;padding:12px;background:rgba(239,68,68,0.08)"><strong style="color:#ef4444">RUC Inválido</strong><span style="font-size:14px"> Dígito verificador no coincide.</span><table style="width:100%;margin-top:8px;font-size:14px;border-collapse:collapse"><tr><td style="padding:4px 8px;color:var(--muted)">Esperado</td><td style="padding:4px 8px">${digVer}</td></tr><tr><td style="padding:4px 8px;color:var(--muted)">Ingresado</td><td style="padding:4px 8px">${ruc[10]}</td></tr></table></div>`;
     return;
   }
-  const estadosSim = ['Activo', 'Activo', 'Activo', 'Baja de Oficio', 'Suspendido'];
-  const condSim = ['Habido', 'Habido', 'Habido', 'No Habido'];
-  const ecoSim = ['Venta al por menor', 'Restaurantes', 'Servicios profesionales', 'Construcción', 'Transporte'];
-  const estado = estadosSim[Math.floor(Math.random() * estadosSim.length)];
-  const condicion = condSim[Math.floor(Math.random() * condSim.length)];
-  const economia = ecoSim[Math.floor(Math.random() * ecoSim.length)];
-  const fechaInsc = `${Math.floor(Math.random() * 28) + 1}/${Math.floor(Math.random() * 12) + 1}/${1990 + Math.floor(Math.random() * 25)}`;
-  const nombresSim = nombre || (consulta === 'dni' ? 'Carlos Alberto Mendoza López' : 'GRUPO INVERSIONES DEL SUR S.A.C.');
   box.style.display = 'block';
-  box.innerHTML = `<div class="sunat-api-result" style="border-left:4px solid #22c55e;padding:12px;background:rgba(34,197,94,0.08)"><strong style="color:#22c55e">RUC Válido</strong><table style="width:100%;margin-top:8px;font-size:14px;border-collapse:collapse"><tr><td style="padding:4px 8px;color:var(--muted)">RUC</td><td style="padding:4px 8px;font-weight:600">${ruc}</td></tr><tr><td style="padding:4px 8px;color:var(--muted)">Razón Social</td><td style="padding:4px 8px">${nombresSim}</td></tr><tr><td style="padding:4px 8px;color:var(--muted)">Tipo</td><td style="padding:4px 8px">${tipoContrib}</td></tr><tr><td style="padding:4px 8px;color:var(--muted)">Estado</td><td style="padding:4px 8px">${estado}</td></tr><tr><td style="padding:4px 8px;color:var(--muted)">Condición</td><td style="padding:4px 8px">${condicion}</td></tr><tr><td style="padding:4px 8px;color:var(--muted)">Domicilio</td><td style="padding:4px 8px">Av. ${['Larco 1234', 'Arequipa 567', 'Javier Prado 890'][Math.floor(Math.random() * 3)]}, Lima</td></tr><tr><td style="padding:4px 8px;color:var(--muted)">Actividad</td><td style="padding:4px 8px">${economia}</td></tr></table></div>`;
+  box.innerHTML = `<div class="sunat-api-result"><strong>✅ RUC con dígito verificador válido</strong><p style="margin-top:8px;color:var(--muted)">Tipo detectado: ${_escapeHtml(tipoContrib)}. La razón social, estado y condición deben confirmarse en la consulta oficial.</p><button class="bp" type="button" style="width:auto;margin-top:8px" onclick="window.open(SUNAT_RUC_PUBLIC_URL,'_blank','noopener,noreferrer')">Consultar en SUNAT</button></div>`;
 }
 
 // ── 22. PROYECCIÓN AFP ──
@@ -11283,7 +11214,7 @@ function calcProyAfp() {
   const sueldo = parseFloat(document.getElementById('proy_sueldo')?.value) || 0;
   const crec = (parseFloat(document.getElementById('proy_crec')?.value) || 3) / 100;
   const rent = (parseFloat(document.getElementById('proy_rent')?.value) || 5.5) / 100;
-  const comision = parseFloat(document.getElementById('proy_comision')?.value) || 1.69;
+  const comision = (parseFloat(document.getElementById('proy_comision')?.value) || 1.69) / 100;
   const prima = (parseFloat(document.getElementById('proy_prima')?.value) || 1.24) / 100;
   const fondoAct = parseFloat(document.getElementById('proy_fondo')?.value) || 0;
   const afpSel = document.getElementById('proy_select')?.value || 'prima';
@@ -11291,21 +11222,31 @@ function calcProyAfp() {
   if (!box) return;
   if (!sueldo || !edad) { box.style.display = 'none'; return; }
   const annos = Math.max(0, jub - edad);
-  let fondo = fondoAct, sueldoAnual = sueldo * 12, aporteMensual = sueldo * 0.10;
-  const descTotal = aporteMensual + comision + (sueldo * prima);
+  let fondo = fondoAct, sueldoMensual = sueldo, aporteMensual = sueldo * 0.10;
+  const descTotal = sueldo * (0.10 + comision + prima);
   const decadas = [];
   for (let a = 0; a < annos; a++) {
-    for (let m = 0; m < 12; m++) { fondo = fondo * (1 + rent / 12) + aporteMensual; sueldoAnual *= (1 + crec); aporteMensual = (sueldoAnual / 12) * 0.10; }
+    for (let m = 0; m < 12; m++) fondo = fondo * (1 + rent / 12) + aporteMensual;
+    sueldoMensual *= (1 + crec);
+    aporteMensual = sueldoMensual * 0.10;
     if ((a + 1) % 10 === 0 || a === annos - 1) decadas.push({ anno: a + 1, fondo: Math.round(fondo) });
   }
   const pension = fondo * 0.04 / 12;
   const afpNombres = { prima: 'Prima', habitat: 'Hábitat', profuturo: 'Profuturo', integra: 'Integra' };
-  const compRents = { prima: 5.2, habitat: 5.8, profuturo: 5.5, integra: 5.0 };
+  const scenarios = [
+    { nombre: 'Conservador', tasa: Math.max(0, rent - 0.015) },
+    { nombre: 'Base', tasa: rent },
+    { nombre: 'Optimista', tasa: rent + 0.015 }
+  ];
   const comps = [];
-  for (const [k, v] of Object.entries(compRents)) {
-    let f = fondoAct, sa = sueldo * 12, ap = sueldo * 0.10;
-    for (let a = 0; a < annos; a++) { for (let m = 0; m < 12; m++) { f = f * (1 + v / 100 / 12) + ap; sa *= (1 + crec); ap = (sa / 12) * 0.10; } }
-    comps.push({ nombre: afpNombres[k] || k, fondo: Math.round(f), pension: Math.round(f * 0.04 / 12) });
+  for (const scenario of scenarios) {
+    let f = fondoAct, sm = sueldo, ap = sueldo * 0.10;
+    for (let a = 0; a < annos; a++) {
+      for (let m = 0; m < 12; m++) f = f * (1 + scenario.tasa / 12) + ap;
+      sm *= (1 + crec);
+      ap = sm * 0.10;
+    }
+    comps.push({ nombre: scenario.nombre, tasa: scenario.tasa, fondo: Math.round(f), pension: Math.round(f * 0.04 / 12) });
   }
   let decHtml = '';
   for (const d of decadas) decHtml += `<tr><td style="padding:4px 8px">${d.anno} años</td><td style="padding:4px 8px;text-align:right">S/ ${d.fondo.toLocaleString()}</td></tr>`;
@@ -11324,11 +11265,12 @@ function calcProyAfp() {
       <tr><th style="padding:4px 8px;text-align:left;border-bottom:1px solid rgba(128,128,128,0.2)">Período</th><th style="padding:4px 8px;text-align:right;border-bottom:1px solid rgba(128,128,128,0.2)">Fondo</th></tr>
       ${decHtml}
     </table>
-    <div style="margin-top:12px;font-weight:600;font-size:14px">Comparación AFP</div>
+    <div style="margin-top:12px;font-weight:600;font-size:14px">Escenarios de rentabilidad</div>
     <table style="width:100%;font-size:14px;border-collapse:collapse;margin-top:4px">
-      <tr><th style="padding:4px 8px;text-align:left;border-bottom:1px solid rgba(128,128,128,0.2)">AFP</th><th style="padding:4px 8px;text-align:right;border-bottom:1px solid rgba(128,128,128,0.2)">Fondo</th><th style="padding:4px 8px;text-align:right;border-bottom:1px solid rgba(128,128,128,0.2)">Pensión</th></tr>
-      ${comps.map(c => `<tr><td style="padding:4px 8px">${c.nombre}</td><td style="padding:4px 8px;text-align:right">S/ ${c.fondo.toLocaleString()}</td><td style="padding:4px 8px;text-align:right">S/ ${c.pension.toLocaleString()}/mes</td></tr>`).join('')}
+      <tr><th style="padding:4px 8px;text-align:left;border-bottom:1px solid rgba(128,128,128,0.2)">Escenario</th><th style="padding:4px 8px;text-align:right;border-bottom:1px solid rgba(128,128,128,0.2)">Tasa</th><th style="padding:4px 8px;text-align:right;border-bottom:1px solid rgba(128,128,128,0.2)">Fondo</th><th style="padding:4px 8px;text-align:right;border-bottom:1px solid rgba(128,128,128,0.2)">Pensión</th></tr>
+      ${comps.map(c => `<tr><td style="padding:4px 8px">${c.nombre}</td><td style="padding:4px 8px;text-align:right">${(c.tasa * 100).toFixed(1)}%</td><td style="padding:4px 8px;text-align:right">S/ ${c.fondo.toLocaleString()}</td><td style="padding:4px 8px;text-align:right">S/ ${c.pension.toLocaleString()}/mes</td></tr>`).join('')}
     </table>
+    <p style="margin:10px 8px 0;color:var(--muted);font-size:12px">Estimación referencial. La rentabilidad y la pensión futuras no están garantizadas.</p>
   </div>`;
 }
 
@@ -11386,33 +11328,46 @@ function calcContr() {
 // ── 24. CHAT SESIONES ──
 function calcChat() {
   const buscar = (document.getElementById('chat_buscar')?.value || '').toLowerCase();
-  const prov = document.getElementById('chat_prov')?.value || 'todos';
   const box = document.getElementById('chatResult');
   if (!box) return;
   box.style.display = 'block';
-  let sesiones = [];
-  try { sesiones = JSON.parse(localStorage.getItem('tp_chat_sessions') || '[]'); } catch (e) { }
-  if (!Array.isArray(sesiones) || !sesiones.length) {
-    const def = [{ id: 1, fecha: '2026-07-20 14:30', resumen: 'Consulta sobre RUC y facturación', proveedor: 'Claude', msgs: 12 }, { id: 2, fecha: '2026-07-19 09:15', resumen: 'Análisis de contrato laboral', proveedor: 'DeepSeek', msgs: 8 }, { id: 3, fecha: '2026-07-18 16:45', resumen: 'Proyección AFP', proveedor: 'OpenAI', msgs: 15 }, { id: 4, fecha: '2026-07-17 11:00', resumen: 'PDT 621', proveedor: 'Claude', msgs: 6 }, { id: 5, fecha: '2026-07-15 08:30', resumen: 'Detracciones', proveedor: 'DeepSeek', msgs: 10 }];
-    localStorage.setItem('tp_chat_sessions', JSON.stringify(def));
-    kvPut('tp_chat_sessions', def, 'chat_sessions');
-    sesiones = def;
+  const sesiones = curUser ? getHist(curUser.email).map((session, index) => ({ ...session, _index: index })) : [];
+  if (!sesiones.length) {
+    box.innerHTML = '<div class="specialized-empty-state"><strong>Aún no tienes conversaciones guardadas.</strong><span>Inicia una consulta y vuelve al panel para verla aquí.</span><button type="button" class="btn-p" onclick="newChat()">Iniciar primera consulta</button></div>';
+    return;
   }
-registerKVScope('chat_sessions', () => 'tp_chat_sessions');
-  let filtradas = sesiones;
-  if (prov !== 'todos') filtradas = filtradas.filter(s => s.proveedor === prov);
-  if (buscar) filtradas = filtradas.filter(s => (s.resumen || '').toLowerCase().includes(buscar) || (s.fecha || '').includes(buscar));
-  if (!filtradas.length) { box.innerHTML = '<div style="padding:12px;font-size:14px;color:var(--muted)">No se encontraron sesiones.</div>'; return; }
+  const filtradas = buscar ? sesiones.filter(session => {
+    const content = (session.messages || []).map(message => message.content || '').join(' ');
+    return [session.title, session.date, session.area, content].some(value => String(value || '').toLowerCase().includes(buscar));
+  }) : sesiones;
+  if (!filtradas.length) { box.innerHTML = '<div style="padding:12px;font-size:14px;color:var(--muted)">No hay conversaciones que coincidan con la búsqueda.</div>'; return; }
   box.innerHTML = `<div class="sunat-api-result" style="padding:0;overflow:hidden">
     <table style="width:100%;font-size:14px;border-collapse:collapse">
-      <tr><th style="padding:8px;text-align:left;border-bottom:1px solid rgba(128,128,128,0.2)">Fecha</th><th style="padding:8px;text-align:left;border-bottom:1px solid rgba(128,128,128,0.2)">Resumen</th><th style="padding:8px;text-align:left;border-bottom:1px solid rgba(128,128,128,0.2)">Proveedor</th><th style="padding:8px;text-align:right;border-bottom:1px solid rgba(128,128,128,0.2)">Msgs</th><th style="padding:8px;border-bottom:1px solid rgba(128,128,128,0.2)"></th></tr>
-      ${filtradas.map(s => `<tr><td style="padding:6px 8px;white-space:nowrap">${s.fecha || '-'}</td><td style="padding:6px 8px">${s.resumen || '-'}</td><td style="padding:6px 8px">${s.proveedor || '-'}</td><td style="padding:6px 8px;text-align:right">${s.msgs || 0}</td><td style="padding:6px 8px"><button onclick="exportarSesion(${s.id})" style="font-size:14px;padding:2px 6px;cursor:pointer" title="Exportar">📥</button> <button onclick="eliminarSesion(${s.id})" style="font-size:14px;padding:2px 6px;cursor:pointer;color:#ef4444" title="Eliminar">🗑</button></td></tr>`).join('')}
+      <tr><th style="padding:8px;text-align:left;border-bottom:1px solid rgba(128,128,128,0.2)">Fecha</th><th style="padding:8px;text-align:left;border-bottom:1px solid rgba(128,128,128,0.2)">Conversación</th><th style="padding:8px;text-align:left;border-bottom:1px solid rgba(128,128,128,0.2)">Área</th><th style="padding:8px;text-align:right;border-bottom:1px solid rgba(128,128,128,0.2)">Mensajes</th><th style="padding:8px;border-bottom:1px solid rgba(128,128,128,0.2)"></th></tr>
+      ${filtradas.map(s => `<tr><td style="padding:6px 8px;white-space:nowrap">${_escapeHtml(s.date || '-')}</td><td style="padding:6px 8px"><button type="button" class="chat-session-open" onclick="loadConv(${s._index})">${_escapeHtml(s.title || 'Consulta')}</button></td><td style="padding:6px 8px">${_escapeHtml(s.area || 'General')}</td><td style="padding:6px 8px;text-align:right">${Array.isArray(s.messages) ? s.messages.length : 0}</td><td style="padding:6px 8px;white-space:nowrap"><button onclick="exportarSesion(${s._index})" style="font-size:14px;padding:2px 6px;cursor:pointer" title="Exportar">📥</button> <button onclick="eliminarSesion(${s._index})" style="font-size:14px;padding:2px 6px;cursor:pointer;color:#ef4444" title="Eliminar">🗑</button></td></tr>`).join('')}
     </table>
     <div style="padding:8px;font-size:14px;color:var(--muted);border-top:1px solid rgba(128,128,128,0.1)">${filtradas.length} sesión(es)</div>
   </div>`;
 }
-function eliminarSesion(id) { try { let s = JSON.parse(localStorage.getItem('tp_chat_sessions') || '[]'); if (id === null) s = []; else s = s.filter(x => x.id !== id); localStorage.setItem('tp_chat_sessions', JSON.stringify(s)); kvPut('tp_chat_sessions', s, 'chat_sessions'); calcChat(); } catch (e) { } }
-function exportarSesion(id) { try { const s = JSON.parse(localStorage.getItem('tp_chat_sessions') || '[]'); const ses = s.find(x => x.id === id); if (!ses) return; const b = new Blob([JSON.stringify(ses, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'sesion_' + id + '.json'; a.click(); URL.revokeObjectURL(a.href); } catch (e) { } }
+function eliminarSesion(index) {
+  if (!curUser) return;
+  const sesiones = getHist(curUser.email);
+  if (!sesiones[index] || !confirm('¿Eliminar esta conversación?')) return;
+  sesiones.splice(index, 1);
+  saveHist(curUser.email, sesiones);
+  calcChat();
+}
+function exportarSesion(index) {
+  if (!curUser) return;
+  const sesion = getHist(curUser.email)[index];
+  if (!sesion) return;
+  const blob = new Blob([JSON.stringify(sesion, null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'conversacion_declarafy_' + (index + 1) + '.json';
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
 
 // ── 25. GENERADOR INFORMES ──
 function calcInf() {
@@ -11421,41 +11376,13 @@ function calcInf() {
   const fin = document.getElementById('inf_fin')?.value || '';
   const ruc = document.getElementById('inf_ruc')?.value || '';
   const nombre = document.getElementById('inf_nombre')?.value || 'Contribuyente';
-  const graf = document.getElementById('inf_graf')?.value || 'si';
-  const nota = document.getElementById('inf_nota')?.value || 'si';
   const box = document.getElementById('infResult');
   if (!box) return;
   if (!ruc || !nombre) { box.style.display = 'none'; return; }
   const tipos = { resumen: 'Resumen Tributario', declaracion: 'Declaración Mensual', flujo: 'Flujo Caja', planilla: 'Planilla', anual: 'Impuestos Anuales', auditoria: 'Auditoría Rápida' };
-  const labels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'];
-  const ingresos = labels.map(() => Math.floor(5000 + Math.random() * 20000));
-  const egresos = labels.map(() => Math.floor(3000 + Math.random() * 12000));
-  const totalIng = ingresos.reduce((a, b) => a + b, 0);
-  const totalEgr = egresos.reduce((a, b) => a + b, 0);
-  const igv = Math.round(totalIng * 0.18);
-  const ir = Math.round(totalIng * 0.295);
-  const pend = Math.floor(Math.random() * 5000);
-  const meses = labels.slice(0, Math.min(12, Math.max(1, (inicio && fin ? (parseInt(fin.split('-')[1]) - parseInt(inicio.split('-')[1]) + 1) : 6))));
-  let grafHtml = '';
-  if (graf === 'si') {
-    grafHtml = '<div style="margin:12px 0;font-size:14px"><strong>Ingresos vs Egresos</strong><div style="display:flex;gap:2px;height:100px;align-items:flex-end;margin-top:4px">' +
-      ingresos.slice(0, meses.length).map((v, i) => {
-        const max = Math.max(...ingresos.slice(0, meses.length), ...egresos.slice(0, meses.length)) || 1;
-        return '<div style="display:flex;flex-direction:column;align-items:center;flex:1"><div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:1px"><div style="width:14px;height:' + ((v / max) * 80) + 'px;background:#22c55e;border-radius:2px 2px 0 0" title="S/ ' + v + '"></div><div style="width:14px;height:' + ((egresos[i] / max) * 80) + 'px;background:#ef4444;border-radius:2px 2px 0 0" title="S/ ' + egresos[i] + '"></div></div><span style="font-size:8px;margin-top:2px">' + meses[i] + '</span></div>';
-      }).join('') +
-      '</div><div style="display:flex;gap:12px;font-size:14px"><span><span style="display:inline-block;width:10px;height:10px;background:#22c55e;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Ingresos</span><span><span style="display:inline-block;width:10px;height:10px;background:#ef4444;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Egresos</span></div></div>';
-  }
-  const notaHtml = nota === 'si' ? '<div style="margin-top:12px;padding:8px;font-size:14px;color:var(--muted);border-top:1px solid rgba(128,128,128,0.2)"><em>Nota: Esta es una simulación ilustrativa. Valide con un contador público colegiado.</em></div>' : '';
   const fecStr = (inicio || '2026-01') + ' a ' + (fin || '2026-12');
   box.style.display = 'block';
-  box.innerHTML = '<div class="sunat-api-result" id="reportPreview" style="padding:16px;font-size:14px">' +
-    '<div style="text-align:center;margin-bottom:12px"><strong style="font-size:14px">' + (tipos[tipo] || 'Informe') + '</strong><br><span style="color:var(--muted)">' + ruc + ' — ' + nombre + ' — ' + fecStr + '</span></div>' +
-    '<div style="margin-bottom:8px"><strong>Resumen</strong><p style="color:var(--muted);margin:4px 0">Ingresos S/ ' + totalIng.toLocaleString() + ', egresos S/ ' + totalEgr.toLocaleString() + '</p></div>' +
-    grafHtml +
-    '<div style="margin-bottom:8px"><strong>Impuestos</strong><table style="width:100%;border-collapse:collapse;margin-top:4px"><tr><th style="padding:4px 8px;text-align:left;border-bottom:1px solid rgba(128,128,128,0.2)">Concepto</th><th style="padding:4px 8px;text-align:right;border-bottom:1px solid rgba(128,128,128,0.2)">S/</th></tr><tr><td style="padding:4px 8px">IGV (18%)</td><td style="padding:4px 8px;text-align:right">' + igv.toLocaleString() + '</td></tr><tr><td style="padding:4px 8px">IR (29.5%)</td><td style="padding:4px 8px;text-align:right">' + ir.toLocaleString() + '</td></tr></table></div>' +
-    '<div style="margin-bottom:8px"><strong>Recomendaciones</strong><ul style="margin:4px 0 0 16px;color:var(--muted);font-size:14px"><li>Revisar cronograma de vencimientos SUNAT</li><li>Verificar pagos a cuenta del IR</li><li>Mantener actualizado Registro de Ventas</li>' + (tipo === 'planilla' ? '<li>Validar altas/bajas en T-Registro</li>' : '') + '</ul></div>' +
-    notaHtml +
-    '<div style="margin-top:12px;text-align:center"><button onclick="descargarInforme()" style="padding:6px 16px;cursor:pointer;background:var(--accent,#06b6d4);color:#fff;border:none;border-radius:4px;font-size:14px">📥 Descargar (HTML)</button></div></div>';
+  box.innerHTML = `<div class="sunat-api-result" style="padding:16px;font-size:14px"><strong>${_escapeHtml(tipos[tipo] || 'Informe')}</strong><p style="color:var(--muted);margin:8px 0">${_escapeHtml(ruc)} — ${_escapeHtml(nombre)} — ${_escapeHtml(fecStr)}</p><p>Faltan datos contables verificables para generar este informe. Importa o conecta libros de ventas, compras, planilla y saldos; DeclaraFY no fabricará ingresos, egresos ni impuestos.</p></div>`;
 }
 function descargarInforme() {
   const p = document.getElementById('reportPreview');
@@ -11472,8 +11399,6 @@ function calcItf() {
   const ops = parseInt(document.getElementById('itf_ops').value) || 1;
   const tipo = document.getElementById('itf_tipo').value;
   const alicuota = 0.00005;
-  let exonerado = false;
-  if (monto < 1000 || tipo === 'debito' || tipo === 'credito') exonerado = true;
   const total = monto * alicuota * ops;
   const div = document.getElementById('itfResult');
   if (!monto) { div.style.display = 'none'; return; }
@@ -11483,8 +11408,7 @@ function calcItf() {
     '<tr><td>Tipo operación</td><td>'+tipo+'</td></tr>' +
     '<tr><td>N° operaciones</td><td style="text-align:right">'+ops+'</td></tr>' +
     '<tr><td>ITF (0.005%)</td><td style="text-align:right;font-weight:600">S/ '+total.toFixed(4)+'</td></tr>' +
-    '<tr><td style="color:'+(exonerado?'var(--green)':'var(--red)')+'">Estado</td><td>'+(exonerado?'Exonerado':'Afecto')+'</td></tr>' +
-    '<tr><td colspan="2" style="font-size:14px;color:var(--muted);text-align:center">ℹ️ Exonerado para cuentas sueldo, CTS y montos &lt; S/ 1,000</td></tr>' +
+    '<tr><td colspan="2" style="font-size:14px;color:var(--muted);text-align:center">Estimación para una operación gravada. Las exoneraciones dependen de la cuenta y operación previstas legalmente, no solo del monto.</td></tr>' +
     '</table></div>';
 }
 function calcIr5ta() {
@@ -11493,13 +11417,11 @@ function calcIr5ta() {
   const grati = parseFloat(document.getElementById('ir5_grati').value) || 0;
   const bono = parseFloat(document.getElementById('ir5_bono').value) || 0;
   const onpafp = document.getElementById('ir5_onpafp').value;
-  const essalud = parseFloat(document.getElementById('ir5_essalud').value) || 0;
-  const anios = parseInt(document.getElementById('ir5_anios').value) || 0;
-  const UIT = 5350;
+  const UIT = TAX_RULES.uit[TAX_RULES.currentYear];
   const deduccion = 7 * UIT;
   const ingresoAnual = sueldo * meses + grati + bono;
-  const descuento = onpafp === 'onp' ? sueldo * 0.04 * meses : sueldo * 0.13 * meses;
-  const rentaNeta = Math.max(0, ingresoAnual - deduccion - descuento);
+  const aportePrevisional = sueldo * (onpafp === 'onp' ? 0.13 : 0.13) * meses;
+  const rentaNeta = Math.max(0, ingresoAnual - deduccion);
   let impuesto = 0;
   if (rentaNeta > 0) {
     if (rentaNeta <= 5 * UIT) impuesto = rentaNeta * 0.08;
@@ -11514,7 +11436,7 @@ function calcIr5ta() {
   div.innerHTML = '<div class="res-table"><table>' +
     '<tr><td>Ingreso anual bruto</td><td style="text-align:right">S/ '+ingresoAnual.toFixed(2)+'</td></tr>' +
     '<tr><td>Deducción 7 UIT (S/ '+UIT.toFixed(2)+' c/u)</td><td style="text-align:right">S/ '+deduccion.toFixed(2)+'</td></tr>' +
-    '<tr><td>Descuento ONP/AFP</td><td style="text-align:right">S/ '+descuento.toFixed(2)+'</td></tr>' +
+    '<tr><td>Aporte previsional referencial (no reduce la base)</td><td style="text-align:right">S/ '+aportePrevisional.toFixed(2)+'</td></tr>' +
     '<tr><td>Renta neta imponible</td><td style="text-align:right;font-weight:600">S/ '+rentaNeta.toFixed(2)+'</td></tr>' +
     '<tr><td>Impuesto calculado</td><td style="text-align:right;font-weight:600;color:var(--gold)">S/ '+impuesto.toFixed(2)+'</td></tr>' +
     '<tr><td colspan="2" style="font-size:14px;color:var(--muted);text-align:center">ℹ️ Tasas: 8% hasta 5 UIT · 14% hasta 20 UIT · 17% hasta 35 UIT · 20% hasta 45 UIT · 30% exceso</td></tr>' +
@@ -11545,10 +11467,10 @@ function calcNoDom() {
   const tipo = document.getElementById('nod_tipo').value;
   const montoUSD = parseFloat(document.getElementById('nod_monto_usd').value) || 0;
   const montoSoles = parseFloat(document.getElementById('nod_monto_soles').value) || 0;
-  const tc = parseFloat(document.getElementById('nod_tc').value) || 3.73;
+  const tc = parseFloat(document.getElementById('nod_tc').value) || 0;
   const cdiPais = document.getElementById('nod_cdi_pais').value;
   const benef = document.getElementById('nod_benef').value;
-  let base = montoSoles || montoUSD * tc;
+  let base = montoSoles || (tc ? montoUSD * tc : 0);
   let tasaIR = 30;
   if (tipo === 'dividendos') tasaIR = 5;
   else if (tipo === 'intereses') tasaIR = 4.99;
@@ -11756,13 +11678,12 @@ function calcRectificatoria() {
   const fechaRect = document.getElementById('rect_fecha_rect').value;
   const subsana = document.getElementById('rect_subsana').value;
   const omitido = Math.max(0, montoCorr - montoOrig);
-  const TIM = 0.012;
+  const TIM_DAILY = TAX_RULES.timDailyPercent / 100;
   let dias = 0;
   if (fechaOrig && fechaRect) {
     dias = Math.max(0, Math.floor((new Date(fechaRect) - new Date(fechaOrig)) / (1000*60*60*24)));
   }
-  const mesesMora = Math.ceil(dias / 30);
-  const interes = omitido * TIM * mesesMora;
+  const interes = omitido * TIM_DAILY * dias;
   const multaBase = omitido * 0.50;
   const gradualidad = subsana === 'si' ? 0.90 : (dias > 0 ? 0.40 : 0.60);
   const multaFinal = multaBase * (1 - gradualidad);
@@ -11774,7 +11695,7 @@ function calcRectificatoria() {
     '<tr><td>Período</td><td>'+mes+'/'+anio+'</td></tr>' +
     '<tr><td>Tributo omitido</td><td style="text-align:right;color:var(--red)">S/ '+omitido.toFixed(2)+'</td></tr>' +
     '<tr><td>Días de mora</td><td style="text-align:right">'+dias+'</td></tr>' +
-    '<tr><td>Interés TIM (1.2% mensual)</td><td style="text-align:right;color:var(--red)">S/ '+interes.toFixed(2)+'</td></tr>' +
+    '<tr><td>Interés TIM (0.03% diario)</td><td style="text-align:right;color:var(--red)">S/ '+interes.toFixed(2)+'</td></tr>' +
     '<tr><td>Multa 50% (con gradualidad '+(gradualidad*100)+'%)</td><td style="text-align:right;color:var(--red)">S/ '+multaFinal.toFixed(2)+'</td></tr>' +
     '<tr><td>Total deuda rectificatoria</td><td style="text-align:right;font-weight:600;color:var(--gold)">S/ '+totalDeuda.toFixed(2)+'</td></tr>' +
     '</table></div>';
@@ -11852,23 +11773,16 @@ function calcCobranzaCoactiva() {
   const fechaNotif = document.getElementById('coac_fecha_notif').value;
   const fechaEmbargo = document.getElementById('coac_fecha_embargo').value;
   const fechaPago = document.getElementById('coac_fecha_pago').value;
-  const TIM = 0.012;
-  const mesesMora = Math.ceil(dias / 30);
-  const interes = monto * TIM * mesesMora;
-  const costas = monto * 0.05;
-  const costosEmbargo = embargo === 'bancario' ? monto * 0.10 : monto * 0.15;
-  const gastosAdmin = monto * 0.05;
-  const total = monto + interes + costas + costosEmbargo + gastosAdmin;
+  const interes = tipo === 'multa' ? null : monto * (TAX_RULES.timDailyPercent / 100) * dias;
+  const total = interes === null ? null : monto + interes;
   const div = document.getElementById('coacResult');
   if (!monto) { div.style.display = 'none'; return; }
   div.style.display = '';
   div.innerHTML = '<div class="res-table"><table>' +
     '<tr><td>Deuda original</td><td style="text-align:right">S/ '+monto.toFixed(2)+'</td></tr>' +
-    '<tr><td>Interés TIM ('+mesesMora+' meses)</td><td style="text-align:right;color:var(--red)">S/ '+interes.toFixed(2)+'</td></tr>' +
-    '<tr><td>Costas procesales (5%)</td><td style="text-align:right">S/ '+costas.toFixed(2)+'</td></tr>' +
-    '<tr><td>Costos de embargo ('+(embargo==='bancario'?'10':'15')+'%)</td><td style="text-align:right">S/ '+costosEmbargo.toFixed(2)+'</td></tr>' +
-    '<tr><td>Gastos administrativos (5%)</td><td style="text-align:right">S/ '+gastosAdmin.toFixed(2)+'</td></tr>' +
-    '<tr><td>Total deuda actualizada</td><td style="text-align:right;font-weight:600;color:var(--gold)">S/ '+total.toFixed(2)+'</td></tr>' +
+    '<tr><td>Interés</td><td style="text-align:right;color:var(--red)">'+(interes === null ? 'Requiere tasa legal' : 'S/ '+interes.toFixed(2))+'</td></tr>' +
+    '<tr><td>Total sin costas variables</td><td style="text-align:right;font-weight:600;color:var(--gold)">'+(total === null ? 'Pendiente de tasa legal' : 'S/ '+total.toFixed(2))+'</td></tr>' +
+    '<tr><td colspan="2" style="font-size:14px;color:var(--muted)">Las costas, gastos y costos de embargo dependen de actuaciones reales; no se estiman como porcentajes ficticios.</td></tr>' +
     '</table></div>';
 }
 function calcDonaciones() {
@@ -11995,7 +11909,7 @@ async function _getTC() {
     const r = await fetch('https://api.apis.net.pe/v1/tipo-cambio-sunat');
     if (r.ok) {
       const d = await r.json();
-      const result = { compra: parseFloat(d.compra), venta: parseFloat(d.venta), fecha: d.fecha || new Date().toISOString().split('T')[0] };
+      const result = { compra: parseFloat(d.compra), venta: parseFloat(d.venta), fecha: d.fecha || new Date().toISOString().split('T')[0], source: 'SUNAT vía APIS.NET.PE' };
       if (result.compra && result.venta) {
         _tcCache.tc = { data: result, ts: Date.now() };
         return result;
@@ -12008,13 +11922,13 @@ async function _getTC() {
       const d = await r.json();
       const pen = d.rates?.PEN;
       if (pen) {
-        const result = { compra: pen * 0.997, venta: pen * 1.003, fecha: d.date || new Date().toISOString().split('T')[0] };
+        const result = { compra: pen, venta: pen, fecha: d.date || new Date().toISOString().split('T')[0], source: 'Tipo medio referencial' };
         _tcCache.tc = { data: result, ts: Date.now() };
         return result;
       }
     }
   } catch (e) {}
-  return { compra: 3.75, venta: 3.77, fecha: new Date().toISOString().split('T')[0] };
+  throw new Error('No hay un tipo de cambio verificable disponible en este momento.');
 }
 
 const CRIPTO_IGV_TIPOS = [
@@ -12040,7 +11954,7 @@ function initIgvCripto() {
         <select id="igvCriptoTipo" class="sunat-input" title="Selecciona el tipo de operación con criptomonedas para determinar si aplica IGV" onchange="onIgvCriptoChange()">${opts}</select>
       </div>
       <div class="fi"><label>Monto en USD</label><input type="number" id="igvCriptoMontoUSD" class="sunat-input" title="Monto de la operación en dólares estadounidenses" oninput="onIgvCriptoChange()" min="0" step="0.01" placeholder="1000"></div>
-      <div class="fi"><label>Tipo de cambio (S/ per USD)</label><input type="number" id="igvCriptoTC" class="sunat-input" title="Tipo de cambio sol/dólar usado para convertir el monto" oninput="onIgvCriptoChange()" min="0" step="0.001" value="3.75" placeholder="3.75"></div>
+      <div class="fi"><label>Tipo de cambio documentado (S/ por USD)</label><input type="number" id="igvCriptoTC" class="sunat-input" title="Tipo de cambio sol/dólar usado para convertir el monto" oninput="onIgvCriptoChange()" min="0" step="0.001" placeholder="Ingresa el TC aplicable"></div>
       <div class="fi"><label>Monto en Soles</label><input type="number" id="igvCriptoMontoSoles" class="sunat-input" oninput="onIgvCriptoChange()" min="0" step="0.01" placeholder="3750" readonly style="opacity:0.7"></div>
       <div class="fi"><label>País del exchange</label>
         <select id="igvCriptoPais" class="sunat-input" onchange="onIgvCriptoChange()">
@@ -12060,7 +11974,7 @@ function initIgvCripto() {
 
 function onIgvCriptoChange() {
   const usd = parseFloat(document.getElementById('igvCriptoMontoUSD')?.value) || 0;
-  const tc = parseFloat(document.getElementById('igvCriptoTC')?.value) || 3.75;
+  const tc = parseFloat(document.getElementById('igvCriptoTC')?.value) || 0;
   const solesEl = document.getElementById('igvCriptoMontoSoles');
   if (solesEl) solesEl.value = (usd * tc).toFixed(2);
   const tipo = document.getElementById('igvCriptoTipo')?.value || '';
@@ -12074,12 +11988,12 @@ function onIgvCriptoChange() {
 function calcIgvCripto() {
   const tipo = document.getElementById('igvCriptoTipo')?.value || '';
   const montoUSD = parseFloat(document.getElementById('igvCriptoMontoUSD')?.value) || 0;
-  const tc = parseFloat(document.getElementById('igvCriptoTC')?.value) || 3.75;
+  const tc = parseFloat(document.getElementById('igvCriptoTC')?.value) || 0;
   const montoSoles = montoUSD * tc;
   const pais = document.getElementById('igvCriptoPais')?.value || 'pe';
   const contraparte = document.getElementById('igvCriptoContraparte')?.value || 'pn';
   const el = document.getElementById('igvCriptoResult');
-  if (!el || !tipo || !montoUSD) { if (el) el.style.display = 'none'; return; }
+  if (!el || !tipo || !montoUSD || !tc) { if (el) el.style.display = 'none'; return; }
   const tipoInfo = CRIPTO_IGV_TIPOS.find(t => t.value === tipo);
   if (!tipoInfo) return;
   let tasaIGV = tipoInfo.igv;
@@ -12153,7 +12067,7 @@ function initStakingTracker() {
         <input type="number" id="stkMontoUSD" class="sunat-input" title="Valor de la recompensa en dólares USD al momento de recibirla" oninput="stkCalcSoles()" min="0" step="0.01" placeholder="100">
       </div>
       <div class="fi"><label>Tipo de cambio</label>
-        <input type="number" id="stkTC" class="sunat-input" oninput="stkCalcSoles()" min="0" step="0.001" value="3.75">
+        <input type="number" id="stkTC" class="sunat-input" oninput="stkCalcSoles()" min="0" step="0.001" placeholder="Ingresa el TC aplicable">
       </div>
       <div class="fi"><label>Monto Soles</label>
         <input type="number" id="stkMontoSoles" class="sunat-input" readonly style="opacity:0.7">
@@ -12175,7 +12089,7 @@ function initStakingTracker() {
 
 function stkCalcSoles() {
   const usd = parseFloat(document.getElementById('stkMontoUSD')?.value) || 0;
-  const tc = parseFloat(document.getElementById('stkTC')?.value) || 3.75;
+  const tc = parseFloat(document.getElementById('stkTC')?.value) || 0;
   const solesEl = document.getElementById('stkMontoSoles');
   if (solesEl) solesEl.value = (usd * tc).toFixed(2);
 }
@@ -12185,7 +12099,7 @@ function addStakingReward() {
   const plataforma = document.getElementById('stkPlataforma')?.value?.trim();
   const fecha = document.getElementById('stkFecha')?.value;
   const montoUSD = parseFloat(document.getElementById('stkMontoUSD')?.value) || 0;
-  const tc = parseFloat(document.getElementById('stkTC')?.value) || 3.75;
+  const tc = parseFloat(document.getElementById('stkTC')?.value) || 0;
   const tipo = document.getElementById('stkTipo')?.value || 'staking';
   if (!cripto || !fecha || !montoUSD) { tpToast('Completa todos los campos requeridos.', 'warn'); return; }
   const data = getStakingData();
@@ -12255,14 +12169,14 @@ async function loadCriptoPrecios() {
   }
   if (errEl) errEl.style.display = 'none';
   const tc = await _getTC();
-  const tcVenta = tc.venta || 3.75;
+  const tcVenta = Number(tc.venta) || 0;
   for (const c of _CG_TOP10) {
     const price = data[c.id]?.usd;
     const change = data[c.id]?.usd_24h_change;
     const el = document.getElementById(`pr_${c.id}`);
     const el24 = document.getElementById(`pr24_${c.id}`);
     if (el) {
-      const soles = price ? price * tcVenta : 0;
+      const soles = price && tcVenta ? price * tcVenta : 0;
       el.innerHTML = `<span style="font-size:14px">$${price ? price.toLocaleString(undefined,{maximumFractionDigits:2}) : '—'}</span><br><span style="font-size:9px;color:var(--gold)">S/ ${soles ? soles.toLocaleString(undefined,{maximumFractionDigits:2}) : '—'}</span>`;
     }
     if (el24) {
@@ -12308,16 +12222,16 @@ async function onCriptoPrecioSelect() {
   const prices = await _cgPrice(coinId);
   const p = prices?.[coinId]?.usd;
   const tc = await _getTC();
-  const tcVenta = tc.venta || 3.75;
+  const tcVenta = Number(tc.venta) || 0;
   resultEl.style.display = 'block';
   if (p) {
-    const soles = p * tcVenta;
+    const soles = tcVenta ? p * tcVenta : null;
     resultEl.innerHTML = `<div style="padding:10px;background:rgba(76,175,80,.06);border-radius:8px;font-size:14px">
       <div style="font-weight:500;color:var(--text);margin-bottom:4px">${coinId.charAt(0).toUpperCase() + coinId.slice(1)}</div>
       <div style="display:flex;gap:16px">
         <span>USD: <strong style="color:var(--green)">$${p.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></span>
-        <span>Soles: <strong style="color:var(--gold)">S/ ${soles.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></span>
-        <span>TC: S/ ${tcVenta.toFixed(3)}</span>
+        <span>Soles: <strong style="color:var(--gold)">${soles === null ? 'TC no disponible' : 'S/ ' + soles.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></span>
+        <span>TC: ${tcVenta ? 'S/ ' + tcVenta.toFixed(3) : 'no disponible'}</span>
       </div>
     </div>`;
   } else {
@@ -12345,10 +12259,10 @@ async function loadCriptoHistPrice() {
 async function onCriptoConv() {
   const cant = parseFloat(document.getElementById('clConvCant')?.value) || 0;
   const coinId = document.getElementById('clConvCoin')?.value || 'bitcoin';
-  const tc = parseFloat(document.getElementById('clConvTC')?.value) || 3.75;
+  const tc = parseFloat(document.getElementById('clConvTC')?.value) || 0;
   const resultEl = document.getElementById('clConvResult');
   if (!resultEl) return;
-  if (!cant || cant <= 0) { resultEl.style.display = 'none'; return; }
+  if (!cant || cant <= 0 || !tc) { resultEl.style.display = 'none'; return; }
   const prices = await _cgPrice(coinId);
   const usdPrice = prices?.[coinId]?.usd;
   resultEl.style.display = 'block';
@@ -12971,7 +12885,7 @@ function downloadTaxReport() {
     ' · Método: '+(methodLabels[method]||method.toUpperCase())+'</p>'+
     '<h2>Resumen</h2><div class="summary">'+summaryRows+'</div>'+
     '<h2>Detalle de Transacciones</h2>'+tableHtml+
-    '<div class="footer">Documento generado por DeclaraFY.pe — Solo con fines orientativos. Consulta con un profesional para decisiones formales.</div>'+
+    '<div class="footer">Documento generado por Declarafy.com — Solo con fines orientativos. Consulta con un profesional para decisiones formales.</div>'+
     '</body></html>');
   win.document.close();
   setTimeout(()=>win.print(),500);
@@ -12992,7 +12906,7 @@ function downloadTaxPDF() {
     '<div style="margin:16px 0">'+document.getElementById('cpTaxSummary').innerHTML+'</div>'+
     '<h2 style="color:#666;font-size:16px;margin:20px 0 10px">Detalle de Transacciones</h2>'+
     document.getElementById('cpTaxTableWrap').innerHTML+
-    '<p style="font-size:12px;color:#999;text-align:center;margin-top:30px;border-top:1px solid #eee;padding-top:12px">Documento generado por DeclaraFY.pe — Solo con fines orientativos. Consulta con un profesional para decisiones formales.</p>';
+    '<p style="font-size:12px;color:#999;text-align:center;margin-top:30px;border-top:1px solid #eee;padding-top:12px">Documento generado por Declarafy.com — Solo con fines orientativos. Consulta con un profesional para decisiones formales.</p>';
   document.body.appendChild(el);
   html2pdf().set({margin:[10,10,10,10],filename:'reporte_tributario_cripto_'+year+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(el).save().then(()=>{document.body.removeChild(el)}).catch(()=>{document.body.removeChild(el);tpToast('Error al generar PDF. Intenta con el reporte HTML.','err')});
 }

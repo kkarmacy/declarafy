@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 82" role="img" aria-labelledby="title desc">
+  <title id="title">DeclaraFY</title>
+  <desc id="desc">Tu asesor tributario con inteligencia artificial</desc>
+  <defs>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#19b5fe"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+  <g fill="url(#brand)">
+    <rect x="5" y="48" width="8" height="22" rx="2"/>
+    <rect x="17" y="35" width="8" height="35" rx="2"/>
+    <rect x="29" y="23" width="8" height="47" rx="2"/>
+    <path d="M43 17h19c22 0 35 12 35 26s-13 27-35 27H43V17zm13 11v31h6c13 0 21-6 21-16s-8-15-21-15h-6z"/>
+  </g>
+  <text x="111" y="49" fill="#0f172a" font-family="Arial,Helvetica,sans-serif" font-size="31" font-weight="700" letter-spacing="-1">DeclaraFY</text>
+  <text x="112" y="66" fill="#64748b" font-family="Arial,Helvetica,sans-serif" font-size="8" font-weight="600" letter-spacing="2">TU ASESOR TRIBUTARIO CON IA</text>
+</svg>

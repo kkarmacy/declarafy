@@ -1,0 +1,151 @@
+// Shared usability layer. No credentials, permissions or tax rules are changed here.
+'use strict';
+
+function enhanceFrontend(root = document) {
+  root.querySelectorAll('.field, .fi').forEach(group => {
+    const label = group.querySelector('label');
+    const control = group.querySelector('input[id], select[id], textarea[id]');
+    if (label && control && !label.htmlFor) label.htmlFor = control.id;
+  });
+  root.querySelectorAll('button:not([type])').forEach(button => { button.type = 'button'; });
+  root.querySelectorAll('.pbody table').forEach(table => {
+    if (table.parentElement.classList.contains('table-scroll')) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'table-scroll';
+    wrapper.tabIndex = 0;
+    wrapper.setAttribute('role', 'region');
+    wrapper.setAttribute('aria-label', 'Tabla de resultados; desplázate horizontalmente para ver todas las columnas');
+    table.before(wrapper);
+    wrapper.appendChild(table);
+  });
+  root.querySelectorAll('.pbody [id$="Result"], .pbody [id$="result"], #authErr, #authOk').forEach(result => {
+    result.setAttribute('aria-live', 'polite');
+    result.setAttribute('aria-atomic', 'true');
+  });
+  root.querySelectorAll('input[type="password"]').forEach(input => {
+    if (input.dataset.revealReady) return;
+    input.dataset.revealReady = 'true';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'password-reveal';
+    button.textContent = 'Mostrar contraseña';
+    button.setAttribute('aria-controls', input.id);
+    button.setAttribute('aria-pressed', 'false');
+    button.addEventListener('click', () => {
+      const reveal = input.type === 'password';
+      input.type = reveal ? 'text' : 'password';
+      button.textContent = reveal ? 'Ocultar contraseña' : 'Mostrar contraseña';
+      button.setAttribute('aria-pressed', String(reveal));
+    });
+    input.after(button);
+  });
+}
+
+function syncPanelAccessibility() {
+  const active = document.querySelector('.pnav .pntab.active');
+  document.querySelectorAll('.pnav .pntab').forEach(button => {
+    button.setAttribute('aria-current', button === active ? 'page' : 'false');
+    button.setAttribute('aria-selected', String(button === active));
+  });
+  const title = document.getElementById('currentModuleTitle');
+  const text = active?.textContent.trim() || 'Panel';
+  if (title && title.textContent !== text) title.textContent = text;
+}
+
+function sortPanelNavigation(nav) {
+  const buttons = Array.from(nav.querySelectorAll(':scope > .pntab'));
+  const home = buttons.find(button => /setPTab\('inicio'/.test(button.getAttribute('onclick') || ''));
+  const featured = buttons.find(button => button.classList.contains('pntab-featured'));
+  const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
+  const label = button => button.textContent
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^[^A-Za-zÁÉÍÓÚÜÑ0-9]+/u, '').trim();
+  buttons.filter(button => button !== home && button !== featured)
+    .sort((a, b) => collator.compare(label(a), label(b)))
+    .forEach(button => nav.appendChild(button));
+  const search = nav.querySelector('.pnav-search');
+  if (home) search ? search.after(home) : nav.prepend(home);
+  if (featured) home ? home.after(featured) : (search ? search.after(featured) : nav.prepend(featured));
+}
+
+function installFrontendUsability() {
+  enhanceFrontend();
+  const originalApi = declarafyApi;
+  const pendingButtons = new WeakMap();
+  declarafyApi = async function(action, options) {
+    const button = document.activeElement?.closest('button');
+    if (button) {
+      pendingButtons.set(button, (pendingButtons.get(button) || 0) + 1);
+      button.setAttribute('aria-busy', 'true');
+    }
+    try { return await originalApi(action, options); }
+    finally {
+      if (button) {
+        const count = Math.max(0, (pendingButtons.get(button) || 1) - 1);
+        pendingButtons.set(button, count);
+        if (!count) button.removeAttribute('aria-busy');
+      }
+    }
+  };
+  const email = document.getElementById('lEmail');
+  if (email) email.autocomplete = 'username';
+  const password = document.getElementById('lPass');
+  if (password) password.autocomplete = 'current-password';
+  document.querySelectorAll('#fRegister input[type="password"], #fReg input[type="password"]').forEach(input => { input.autocomplete = 'new-password'; });
+  const nav = document.querySelector('.pnav');
+  if (nav) {
+    sortPanelNavigation(nav);
+    nav.setAttribute('aria-label', 'Módulos de DeclaraFY');
+    const empty = document.createElement('div');
+    empty.id = 'panelSearchEmpty';
+    empty.className = 'navigation-empty';
+    empty.hidden = true;
+    empty.setAttribute('role', 'status');
+    empty.textContent = 'No encontramos ese módulo. Prueba otro nombre.';
+    nav.appendChild(empty);
+    document.getElementById('panelModuleSearch')?.addEventListener('input', () => {
+      empty.hidden = Array.from(nav.querySelectorAll('.pntab')).some(button => !button.hidden && button.style.display !== 'none');
+    });
+    nav.addEventListener('click', () => syncPanelAccessibility());
+  }
+  const content = document.querySelector('#screen-panel > .pnav + div');
+  if (content) {
+    const bar = document.createElement('div');
+    bar.className = 'module-location';
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.textContent = '← Ver los 19 módulos';
+    back.addEventListener('click', () => {
+      const search = document.getElementById('panelModuleSearch');
+      if (search) { search.value = ''; filterPanelNavigation(''); }
+      const empty = document.getElementById('panelSearchEmpty');
+      if (empty) empty.hidden = true;
+      setPTab('especializados');
+      syncPanelAccessibility();
+    });
+    const title = document.createElement('span');
+    title.id = 'currentModuleTitle';
+    bar.append(back, title);
+    content.prepend(bar);
+    new MutationObserver(records => {
+      if (records.some(record => record.addedNodes.length)) enhanceFrontend(content);
+      syncPanelAccessibility();
+    }).observe(content, { childList: true, subtree: true });
+  }
+  // Validate existing native constraints before a calculator runs. Never infer tax requirements.
+  document.addEventListener('click', event => {
+    const button = event.target.closest('button');
+    if (!button) return;
+    if (button.getAttribute('aria-busy') === 'true') {
+      event.preventDefault(); event.stopImmediatePropagation(); return;
+    }
+    if (!/\bcalc\w*\(/.test(button.getAttribute('onclick') || '')) return;
+    const section = button.closest('.pbody');
+    const invalid = section && Array.from(section.querySelectorAll('input, select, textarea'))
+      .find(input => input.getClientRects().length && !input.disabled && !input.checkValidity());
+    if (invalid) { event.preventDefault(); event.stopImmediatePropagation(); invalid.reportValidity(); }
+  }, true);
+  syncPanelAccessibility();
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', installFrontendUsability);
+else installFrontendUsability();

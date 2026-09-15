@@ -29,12 +29,16 @@ const ADMIN_EMAIL = 'christian@declarafy.com';
 const FREE = 30;
 const DECLARAFY_PROXY_URL = '/api/index.php?action=ai';
 const DECLARAFY_FN_BASE = '/api/index.php?action=';
+const TAX_RULES = Object.freeze({
+  currentYear: 2026,
+  uit: Object.freeze({2013:3700,2014:3800,2015:3850,2016:3950,2017:4050,2018:4150,2019:4200,2020:4300,2021:4400,2022:4600,2023:4950,2024:5150,2025:5350,2026:5500}),
+  timMonthlyPercent: 0.9,
+  timDailyPercent: 0.03,
+  fineLegalInterestFrom: '2024-01-01'
+});
 
 try {
-  const storedAnthropicKey = localStorage.getItem('tp_anthropic_key');
-  if (!storedAnthropicKey || storedAnthropicKey.startsWith('sk-ant-')) {
-    localStorage.setItem('tp_anthropic_key', 'declarafy-proxy');
-  }
+  localStorage.removeItem('tp_anthropic_key');
   // Remove credentials created by the retired offline-auth fallback. The
   // application never authenticates users from localStorage.
   localStorage.removeItem('tp_u');
@@ -80,7 +84,6 @@ window.addEventListener('DOMContentLoaded', () => {
   };
 
   saveKey = function() {
-    try { localStorage.setItem('tp_anthropic_key', 'declarafy-proxy'); } catch (_) {}
     const inp = document.getElementById('apiInp');
     if (inp) inp.value = '';
     const errEl = document.getElementById('apiErr');

@@ -85,3 +85,35 @@ CREATE TABLE IF NOT EXISTS rate_limits (
   attempts INT UNSIGNED NOT NULL DEFAULT 1,
   PRIMARY KEY (identity_hash, action_name, bucket_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS payments (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  provider VARCHAR(30) NOT NULL DEFAULT 'culqi',
+  provider_charge_id VARCHAR(100) NOT NULL,
+  provider_event_id VARCHAR(100) NOT NULL,
+  plan ENUM('pro','empresa') NOT NULL,
+  amount_cents INT UNSIGNED NOT NULL,
+  currency CHAR(3) NOT NULL DEFAULT 'PEN',
+  status ENUM('paid','refunded','failed') NOT NULL DEFAULT 'paid',
+  paid_at DATETIME NULL,
+  payload_json MEDIUMTEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_payments_event (provider_event_id),
+  UNIQUE KEY uq_payments_charge (provider_charge_id),
+  KEY idx_payments_user (user_id),
+  CONSTRAINT fk_payments_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+  user_id BIGINT UNSIGNED NOT NULL,
+  provider VARCHAR(30) NOT NULL DEFAULT 'culqi',
+  provider_subscription_id VARCHAR(100) NOT NULL DEFAULT '',
+  plan ENUM('basico','pro','empresa') NOT NULL DEFAULT 'basico',
+  status ENUM('active','cancel_requested','cancelled') NOT NULL DEFAULT 'active',
+  current_period_end DATETIME NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id),
+  CONSTRAINT fk_subscriptions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

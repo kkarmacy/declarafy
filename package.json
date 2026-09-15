@@ -2,8 +2,16 @@
   "name": "declarafy-web",
   "version": "1.0.0",
   "private": true,
-  "engines": { "node": "20" },
+  "engines": {
+    "node": "20"
+  },
   "scripts": {
-    "test": "node --test tests/*.test.js && node scripts/verify-deployment-structure.js"
+    "test": "npm run test:static",
+    "test:static": "node --test tests/*.test.js && node scripts/verify-deployment-structure.js",
+    "test:e2e": "playwright test",
+    "test:e2e:production": "PLAYWRIGHT_BASE_URL=https://declarafy.com playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
   }
 }
