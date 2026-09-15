@@ -75,7 +75,7 @@ test('brand asset exists, is referenced, and is available offline', () => {
   assert.match(styles, /declarafy-logo\.svg/);
   assert.match(worker, /declarafy-logo\.svg/);
   assert.match(logo, /DeclaraFY/);
-  assert.match(html, /20260914-1/);
+  assert.match(html, /20260915-1/);
 });
 
 test('theme control activates a real dark mode and preserves an accessible label', () => {
@@ -115,7 +115,7 @@ test('panel navigation keeps Inicio and the module hub first, then sorts Spanish
   };
   order = [
     makeButton('Calendario', "setPTab('calendario')"),
-    makeButton('⭐ 19 módulos', "setPTab('especializados')", true),
+    makeButton('⭐ 17 módulos', "setPTab('especializados')", true),
     makeButton('Biblioteca', "setPTab('biblioteca')"),
     makeButton('Inicio', "setPTab('inicio')"),
     makeButton('AFP', "setPTab('afp')")
@@ -130,7 +130,7 @@ test('panel navigation keeps Inicio and the module hub first, then sorts Spanish
   vm.createContext(context);
   vm.runInContext(ui, context);
   context.sortPanelNavigation(nav);
-  assert.deepEqual(order.map(button => button.textContent), ['Inicio', '⭐ 19 módulos', 'AFP', 'Biblioteca', 'Calendario']);
+  assert.deepEqual(order.map(button => button.textContent), ['Inicio', '⭐ 17 módulos', 'AFP', 'Biblioteca', 'Calendario']);
 });
 
 test('history and referrals use styled dashboards and copy the displayed referral link', () => {

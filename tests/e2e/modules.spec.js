@@ -22,6 +22,33 @@ test('todos los botones de navegación apuntan a módulos existentes', async ({ 
   expect(missing, `Módulos sin contenido: ${missing.join(', ')}`).toEqual([]);
 });
 
+test('todos los módulos visibles abren contenido utilizable sin errores de JavaScript', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+
+  const problems = await page.evaluate(() => Array.from(document.querySelectorAll('.pnav .pntab'))
+    .filter(button => getComputedStyle(button).display !== 'none' && !button.hidden)
+    .map(button => {
+      const match = (button.getAttribute('onclick') || '').match(/setPTab\('([^']+)'/);
+      if (!match) return null;
+      const tab = match[1];
+      try {
+        setPTab(tab, button);
+        const section = document.getElementById(_ptSectionId(tab));
+        const contentLength = section?.textContent.replace(/\s+/g, ' ').trim().length || 0;
+        return section && getComputedStyle(section).display !== 'none' && contentLength >= 30
+          ? null
+          : { tab, label: button.textContent.trim(), contentLength };
+      } catch (error) {
+        return { tab, label: button.textContent.trim(), error: error.message };
+      }
+    })
+    .filter(Boolean));
+
+  expect(problems, JSON.stringify(problems, null, 2)).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
 test('la barra de módulos se presenta en orden alfabético', async ({ page }) => {
   const result = await page.evaluate(() => {
     const clean = value => value.normalize('NFD')
@@ -38,10 +65,10 @@ test('la barra de módulos se presenta en orden alfabético', async ({ page }) =
   expect(result.labels).toEqual(result.expected);
 });
 
-test('los 19 módulos especializados abren contenido real', async ({ page }) => {
+test('los 17 módulos especializados abren contenido real', async ({ page }) => {
   await page.locator('.pntab-featured').click();
   const cards = page.locator('#specializedModuleGrid .specialized-card');
-  await expect(cards).toHaveCount(19);
+  await expect(cards).toHaveCount(17);
 
   const problems = [];
   for (let index = 0; index < await cards.count(); index += 1) {

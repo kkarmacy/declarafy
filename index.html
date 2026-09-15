@@ -97,12 +97,12 @@
 <style id="critical-shell-css">
   #tp-confirm-overlay:not(.show),#tp-page-spinner:not(.show),#tp-offline-banner:not(.show),.kbd-overlay.hidden,.kbd-hint{display:none!important}
 </style>
-<link rel="stylesheet" href="/styles.css?v=20260914-1">
-<link rel="stylesheet" href="/frontend-polish.css?v=20260914-1">
+<link rel="stylesheet" href="/styles.css?v=20260915-1">
+<link rel="stylesheet" href="/frontend-polish.css?v=20260915-1">
 
 
   <!-- Namecheap PHP/MySQL API. No Firebase SDK is loaded. -->
-  <script src="/server-api.js?v=20260914-1"></script>
+  <script src="/server-api.js?v=20260915-1"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -570,7 +570,7 @@
       <input type="search" id="panelModuleSearch" placeholder="Buscar módulo" aria-label="Buscar entre todos los módulos" oninput="filterPanelNavigation(this.value)">
     </div>
     <button class="pntab active" onclick="setPTab('inicio',this)">Inicio</button>
-    <button class="pntab pntab-featured" role="tab" onclick="setPTab('especializados',this)">⭐ 19 módulos</button>
+    <button class="pntab pntab-featured" role="tab" onclick="setPTab('especializados',this)">⭐ 17 módulos</button>
     <button class="pntab" role="tab" onclick="setPTab('historial',this)">Historial</button>
     <button class="pntab" role="tab" onclick="setPTab('calculadora',this)">Calculadora</button>
     <button class="pntab" role="tab" onclick="setPTab('calendario',this)">Calendario</button>
@@ -584,7 +584,6 @@
     <button class="pntab" role="tab" onclick="setPTab('comparador',this)">Comparador</button>
     <button class="pntab" role="tab" onclick="setPTab('pdt621',this)">PDT 621</button>
     <button class="pntab" role="tab" onclick="setPTab('biblioteca',this)">Biblioteca</button>
-    <button class="pntab" role="tab" onclick="setPTab('favoritos',this)">Favoritos ⭐</button>
     <button class="pntab" role="tab" onclick="setPTab('referidos',this)">Referidos 🎁</button>
     <button class="pntab" role="tab" onclick="setPTab('alertas',this)">🔔 Alertas RUC</button>
     <button class="pntab" role="tab" onclick="setPTab('informe',this)">📑 Informe Ejecutivo</button>
@@ -598,7 +597,6 @@
     <button class="pntab" role="tab" onclick="setPTab('multas',this)">⚖️ Multas SUNAT</button>
     <button class="pntab" role="tab" onclick="setPTab('moneda',this)">💱 Moneda SBS</button>
     <button class="pntab" role="tab" onclick="setPTab('facturacion',this)">🧾 Facturación</button>
-    <button class="pntab" role="tab" onclick="setPTab('contratos',this)">📝 Contratos</button>
     <button class="pntab" role="tab" onclick="setPTab('widget',this)">🔌 Widget</button>
     <button class="pntab" role="tab" onclick="setPTab('sbs',this)" style="color:#3A86FF">🏦 SBS</button>
     <button class="pntab" role="tab" onclick="setPTab('smv',this)" style="color:#4CAF50">📈 SMV</button>
@@ -608,7 +606,6 @@
     <button class="pntab" role="tab" onclick="setPTab('sunat_inf',this)" style="color:#E8A020">📌 Informes SUNAT</button>
     <button class="pntab" role="tab" onclick="setPTab('sunafil',this)" style="color:#E05050">👷 SUNAFIL</button>
     <button class="pntab" role="tab" onclick="setPTab('liquidacion',this)" style="color:#E05050">🧾 Liquidación</button>
-    <button class="pntab" role="tab" onclick="setPTab('sunat_live',this)" style="color:#3A86FF">🔎 Consulta SUNAT</button>
     <button class="pntab" role="tab" onclick="setPTab('ocr_factura',this)" style="color:#3A86FF">📸 OCR Factura</button>
     <button class="pntab" role="tab" onclick="setPTab('hs_clasificador',this)" style="color:#3A86FF">📦 Clasificador HS</button>
     <button class="pntab" role="tab" onclick="setPTab('indecopi',this)" style="color:#E05050">🏛 INDECOPI</button>
@@ -638,17 +635,12 @@
     <button class="pntab" role="tab" onclick="setPTab('cripto_legal',this)" style="color:#C39CE0;font-weight:600;background:linear-gradient(135deg,rgba(155,89,182,.12),rgba(58,134,255,.08));border-radius:7px">₿⚖️ Cripto Legal</button>
     <button class="pntab" role="tab" onclick="setPTab('nomina',this)" style="color:var(--green);font-weight:500">💰 Nómina</button>
     <button class="pntab" role="tab" onclick="setPTab('moras_sunat',this)" style="color:var(--red);font-weight:500">⏰ Moras SUNAT</button>
-    <button class="pntab" role="tab" onclick="setPTab('calendario_fiscal',this)" style="color:#3A86FF;font-weight:500">📅 Cal. Fiscal</button>
     <button class="pntab" role="tab" onclick="setPTab('importacion',this)" style="color:var(--gold);font-weight:500">🚢 Importación</button>
     <button class="pntab" role="tab" onclick="setPTab('selector_regimen',this)" style="color:#9B59B6;font-weight:500">🎯 Selector Régimen</button>
     <button class="pntab" role="tab" onclick="setPTab('pdt_gen',this)" style="color:var(--green);font-weight:500">📄 Gen. PDT</button>
-    <button class="pntab" role="tab" onclick="setPTab('score_fin',this)" style="color:#3A86FF;font-weight:500">📊 Score Fin.</button>
     <button class="pntab" role="tab" onclick="setPTab('radar_norm',this)" style="color:var(--red);font-weight:500">📡 Radar Norm.</button>
-    <button class="pntab" role="tab" onclick="setPTab('bal_comprob',this)" style="color:var(--gold);font-weight:500">📒 Balance Comp.</button>
-    <button class="pntab" role="tab" onclick="setPTab('libro_diario',this)" style="color:#3A86FF;font-weight:500">📖 Libro Diario</button>
     <button class="pntab" role="tab" onclick="setPTab('concil_banc',this)" style="color:var(--green);font-weight:500">🏦 Conciliación</button>
     <button class="pntab" role="tab" onclick="setPTab('cts_gratif',this)" style="color:#9B59B6;font-weight:500">🎁 CTS/Gratif.</button>
-    <button class="pntab" role="tab" onclick="setPTab('contratos_gen2',this)" style="color:var(--gold);font-weight:500">📝 Contratos</button>
     <button class="pntab" role="tab" onclick="setPTab('docs_legales',this)" style="color:var(--red);font-weight:500">⚖️ Docs. Legales</button>
     <button class="pntab" role="tab" onclick="setPTab('withholding',this)" style="color:#3A86FF;font-weight:500">🌐 WHT Tax</button>
     <button class="pntab" role="tab" onclick="setPTab('analisis_avanz',this)" style="color:var(--green);font-weight:500">📈 Análisis Avanz.</button>
@@ -659,19 +651,14 @@
     <button class="pntab" role="tab" onclick="setPTab('arbitrios',this)" style="color:#3A86FF;font-weight:500">🏛 Arbitrios</button>
     <button class="pntab" role="tab" onclick="setPTab('renta_anual',this)" style="color:var(--green);font-weight:500">📋 Renta Anual</button>
     <button class="pntab" role="tab" onclick="setPTab('perdida',this)" style="color:var(--red);font-weight:500">📉 Pérdida Arr.</button>
-    <button class="pntab" role="tab" onclick="setPTab('despido',this)" style="color:var(--gold);font-weight:500">⚖️ Despido</button>
     <button class="pntab" role="tab" onclick="setPTab('tregistro',this)" style="color:#9B59B6;font-weight:500">👷 T-Registro</button>
     <button class="pntab" role="tab" onclick="setPTab('suspension',this)" style="color:#3A86FF;font-weight:500">⏸ Suspensión</button>
     <button class="pntab" role="tab" onclick="setPTab('flujo_caja',this)" style="color:var(--green);font-weight:500">💰 Flujo Caja</button>
-    <button class="pntab" role="tab" onclick="setPTab('van_tir',this)" style="color:#E8A020;font-weight:500">📈 VAN/TIR</button>
-    <button class="pntab" role="tab" onclick="setPTab('comp_fin',this)" style="color:#3A86FF;font-weight:500">🏦 Comp. Fin.</button>
     <button class="pntab" role="tab" onclick="setPTab('guias_remision',this)" style="color:var(--gold);font-weight:500">📦 Guías Rem.</button>
     <button class="pntab" role="tab" onclick="setPTab('validador',this)" style="color:var(--green);font-weight:500">🔍 Validador</button>
-    <button class="pntab" role="tab" onclick="setPTab('precios_transf',this)" style="color:var(--red);font-weight:500">🔄 Precios Transf.</button>
     <button class="pntab" role="tab" onclick="setPTab('tea_multas',this)" style="color:var(--muted);font-weight:500">📊 TEA Multas</button>
     <button class="pntab" role="tab" onclick="setPTab('rmt_rer',this)" style="color:#9B59B6;font-weight:500">🎯 RMT vs RER</button>
     <button class="pntab" role="tab" onclick="setPTab('amazonia',this)" style="color:var(--green);font-weight:500">🌿 Amazonía</button>
-    <button class="pntab" role="tab" onclick="setPTab('itan_detalle',this)" style="color:#3A86FF;font-weight:500">🏛 ITAN Det.</button>
     <button class="pntab" role="tab" onclick="setPTab('rus',this)" style="color:#3A86FF;font-weight:500">📋 RUS (NRUS)</button>
     <button class="pntab" role="tab" onclick="setPTab('cierre_fiscal',this)" style="color:#3A86FF;font-weight:500">📊 Cierre Fiscal Anual</button>
     <button class="pntab" role="tab" onclick="setPTab('tim_historico',this)" style="color:#E8A020;font-weight:500">⏳ TIM Histórico</button>
@@ -683,20 +670,13 @@
     <button class="pntab" role="tab" onclick="setPTab('reg_agrario',this)" style="color:#9B59B6;font-weight:500">🌾 Rég. Agrario/Mype</button>
     <button class="pntab" role="tab" onclick="setPTab('afp_comisiones',this)" style="color:#E8A020;font-weight:500">💼 AFP Comisiones</button>
     <button class="pntab" role="tab" onclick="setPTab('asignacion_fam',this)" style="color:#3A86FF;font-weight:500">👨‍👩‍👧‍👦 Asig. Familiar</button>
-    <button class="pntab" role="tab" onclick="setPTab('ratios_fin',this)" style="color:var(--green);font-weight:500">📈 Ratios Financieros</button>
-    <button class="pntab" role="tab" onclick="setPTab('amortizacion',this)" style="color:#9B59B6;font-weight:500">🏦 Amort. Francés/Alemán</button>
-    <button class="pntab" role="tab" onclick="setPTab('dep_acelerada',this)" style="color:#E8A020;font-weight:500">🔧 Deprec. Acelerada</button>
     <button class="pntab" role="tab" onclick="setPTab('leasing',this)" style="color:#3A86FF;font-weight:500">🚛 Leasing Fin./Op.</button>
     <button class="pntab" role="tab" onclick="setPTab('conversor_tasas',this)" style="color:#E8A020;font-weight:500">🔄 Conversor Tasas</button>
     <button class="pntab" role="tab" onclick="setPTab('isc',this)" style="color:var(--red);font-weight:500">🚬 ISC</button>
     <button class="pntab" role="tab" onclick="setPTab('mineria',this)" style="color:#E8A020;font-weight:500">⛏️ Minería/Regalías</button>
-    <button class="pntab" role="tab" onclick="setPTab('cierre_empresa',this)" style="color:var(--red);font-weight:500">🏢 Cierre Empresa</button>
-    <button class="pntab" role="tab" onclick="setPTab('poder_notarial',this)" style="color:#9B59B6;font-weight:500">📜 Poder Notarial</button>
     <button class="pntab" role="tab" onclick="setPTab('verificador_ruc',this)" style="color:var(--green);font-weight:500">🔍 Verificador RUC</button>
     <button class="pntab" role="tab" onclick="setPTab('proyeccion_afp',this)" style="color:#3A86FF;font-weight:500">💵 Proyección AFP</button>
     <button class="pntab" role="tab" onclick="setPTab('analizador_contratos',this)" style="color:#9B59B6;font-weight:500">📝 Analizador Contratos</button>
-    <button class="pntab" role="tab" onclick="setPTab('chat_sesiones',this)" style="color:#3A86FF;font-weight:500">💬 Chat Sesiones</button>
-    <button class="pntab" role="tab" onclick="setPTab('generador_informes',this)" style="color:var(--green);font-weight:500">📄 Generador Informes</button>
     <!-- TAX TOOLS (16) -->
     <button class="pntab" role="tab" onclick="setPTab('itf',this)" style="color:var(--green);font-weight:500">🏦 ITF</button>
     <button class="pntab" role="tab" onclick="setPTab('ir_5ta',this)" style="color:#3A86FF;font-weight:500">💼 IR 5ta</button>
@@ -742,7 +722,7 @@
         </div>
         <button onclick="startTour('panel')" style="background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.25);color:var(--gold);font-size:14px;padding:7px 14px;border-radius:8px;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;margin-top:4px">🎯 Tour del panel</button>
       </div>
-      <div class="release-chip">Actualización activa · 2026.09.14-1 · Navegación y módulos renovados</div>
+      <div class="release-chip">Actualización activa · 2026.09.15-1 · Catálogo depurado y módulos verificados</div>
     </div>
     <div class="pcards">
       <div class="pcard"><div class="pcard-lbl">Plan activo</div><div class="pcard-val gold" id="pcPlan">Básico</div><div class="pcard-sub" id="pcPlanD">30 consultas al mes</div><div class="pcard-tag" id="pcTag">Activo</div></div>
@@ -775,9 +755,9 @@
         <div>
           <span class="specialized-kicker">ACCESO DIRECTO</span>
           <h3 id="specializedModulesTitle">Módulos especializados</h3>
-          <p>Abre directamente cualquiera de las 19 herramientas disponibles.</p>
+          <p>Abre directamente cualquiera de las 17 herramientas disponibles.</p>
         </div>
-        <span class="specialized-count">19 módulos</span>
+        <span class="specialized-count">17 módulos</span>
       </div>
       <label class="specialized-search">
         <span aria-hidden="true">⌕</span>
@@ -798,8 +778,6 @@
         <button type="button" class="specialized-card" data-module-name="dividendos utilidades" onclick="openSpecializedModule('dividendos')"><span>📈</span><strong>Dividendos</strong><small>Distribución e impuesto</small></button>
         <button type="button" class="specialized-card" data-module-name="ir 5ta quinta categoria renta" onclick="openSpecializedModule('ir_5ta')"><span>👔</span><strong>IR 5ta categoría</strong><small>Retención anual y mensual</small></button>
         <button type="button" class="specialized-card" data-module-name="itf impuesto transacciones financieras" onclick="openSpecializedModule('itf')"><span>🏦</span><strong>ITF</strong><small>Operaciones financieras</small></button>
-        <button type="button" class="specialized-card" data-module-name="generador informes reporte tributario" onclick="openSpecializedModule('generador_informes')"><span>📄</span><strong>Generador de informes</strong><small>Resumen tributario verificable</small></button>
-        <button type="button" class="specialized-card" data-module-name="chat sesiones historial conversaciones" onclick="openSpecializedModule('chat_sesiones')"><span>💬</span><strong>Chat sesiones</strong><small>Conversaciones reales guardadas</small></button>
         <button type="button" class="specialized-card" data-module-name="analizador contratos riesgos legales" onclick="openSpecializedModule('analizador_contratos')"><span>📝</span><strong>Analizador de contratos</strong><small>Cláusulas y alertas</small></button>
         <button type="button" class="specialized-card" data-module-name="proyeccion afp fondo pension" onclick="openSpecializedModule('proyeccion_afp')"><span>📊</span><strong>Proyección AFP</strong><small>Fondo y escenarios</small></button>
         <button type="button" class="specialized-card" data-module-name="verificador ruc sunat" onclick="openSpecializedModule('verificador_ruc')"><span>🔍</span><strong>Verificador RUC</strong><small>Formato y consulta SUNAT</small></button>
@@ -5544,16 +5522,16 @@ End Function</div>
 
 </div>
 <!-- Modules (loaded in order before app.js) -->
-<script src="/config.js?v=20260914-1"></script>
-<script src="/utils.js?v=20260914-1"></script>
-<script src="/calculators.js?v=20260914-1"></script>
-<script src="/firebase-sync.js?v=20260914-1"></script>
+<script src="/config.js?v=20260915-1"></script>
+<script src="/utils.js?v=20260915-1"></script>
+<script src="/calculators.js?v=20260915-1"></script>
+<script src="/firebase-sync.js?v=20260915-1"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<script src="/app.js?v=20260914-1" defer></script>
-<script src="/frontend-ui.js?v=20260914-1" defer></script>
+<script src="/app.js?v=20260915-1" defer></script>
+<script src="/frontend-ui.js?v=20260915-1" defer></script>
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js?v=11').then(reg => {
+  navigator.serviceWorker.register('/sw.js?v=14').then(reg => {
     // Keep the worker reference: `reg.installing` becomes null once the
     // installation finishes, which previously caused a runtime TypeError.
     const installingWorker = reg.installing;
