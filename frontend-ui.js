@@ -131,7 +131,6 @@ function installFrontendUsability() {
       syncPanelAccessibility();
     }).observe(content, { childList: true, subtree: true });
   }
-  // Validate existing native constraints before a calculator runs. Never infer tax requirements.
   document.addEventListener('click', event => {
     const button = event.target.closest('button');
     if (!button) return;
@@ -147,5 +146,23 @@ function installFrontendUsability() {
   syncPanelAccessibility();
 }
 
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', installFrontendUsability);
-else installFrontendUsability();
+function bootstrapDeclarafyCore() {
+  if (window.DeclarafyCoreLoader) return window.DeclarafyCoreLoader.load();
+  if (document.querySelector('script[data-declarafy-core-bootstrap]')) return Promise.resolve(false);
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = '/src/core/core-loader.js';
+    script.dataset.declarafyCoreBootstrap = 'true';
+    script.onload = () => window.DeclarafyCoreLoader ? window.DeclarafyCoreLoader.load().then(resolve, reject) : reject(new Error('DeclarafyCoreLoader no disponible'));
+    script.onerror = () => reject(new Error('No se pudo cargar el core modular'));
+    document.head.appendChild(script);
+  });
+}
+
+function startDeclarafyFrontend() {
+  installFrontendUsability();
+  bootstrapDeclarafyCore().catch(error => console.warn('[Declarafy core]', error.message));
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startDeclarafyFrontend);
+else startDeclarafyFrontend();
