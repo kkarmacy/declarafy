@@ -213,6 +213,15 @@ function loadAuditedInternationalTaxTradeEnhancements() {
   document.head.appendChild(script);
 }
 
+function loadAuditedIncomeRegimeEnhancements() {
+  if (document.querySelector('script[data-declarafy-income-regime-audit]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/modules/income-regime-enhancements.js';
+  script.dataset.declarafyIncomeRegimeAudit = 'true';
+  script.onerror = () => console.warn('[Declarafy modules] No se pudieron cargar las mejoras de renta/regímenes');
+  document.head.appendChild(script);
+}
+
 function startDeclarafyFrontend() {
   installFrontendUsability();
   bootstrapDeclarafyCore().catch(error => console.warn('[Declarafy core]', error.message));
@@ -222,6 +231,7 @@ function startDeclarafyFrontend() {
   loadAuditedAccountingTaxEnhancements();
   loadAuditedPayrollLaborEnhancements();
   loadAuditedInternationalTaxTradeEnhancements();
+  loadAuditedIncomeRegimeEnhancements();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startDeclarafyFrontend);
