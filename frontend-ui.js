@@ -204,6 +204,15 @@ function loadAuditedPayrollLaborEnhancements() {
   document.head.appendChild(script);
 }
 
+function loadAuditedInternationalTaxTradeEnhancements() {
+  if (document.querySelector('script[data-declarafy-intl-tax-audit]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/modules/international-tax-trade-enhancements.js';
+  script.dataset.declarafyIntlTaxAudit = 'true';
+  script.onerror = () => console.warn('[Declarafy modules] No se pudieron cargar las mejoras de comercio/impuestos internacionales');
+  document.head.appendChild(script);
+}
+
 function startDeclarafyFrontend() {
   installFrontendUsability();
   bootstrapDeclarafyCore().catch(error => console.warn('[Declarafy core]', error.message));
@@ -212,6 +221,7 @@ function startDeclarafyFrontend() {
   loadAuditedBusinessEnhancements();
   loadAuditedAccountingTaxEnhancements();
   loadAuditedPayrollLaborEnhancements();
+  loadAuditedInternationalTaxTradeEnhancements();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startDeclarafyFrontend);
