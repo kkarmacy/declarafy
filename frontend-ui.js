@@ -159,9 +159,19 @@ function bootstrapDeclarafyCore() {
   });
 }
 
+function loadAuditedModuleEnhancements() {
+  if (document.querySelector('script[data-declarafy-audited-modules]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/modules/pension-labor-enhancements.js';
+  script.dataset.declarafyAuditedModules = 'true';
+  script.onerror = () => console.warn('[Declarafy modules] No se pudieron cargar las mejoras auditadas');
+  document.head.appendChild(script);
+}
+
 function startDeclarafyFrontend() {
   installFrontendUsability();
   bootstrapDeclarafyCore().catch(error => console.warn('[Declarafy core]', error.message));
+  loadAuditedModuleEnhancements();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startDeclarafyFrontend);
