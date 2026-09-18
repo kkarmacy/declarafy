@@ -186,12 +186,22 @@ function loadAuditedBusinessEnhancements() {
   document.head.appendChild(script);
 }
 
+function loadAuditedAccountingTaxEnhancements() {
+  if (document.querySelector('script[data-declarafy-accounting-tax-audit]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/modules/accounting-tax-enhancements.js';
+  script.dataset.declarafyAccountingTaxAudit = 'true';
+  script.onerror = () => console.warn('[Declarafy modules] No se pudieron cargar las mejoras contables/tributarias');
+  document.head.appendChild(script);
+}
+
 function startDeclarafyFrontend() {
   installFrontendUsability();
   bootstrapDeclarafyCore().catch(error => console.warn('[Declarafy core]', error.message));
   loadAuditedModuleEnhancements();
   loadAuditedTaxEnhancements();
   loadAuditedBusinessEnhancements();
+  loadAuditedAccountingTaxEnhancements();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startDeclarafyFrontend);
