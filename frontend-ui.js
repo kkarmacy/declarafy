@@ -177,11 +177,21 @@ function loadAuditedTaxEnhancements() {
   document.head.appendChild(script);
 }
 
+function loadAuditedBusinessEnhancements() {
+  if (document.querySelector('script[data-declarafy-business-audit]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/modules/business-tools-enhancements.js';
+  script.dataset.declarafyBusinessAudit = 'true';
+  script.onerror = () => console.warn('[Declarafy modules] No se pudieron cargar las mejoras de negocio auditadas');
+  document.head.appendChild(script);
+}
+
 function startDeclarafyFrontend() {
   installFrontendUsability();
   bootstrapDeclarafyCore().catch(error => console.warn('[Declarafy core]', error.message));
   loadAuditedModuleEnhancements();
   loadAuditedTaxEnhancements();
+  loadAuditedBusinessEnhancements();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startDeclarafyFrontend);
