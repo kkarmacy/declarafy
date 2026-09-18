@@ -195,6 +195,15 @@ function loadAuditedAccountingTaxEnhancements() {
   document.head.appendChild(script);
 }
 
+function loadAuditedPayrollLaborEnhancements() {
+  if (document.querySelector('script[data-declarafy-payroll-labor-audit]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/modules/payroll-labor-enhancements.js';
+  script.dataset.declarafyPayrollLaborAudit = 'true';
+  script.onerror = () => console.warn('[Declarafy modules] No se pudieron cargar las mejoras laborales auditadas');
+  document.head.appendChild(script);
+}
+
 function startDeclarafyFrontend() {
   installFrontendUsability();
   bootstrapDeclarafyCore().catch(error => console.warn('[Declarafy core]', error.message));
@@ -202,6 +211,7 @@ function startDeclarafyFrontend() {
   loadAuditedTaxEnhancements();
   loadAuditedBusinessEnhancements();
   loadAuditedAccountingTaxEnhancements();
+  loadAuditedPayrollLaborEnhancements();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startDeclarafyFrontend);
