@@ -168,10 +168,20 @@ function loadAuditedModuleEnhancements() {
   document.head.appendChild(script);
 }
 
+function loadAuditedTaxEnhancements() {
+  if (document.querySelector('script[data-declarafy-tax-audit]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/modules/tax-close-sunat-enhancements.js';
+  script.dataset.declarafyTaxAudit = 'true';
+  script.onerror = () => console.warn('[Declarafy modules] No se pudieron cargar las mejoras SUNAT auditadas');
+  document.head.appendChild(script);
+}
+
 function startDeclarafyFrontend() {
   installFrontendUsability();
   bootstrapDeclarafyCore().catch(error => console.warn('[Declarafy core]', error.message));
   loadAuditedModuleEnhancements();
+  loadAuditedTaxEnhancements();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startDeclarafyFrontend);
