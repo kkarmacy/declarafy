@@ -231,6 +231,15 @@ function loadAuditedLegalComplianceEnhancements() {
   document.head.appendChild(script);
 }
 
+function loadAuditedSpecializedValidationEnhancements() {
+  if (document.querySelector('script[data-declarafy-specialized-audit]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/modules/specialized-validation-enhancements.js';
+  script.dataset.declarafySpecializedAudit = 'true';
+  script.onerror = () => console.warn('[Declarafy modules] No se pudieron cargar las mejoras especializadas');
+  document.head.appendChild(script);
+}
+
 function startDeclarafyFrontend() {
   installFrontendUsability();
   bootstrapDeclarafyCore().catch(error => console.warn('[Declarafy core]', error.message));
@@ -242,6 +251,7 @@ function startDeclarafyFrontend() {
   loadAuditedInternationalTaxTradeEnhancements();
   loadAuditedIncomeRegimeEnhancements();
   loadAuditedLegalComplianceEnhancements();
+  loadAuditedSpecializedValidationEnhancements();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startDeclarafyFrontend);
