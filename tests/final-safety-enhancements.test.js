@@ -6,3 +6,5 @@ test('CPE local validation does not claim SUNAT acceptance',()=>{assert.match(s,
 test('WHT does not auto-apply treaty rate',()=>{assert.match(s,/No se aplica una tasa CDI automática/);assert.doesNotMatch(s,/retencionCDI\s*=/);});
 test('import tax base is declared in strict mode',()=>{assert.match(trade,/duty=soles\*ad\/100,base=soles\+duty,igv=base\*\.18/);assert.doesNotMatch(trade,/;base=/);});
 test('frontend loads final safety layer',()=>{assert.match(ui,/final-safety-enhancements\.js/);});
+
+test('leasing override removes automatic tax shields and winner',()=>{assert.match(s,/function calcLeasing/);assert.match(s,/No se calcula escudo fiscal/);assert.doesNotMatch(s,/const mejor|costoL|escudoL/);});
