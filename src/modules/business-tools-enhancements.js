@@ -31,6 +31,7 @@ function rateConvert(value,from,to,periods){
 }
 function installStandalone(){
  const nav=document.querySelector('.pnav');if(!nav)return;
+ if(document.getElementById('ptConcilBanc')&&document.getElementById('ptConversorTasas'))return;
  const mount=(id,title,html)=>{
    if(document.getElementById(id))return;
    const content=document.querySelector('#screen-panel > .pnav + div');if(!content)return;
