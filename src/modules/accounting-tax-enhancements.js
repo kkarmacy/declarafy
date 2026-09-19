@@ -33,6 +33,6 @@ function calcIr5ta(){
  for(const [units,rate] of bands){if(remaining<=0)break;const slice=Math.min(remaining,units===Infinity?remaining:units*uit);tax+=slice*rate;remaining-=slice}
  box.style.display='';box.innerHTML='<div class="res-table"><table><tr><td>Ingreso anual proyectado</td><td>'+money(gross)+'</td></tr><tr><td>Deducción automática</td><td>7 UIT = '+money(7*uit)+'</td></tr><tr><td>Renta neta proyectada</td><td>'+money(base)+'</td></tr><tr><td>IR anual estimado</td><td><strong>'+money(tax)+'</strong></td></tr></table>'+note('La proyección usa las escalas progresivas de quinta categoría. Los aportes AFP/ONP no se deducen de esta base como hacía la versión anterior. La retención mensual real depende del procedimiento de proyección y regularización del empleador.')+'</div>';
 }
-function install(){global.calcFlujoCaja=calcFlujoCaja;global.calcDividendos=calcDividendos;global.calcItf=calcItf;global.calcIr5ta=calcIr5ta;}
+function install(){const season=document.getElementById('fc_estacionalidad');if(season){season.value='none';season.disabled=true;season.title='Estacionalidad automática deshabilitada: la proyección usa solo supuestos ingresados.';}global.calcFlujoCaja=calcFlujoCaja;global.calcDividendos=calcDividendos;global.calcItf=calcItf;global.calcIr5ta=calcIr5ta;}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })(window);
