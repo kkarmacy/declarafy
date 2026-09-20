@@ -5,3 +5,5 @@ test('arbitrios no longer fabricates municipal tariffs',()=>{assert.match(s,/no 
 test('compensation is explicitly a simulation pending SUNAT recognition',()=>{assert.match(s,/simulación matemática/i);assert.match(s,/SUNAT debe reconocer/i);});
 test('bank reconciliation and rate converter have functional workspaces',()=>{assert.match(s,/ptConciliacion/);assert.match(s,/Saldo banco ajustado/);assert.match(s,/ptConversorTasas/);assert.match(s,/Math\.pow\(1\+annual,1\/n2\)/);});
 test('frontend loads business enhancements',()=>{assert.match(ui,/business-tools-enhancements\.js/);assert.match(ui,/loadAuditedBusinessEnhancements\(\)/);});
+
+test('standalone reconciliation and rate converter are reachable from navigation',()=>{assert.match(src,/ensureNav\('concil_banc'/);assert.match(src,/ensureNav\('conversor_tasas'/);});
