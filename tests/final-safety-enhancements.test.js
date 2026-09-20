@@ -8,3 +8,5 @@ test('import tax base is declared in strict mode',()=>{assert.match(trade,/duty=
 test('frontend loads final safety layer',()=>{assert.match(ui,/final-safety-enhancements\.js/);});
 
 test('leasing override removes automatic tax shields and winner',()=>{assert.match(s,/function calcLeasing/);assert.match(s,/No se calcula escudo fiscal/);assert.doesNotMatch(s,/const mejor|costoL|escudoL/);});
+
+test('donations do not promise automatic tax savings',()=>{assert.match(s,/function calcDonaciones/);assert.match(s,/Se retiró el “ahorro IR 30%”/);assert.doesNotMatch(s,/montoDeducible \* 0\.30/);});
