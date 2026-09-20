@@ -10,3 +10,5 @@ test('frontend loads final safety layer',()=>{assert.match(ui,/final-safety-enha
 test('leasing override removes automatic tax shields and winner',()=>{assert.match(s,/function calcLeasing/);assert.match(s,/No se calcula escudo fiscal/);assert.doesNotMatch(s,/const mejor|costoL|escudoL/);});
 
 test('donations do not promise automatic tax savings',()=>{assert.match(s,/function calcDonaciones/);assert.match(s,/Se retiró el “ahorro IR 30%”/);assert.doesNotMatch(s,/montoDeducible \* 0\.30/);});
+
+test('crypto portfolio discloses market and tax valuation limitations',()=>{assert.match(s,/function addCryptoPortfolioSafety/);assert.match(s,/P&L de mercado tampoco equivale automáticamente/);});
