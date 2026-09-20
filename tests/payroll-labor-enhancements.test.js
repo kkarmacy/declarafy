@@ -5,3 +5,5 @@ test('T-Registro no promises a fabricated universal five-day deadline',()=>{asse
 test('EsSalud SENATI avoids generic SCTR and SENCICO rates',()=>{assert.match(s,/payroll\*\.09/);assert.match(s,/payroll\*\.0075/);assert.doesNotMatch(s,/sctr\s*=|sencico\s*=/i);});
 test('CTS and gratification preliquidation exists',()=>{assert.match(s,/laborBenefitsAudit/);assert.match(s,/Gratificación proporcional base/);assert.match(s,/CTS base simplificada/);});
 test('frontend loads payroll labor audit layer',()=>{assert.match(ui,/payroll-labor-enhancements\.js/);});
+
+test('CAS does not invent salary-bracket contribution rates',()=>{assert.match(s,/function calcCas/);assert.match(s,/Se retiró la escala ficticia/);assert.doesNotMatch(s,/sueldo <= 2000|tasa = 15/);});
