@@ -119,6 +119,14 @@
       '</table>' + sourceNote('Ley 25129 y DS 035-90-TR: el beneficio equivale al 10% de la RMV. No se multiplica por cada hijo y no se condiciona a un tope salarial. Debe verificarse que el trabajador cumpla los requisitos y haya acreditado la carga familiar.') + '</div>';
   }
 
+  function calcProyAfp() {
+    const age=Number(document.getElementById('proy_edad')?.value||0),retire=Number(document.getElementById('proy_jub')?.value||65),salary=Number(document.getElementById('proy_sueldo')?.value||0),growth=Number(document.getElementById('proy_crec')?.value||0)/100,annual=Number(document.getElementById('proy_rent')?.value||0)/100,current=Number(document.getElementById('proy_fondo')?.value||0),box=document.getElementById('proyAfpResult');
+    if(!box)return;if(!(salary>0&&age>0&&retire>=age)){box.style.display='none';return}
+    const years=Math.max(0,retire-age),months=Math.round(years*12),monthly=annual>-1?Math.pow(1+annual,1/12)-1:0;let fund=current,monthlySalary=salary;
+    for(let m=0;m<months;m++){fund=fund*(1+monthly)+monthlySalary*RULES.aporteAfp/100;if((m+1)%12===0)monthlySalary*=1+growth;}
+    box.style.display='block';box.innerHTML='<div class="sunat-api-result"><table><tr><td>Años de proyección</td><td>'+years+'</td></tr><tr><td>Aporte inicial referencial (10%)</td><td>'+money(salary*.10)+'</td></tr><tr><td>Fondo matemático proyectado</td><td><strong>'+money(fund)+'</strong></td></tr></table>'+sourceNote('Proyección matemática basada únicamente en saldo inicial, aporte obligatorio, crecimiento salarial y rentabilidad ingresada. Se retiró la conversión automática del fondo a una “pensión estimada” usando una regla fija de 4%, porque la pensión real depende de modalidad, condiciones, beneficiarios, tasas y reglas vigentes al momento de jubilarse. No constituye promesa de rentabilidad ni de pensión.')+'</div>';
+  }
+
   function annotateAsignacion() {
     const host=document.getElementById('ptAsignacionFam');
     if (!host || host.dataset.auditEnhanced) return;
@@ -133,6 +141,7 @@
     global.DeclarafyNormativeRules = RULES;
     global.calcAfpComisiones = calcAfpComisiones;
     global.calcAsignacion = calcAsignacion;
+    global.calcProyAfp = calcProyAfp;
     renderAfpVsOnp();
     annotateAsignacion();
   }
