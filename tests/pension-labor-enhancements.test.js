@@ -25,3 +25,5 @@ test('AFP vs ONP comparator is installed and audited enhancements load from fron
   assert.match(frontend, /pension-labor-enhancements\.js/);
   assert.match(frontend, /loadAuditedModuleEnhancements\(\)/);
 });
+
+test('AFP projection does not convert fund into a guaranteed pension',()=>{assert.match(src,/function calcProyAfp/);assert.match(src,/Se retiró la conversión automática/);assert.doesNotMatch(src,/fondo \* 0\.04 \/ 12/);});
