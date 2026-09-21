@@ -24,7 +24,7 @@ El proyecto reúne herramientas tributarias, información regulatoria, calculado
 
 <p align="center">
   <a href="https://declarafy.com">
-    <img src="og-image.png" alt="Vista previa de Declarafy" width="900">
+    <img src="declarafy-preview.svg" alt="Vista previa de Declarafy" width="900">
   </a>
 </p>
 
