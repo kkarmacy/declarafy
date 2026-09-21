@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect,useState } from 'react';
 import { SafeAreaView,StyleSheet,Text,TextInput,TouchableOpacity,View } from 'react-native';
 import { simulateInstallments,InstallmentResult } from '../src/utils/finance';
+import { requireFeature } from '../src/auth/guard';
 const num=(v:string)=>Number(v.replace(',','.'))||0;
 export default function Installments(){
+ useEffect(()=>{requireFeature('installments');},[]);
  const [debt,setDebt]=useState('');const [months,setMonths]=useState('');const [rate,setRate]=useState('');const [result,setResult]=useState<InstallmentResult|null>(null);const [error,setError]=useState('');
  function simulate(){try{setResult(simulateInstallments(num(debt),num(months),num(rate)));setError('');}catch(e:any){setError(e.message);setResult(null);}}
  return <SafeAreaView style={s.page}><View style={s.content}><Text style={s.title}>Fraccionamiento</Text><Text style={s.sub}>Simula cuotas con los parámetros que ingreses.</Text><View style={s.card}>
