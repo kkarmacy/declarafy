@@ -2,8 +2,10 @@ import { useEffect,useState } from 'react';
 import { ActivityIndicator,SafeAreaView,StyleSheet,Text,TextInput,TouchableOpacity,View } from 'react-native';
 import { fetchTaxParameters } from '../src/api/modules';
 import { calculateDailyInterest } from '../src/utils/finance';
+import { requireFeature } from '../src/auth/guard';
 const num=(v:string)=>Number(v.replace(',','.'))||0;
 export default function Tim(){
+ useEffect(()=>{requireFeature('tim');},[]);
  const [amount,setAmount]=useState('');const [days,setDays]=useState('');const [rate,setRate]=useState<number|null>(null);const [result,setResult]=useState<number|null>(null);const [error,setError]=useState('');const [loading,setLoading]=useState(true);
  useEffect(()=>{fetchTaxParameters().then(x=>setRate(typeof x.timMonthly==='number'?x.timMonthly:null)).catch(()=>setError('No se pudo obtener la TIM vigente.')).finally(()=>setLoading(false));},[]);
  function calculate(){if(rate===null){setError('No hay una TIM vigente disponible.');return;}try{setResult(calculateDailyInterest(num(amount),num(days),rate));setError('');}catch(e:any){setError(e.message);}}
