@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect,useState } from 'react';
 import { ActivityIndicator,SafeAreaView,ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View } from 'react-native';
 import { askFiscalAI } from '../src/api/modules';
+import { requireFeature } from '../src/auth/guard';
 type Msg={role:'user'|'assistant';text:string};
 export default function AiFiscal(){
+ useEffect(()=>{requireFeature('ai-fiscal');},[]);
  const [message,setMessage]=useState('');const [loading,setLoading]=useState(false);const [error,setError]=useState('');
  const [messages,setMessages]=useState<Msg[]>([{role:'assistant',text:'Hola. Soy tu IA Fiscal. Puedo ayudarte con consultas tributarias, SUNAT, comprobantes, regímenes y obligaciones.'}]);
  async function send(){const q=message.trim();if(!q||loading)return;setMessage('');setError('');setMessages(m=>[...m,{role:'user',text:q}]);setLoading(true);try{const r=await askFiscalAI(q);setMessages(m=>[...m,{role:'assistant',text:r.answer}]);}catch(e:any){setError(e?.message||'No se pudo obtener una respuesta.');}finally{setLoading(false);}}
