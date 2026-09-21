@@ -1,12 +1,5 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-export function ModuleCard({ title, description, onPress }:{title:string;description:string;onPress?:()=>void}) {
-  return <TouchableOpacity style={s.card} onPress={onPress} activeOpacity={0.75}>
-    <View style={s.icon}/><Text style={s.title}>{title}</Text><Text style={s.text}>{description}</Text>
-  </TouchableOpacity>;
+import { StyleSheet,Text,TouchableOpacity,View } from 'react-native';
+export function ModuleCard({title,description,onPress,locked=false}:{title:string;description:string;onPress?:()=>void;locked?:boolean}){
+ return <TouchableOpacity style={[s.card,locked&&s.locked]} onPress={onPress} activeOpacity={0.75}><View style={s.row}><View style={s.icon}/>{locked&&<Text style={s.badge}>PRO</Text>}</View><Text style={s.title}>{title}</Text><Text style={s.text}>{description}</Text>{locked&&<Text style={s.upgrade}>Requiere Professional</Text>}</TouchableOpacity>;
 }
-const s=StyleSheet.create({
- card:{backgroundColor:'#fff',borderRadius:16,padding:16,width:'48%',minHeight:160},
- icon:{width:42,height:42,borderRadius:12,backgroundColor:'#0A91C7',marginBottom:16},
- title:{fontWeight:'800',fontSize:16,color:'#0A2342'},text:{color:'#61738A',fontSize:13,lineHeight:18,marginTop:6}
-});
+const s=StyleSheet.create({card:{backgroundColor:'#fff',borderRadius:16,padding:16,width:'48%',minHeight:160},locked:{opacity:.72},row:{flexDirection:'row',justifyContent:'space-between'},icon:{width:42,height:42,borderRadius:12,backgroundColor:'#0A91C7',marginBottom:16},badge:{fontSize:10,fontWeight:'900',color:'#0877E8'},title:{fontWeight:'800',fontSize:16,color:'#0A2342'},text:{color:'#61738A',fontSize:13,lineHeight:18,marginTop:6},upgrade:{fontSize:11,color:'#0877E8',fontWeight:'800',marginTop:8}});
