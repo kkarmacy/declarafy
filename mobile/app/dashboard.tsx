@@ -1,9 +1,21 @@
 import { router } from 'expo-router';
 import { useEffect,useState } from 'react';
 import { ActivityIndicator,SafeAreaView,ScrollView,StyleSheet,Text,TouchableOpacity,View } from 'react-native';
-import { ModuleCard } from '../src/components/ModuleCard';import { getToken,getUser } from '../src/auth/session';import { canUseFeature,displayPlan,type Feature } from '../src/auth/entitlements';import type { User } from '../src/api/auth';
-const tools:[{title:string;desc:string;route:string;feature:Feature}]=[] as any;
-tools.push({title:'IA Fiscal',desc:'Consulta tus dudas con IA especializada',route:'/ai-fiscal',feature:'ai-fiscal'},{title:'Calendario SUNAT',desc:'Vencimientos y obligaciones',route:'/calendar',feature:'calendar'},{title:'Consulta RUC',desc:'Información de cualquier RUC',route:'/ruc',feature:'ruc'},{title:'Calculadoras',desc:'IGV y cálculos tributarios',route:'/calculators',feature:'calculators'},{title:'Multas y TIM',desc:'Consulta y calcula',route:'/tim',feature:'tim'},{title:'Fraccionamiento',desc:'Simula y conoce tus opciones',route:'/installments',feature:'installments'});
+import { ModuleCard } from '../src/components/ModuleCard';
+import { getToken,getUser } from '../src/auth/session';
+import { canUseFeature,displayPlan,type Feature } from '../src/auth/entitlements';
+import type { User } from '../src/api/auth';
+
+type Tool={title:string;desc:string;route:string;feature:Feature};
+const tools:Tool[]=[
+ {title:'IA Fiscal',desc:'Consulta tus dudas con IA especializada',route:'/ai-fiscal',feature:'ai-fiscal'},
+ {title:'Calendario SUNAT',desc:'Vencimientos y obligaciones',route:'/calendar',feature:'calendar'},
+ {title:'Consulta RUC',desc:'Información de cualquier RUC',route:'/ruc',feature:'ruc'},
+ {title:'Calculadoras',desc:'IGV y cálculos tributarios',route:'/calculators',feature:'calculators'},
+ {title:'Multas y TIM',desc:'Consulta y calcula',route:'/tim',feature:'tim'},
+ {title:'Fraccionamiento',desc:'Simula y conoce tus opciones',route:'/installments',feature:'installments'},
+];
+
 export default function Dashboard(){
  const [checking,setChecking]=useState(true);const [user,setUser]=useState<User|null>(null);
  useEffect(()=>{Promise.all([getToken(),getUser()]).then(([token,cached])=>{if(!token){router.replace('/login');return;}setUser(cached);}).finally(()=>setChecking(false));},[]);
