@@ -4,209 +4,202 @@
 
 # Declarafy
 
-**AI-powered TaxTech platform for Peruvian SMEs and entrepreneurs**
+**Plataforma TaxTech con IA para pymes, mypes y emprendedores del Perú**
 
-[![Website](https://img.shields.io/badge/Website-declarafy.com-0A66C2)](https://declarafy.com)
-[![Peru](https://img.shields.io/badge/Market-Peru-D91023)](#what-declarafy-does)
+[![Sitio web](https://img.shields.io/badge/Sitio%20web-declarafy.com-0A66C2)](https://declarafy.com)
+[![Mercado](https://img.shields.io/badge/Mercado-Per%C3%BA-D91023)](#qué-hace-declarafy)
 [![PHP](https://img.shields.io/badge/Backend-PHP%208.3-777BB4?logo=php&logoColor=white)](https://www.php.net/)
-[![MySQL](https://img.shields.io/badge/Database-MySQL%20%2F%20MariaDB-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
-[![Playwright](https://img.shields.io/badge/E2E-Playwright-2EAD33?logo=playwright&logoColor=white)](https://playwright.dev/)
+[![MySQL](https://img.shields.io/badge/Base%20de%20datos-MySQL%20%2F%20MariaDB-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![Playwright](https://img.shields.io/badge/Pruebas-Playwright-2EAD33?logo=playwright&logoColor=white)](https://playwright.dev/)
 
-Declarafy is a TaxTech platform designed to make Peruvian tax, accounting and compliance workflows easier to understand and manage for **SMEs, entrepreneurs and professional users**.
+Declarafy es una plataforma TaxTech diseñada para facilitar la gestión tributaria, contable y de cumplimiento para **pymes, mypes, emprendedores y usuarios profesionales en el Perú**.
 
-The project combines structured tax tools, regulatory information, calculators, workflow modules and AI-assisted functionality in a single web platform.
+El proyecto reúne herramientas tributarias, información regulatoria, calculadoras, módulos funcionales y capacidades asistidas por IA dentro de una sola plataforma web.
 
-🌐 **Production:** https://declarafy.com
+🌐 **Producción:** https://declarafy.com
 
 ---
 
-
-## 🖼 Product Preview
+## 🖼 Vista previa de Declarafy
 
 <p align="center">
   <a href="https://declarafy.com">
-    <img src="og-image.png" alt="Declarafy platform preview" width="900">
+    <img src="og-image.png" alt="Vista previa de Declarafy" width="900">
   </a>
 </p>
 
 <p align="center">
-  <strong>TaxTech for Peruvian SMEs, entrepreneurs and professional users.</strong><br>
-  <a href="https://declarafy.com">Open declarafy.com</a>
+  <strong>Asesor tributario con IA para pymes y mypes del Perú.</strong><br>
+  <a href="https://declarafy.com">Visitar declarafy.com</a>
 </p>
 
 ---
 
-## 🇵🇪 What Declarafy Does
+## 🇵🇪 Qué hace Declarafy
 
-Declarafy is designed around practical business and tax workflows, including areas such as:
+Declarafy está diseñado en torno a flujos prácticos para negocios y gestión tributaria, incluyendo áreas como:
 
-- RUC and taxpayer information
-- SUNAT-related workflows
-- Tax calendars and deadlines
-- Tax and labor calculations
-- Financial and accounting analysis
-- Regulatory monitoring
-- Tax documentation
-- Payment and plan workflows
-- Referral functionality
-- Specialized business and tax modules
-- AI-assisted tax information and decision support
+- Información de RUC y contribuyentes
+- Flujos relacionados con SUNAT
+- Calendarios y vencimientos tributarios
+- Cálculos tributarios y laborales
+- Análisis financiero y contable
+- Monitoreo normativo
+- Documentación tributaria
+- Flujos de pago y activación de planes
+- Programa de referidos
+- Módulos especializados para empresas
+- Soporte informativo y funcional asistido por IA
 
-The platform is built for the Peruvian market and continues to expand its module coverage.
+La plataforma está orientada al mercado peruano y continúa ampliando su cobertura funcional.
 
 ---
 
-## 🧩 Current Platform Areas
+## 🧩 Áreas actuales de la plataforma
 
-The repository includes functionality and supporting work for:
-
-| Area | Examples |
+| Área | Ejemplos |
 |---|---|
-| Tax Compliance | SUNAT, PDT-related workflows, tax calendars and alerts |
-| Tax Analysis | Corporate and individual tax support modules |
-| Labor & Payroll | AFP, ONP, CTS, gratuities and related calculations |
-| Business Finance | Cash flow, financial analysis and company valuation |
-| Regulatory Intelligence | Regulatory monitoring and update workflows |
-| Documentation | Reports, letters and legal/tax document support |
-| Payments | Culqi-backed plan activation workflow |
-| Integrations | SUNAT credentials and API-ready integration points |
-| Referral Program | User referral and commercial growth functionality |
-| Testing | Static tests, deployment verification and Playwright E2E |
+| Cumplimiento tributario | SUNAT, flujos relacionados con PDT, calendarios y alertas |
+| Análisis tributario | Soporte para impuestos empresariales y personales |
+| Laboral y planillas | AFP, ONP, CTS, gratificaciones y cálculos relacionados |
+| Finanzas empresariales | Flujo de caja, análisis financiero y valorización de empresas |
+| Inteligencia regulatoria | Monitoreo de normas y flujos de actualización |
+| Documentación | Reportes, cartas y soporte documental legal/tributario |
+| Pagos | Activación de planes mediante Culqi |
+| Integraciones | Credenciales SUNAT y puntos de integración vía API |
+| Programa de referidos | Funcionalidad comercial y crecimiento de usuarios |
+| Pruebas | Pruebas estáticas, verificación de despliegue y Playwright E2E |
 
 ---
 
-## 🏗 Architecture
+## 🏗 Arquitectura
 
-Declarafy currently uses a deployment architecture designed for standard shared hosting:
+Declarafy utiliza actualmente una arquitectura pensada para hosting compartido estándar:
 
-- **Frontend:** HTML, CSS and JavaScript
+- **Frontend:** HTML, CSS y JavaScript
 - **Backend:** PHP 8.3
-- **Database:** MySQL / MariaDB
-- **Hosting target:** Namecheap / cPanel
-- **E2E testing:** Playwright
-- **Payments:** Culqi integration
-- **SUNAT:** public RUC workflows plus official credential-based integration points
-- **Progressive Web App assets:** service worker, manifest and icons
+- **Base de datos:** MySQL / MariaDB
+- **Hosting:** Namecheap / cPanel
+- **Pruebas E2E:** Playwright
+- **Pagos:** integración con Culqi
+- **SUNAT:** flujos públicos de RUC y puntos de integración con credenciales oficiales
+- **PWA:** service worker, manifest e íconos
 
-Firebase is **not required** for the current registration, login or data-storage flow.
+Firebase **no es necesario** para el flujo actual de registro, inicio de sesión y almacenamiento de datos.
 
 ---
 
-## 📂 Repository Structure
+## 📂 Estructura del repositorio
 
-Important areas include:
+Áreas importantes del proyecto:
 
-- `api/` — backend endpoints, configuration and database schema
-- `src/` — structured application source
-- `tests/` — automated tests
-- `scripts/` — deployment and validation utilities
-- `docs/` — project documentation
-- `index.html` — main web application
-- `app.js` — application logic
-- `styles.css` — main styles
+- `api/` — endpoints backend, configuración y esquema de base de datos
+- `src/` — código estructurado de la aplicación
+- `tests/` — pruebas automatizadas
+- `scripts/` — utilidades de validación y despliegue
+- `docs/` — documentación del proyecto
+- `index.html` — aplicación principal
+- `app.js` — lógica principal
+- `styles.css` — estilos
 - `sw.js` — service worker
-- `NAMECHEAP_DEPLOYMENT.md` — production deployment guide
-- `TESTING.md` — test strategy and commands
-- `FRONTEND_REVIEW.md` — frontend review notes
+- `NAMECHEAP_DEPLOYMENT.md` — guía de despliegue en producción
+- `TESTING.md` — estrategia y comandos de prueba
+- `FRONTEND_REVIEW.md` — notas de revisión del frontend
 
 ---
 
-## 🧪 Testing
+## 🧪 Pruebas
 
-Install dependencies:
+Instalar dependencias:
 
 ```bash
 npm ci
 ```
 
-Run static and deployment-structure checks:
+Ejecutar validaciones estáticas y de estructura:
 
 ```bash
 npm test
 ```
 
-Run local E2E tests:
+Ejecutar pruebas E2E locales:
 
 ```bash
 npx playwright install chromium
 npm run test:e2e
 ```
 
-Run E2E tests against production:
+Ejecutar pruebas E2E contra producción:
 
 ```bash
 npm run test:e2e:production
 ```
 
-The repository also includes GitHub Actions coverage for automated testing and production smoke testing.
+El repositorio también incluye automatización mediante GitHub Actions para pruebas y smoke tests de producción.
 
 ---
 
-## 🚀 Deployment
+## 🚀 Despliegue
 
-Production deployment uses **PHP 8.3 + MySQL/MariaDB** on Namecheap/cPanel.
+El despliegue en producción utiliza **PHP 8.3 + MySQL/MariaDB** sobre Namecheap/cPanel.
 
-See:
+Consulta **[NAMECHEAP_DEPLOYMENT.md](NAMECHEAP_DEPLOYMENT.md)** para:
 
-**[NAMECHEAP_DEPLOYMENT.md](NAMECHEAP_DEPLOYMENT.md)**
+- Creación de la base de datos
+- Importación del esquema
+- Configuración del servidor
+- Claves API y credenciales
+- Integración con SUNAT
+- Configuración del webhook de Culqi
+- Verificaciones de salud en producción
 
-That guide covers:
-
-- Database creation
-- Schema import
-- Server configuration
-- API keys and credentials
-- SUNAT integration settings
-- Culqi webhook configuration
-- Production health checks
-
-Sensitive local configuration such as `config.local.php` should never be committed to GitHub.
+Archivos sensibles como `config.local.php` **no deben subirse a GitHub**.
 
 ---
 
-## 🔐 Security Principles
+## 🔐 Principios de seguridad
 
-The project is structured around several important controls:
+El proyecto contempla varios controles importantes:
 
-- Server-side handling of sensitive API keys
-- Database-backed authentication
-- Separation of local secrets from the repository
-- Server-side payment verification before plan activation
-- Dedicated E2E test credentials rather than administrator credentials
-- Production health checks
-- Automated deployment-structure validation
+- Manejo del lado servidor de claves sensibles
+- Autenticación respaldada por base de datos
+- Separación entre secretos locales y el repositorio
+- Verificación del lado servidor de pagos antes de activar planes
+- Uso de credenciales separadas para pruebas E2E
+- Health checks de producción
+- Validación automatizada de la estructura de despliegue
 
-Security-sensitive workflows should be reviewed before production changes.
-
----
-
-## 🗺 Product Direction
-
-Current development priorities include:
-
-- Improving specialized tax modules
-- Expanding SUNAT-connected functionality
-- Strengthening AI-assisted tax workflows
-- Improving mobile usability
-- Increasing automated test coverage
-- Consolidating backend architecture
-- Improving reporting and executive outputs
-- Expanding regulatory monitoring
-- Improving referral and commercial workflows
+Cualquier cambio sensible debe revisarse antes de pasar a producción.
 
 ---
 
-## ⚠️ Important Disclaimer
+## 🗺 Dirección del producto
 
-Declarafy is a technology platform intended to support tax, accounting and business workflows.
+Prioridades actuales del desarrollo:
 
-Information generated or displayed by the platform should not automatically be treated as individualized legal, accounting or tax advice. Users should verify material tax decisions against official SUNAT sources and, where appropriate, consult a qualified professional.
+- Mejorar módulos tributarios especializados
+- Ampliar funcionalidades conectadas con SUNAT
+- Fortalecer flujos tributarios asistidos por IA
+- Mejorar la usabilidad móvil
+- Aumentar la cobertura de pruebas automatizadas
+- Consolidar la arquitectura backend
+- Mejorar reportes e informes ejecutivos
+- Ampliar el monitoreo normativo
+- Fortalecer el sistema de referidos y flujos comerciales
 
 ---
 
-## 👤 Project
+## ⚠️ Aviso importante
 
-Created and developed under the direction of **Christian Dobrofsky**.
+Declarafy es una plataforma tecnológica orientada a apoyar procesos tributarios, contables y empresariales.
 
-GitHub: [@kkarmacy](https://github.com/kkarmacy)  
-Website: [declarafy.com](https://declarafy.com)
+La información generada o mostrada por la plataforma no debe interpretarse automáticamente como asesoría legal, contable o tributaria individualizada. Las decisiones relevantes deben contrastarse con fuentes oficiales de SUNAT y, cuando corresponda, con un profesional calificado.
+
+---
+
+## 👤 Proyecto
+
+Creado y desarrollado bajo la dirección de **Christian Dobrofsky**.
+
+- **GitHub:** [@kkarmacy](https://github.com/kkarmacy)
+- **Sitio web:** [declarafy.com](https://declarafy.com)
