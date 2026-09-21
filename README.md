@@ -20,6 +20,22 @@ The project combines structured tax tools, regulatory information, calculators, 
 
 ---
 
+
+## 🖼 Product Preview
+
+<p align="center">
+  <a href="https://declarafy.com">
+    <img src="og-image.png" alt="Declarafy platform preview" width="900">
+  </a>
+</p>
+
+<p align="center">
+  <strong>TaxTech for Peruvian SMEs, entrepreneurs and professional users.</strong><br>
+  <a href="https://declarafy.com">Open declarafy.com</a>
+</p>
+
+---
+
 ## 🇵🇪 What Declarafy Does
 
 Declarafy is designed around practical business and tax workflows, including areas such as:
