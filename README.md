@@ -18,6 +18,12 @@ El proyecto reúne herramientas tributarias, información regulatoria, calculado
 
 🌐 **Producción:** https://declarafy.com
 
+## 📍 Estado del proyecto
+
+**Producto activo en producción y desarrollo continuo.**
+
+El repositorio contiene la aplicación, documentación de despliegue, pruebas automatizadas y evolución funcional de Declarafy.
+
 ---
 
 ## 🖼 Vista previa de Declarafy
@@ -194,6 +200,13 @@ Prioridades actuales del desarrollo:
 Declarafy es una plataforma tecnológica orientada a apoyar procesos tributarios, contables y empresariales.
 
 La información generada o mostrada por la plataforma no debe interpretarse automáticamente como asesoría legal, contable o tributaria individualizada. Las decisiones relevantes deben contrastarse con fuentes oficiales de SUNAT y, cuando corresponda, con un profesional calificado.
+
+---
+
+## 🔗 Otros proyectos
+
+- **Dobrofsky Risk Analyzer:** [github.com/kkarmacy/dobrofsky-risk-analyzer](https://github.com/kkarmacy/dobrofsky-risk-analyzer) — investigación sobre distress financiero, señales tempranas y Teoría de Dobrofsky
+- **Perfil de Christian Dobrofsky:** [github.com/kkarmacy](https://github.com/kkarmacy)
 
 ---
 
