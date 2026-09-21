@@ -1,15 +1,14 @@
-import { useState } from 'react';
-import { SafeAreaView,StyleSheet,Text,TextInput,TouchableOpacity,View } from 'react-native';
-
+import { useEffect,useState } from 'react';
+import { ActivityIndicator,SafeAreaView,StyleSheet,Text,TextInput,TouchableOpacity,View } from 'react-native';
+import { fetchTaxParameters } from '../src/api/modules';
+import { calculateDailyInterest } from '../src/utils/finance';
+const num=(v:string)=>Number(v.replace(',','.'))||0;
 export default function Tim(){
- const [amount,setAmount]=useState(''); const [days,setDays]=useState('');
- return <SafeAreaView style={s.page}><View style={s.content}>
-  <Text style={s.title}>Multas y TIM</Text><Text style={s.sub}>Calcula intereses usando parámetros vigentes obtenidos desde el backend.</Text>
-  <View style={s.card}><TextInput value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="Deuda tributaria (S/)" style={s.input}/>
-   <TextInput value={days} onChangeText={setDays} keyboardType="number-pad" placeholder="Días" style={s.input}/>
-   <TouchableOpacity style={s.button}><Text style={s.buttonText}>Calcular con TIM vigente</Text></TouchableOpacity>
-  </View>
-  <Text style={s.note}>La tasa no está codificada en la app: se obtendrá de Declarafy para evitar usar una TIM desactualizada.</Text>
- </View></SafeAreaView>
+ const [amount,setAmount]=useState('');const [days,setDays]=useState('');const [rate,setRate]=useState<number|null>(null);const [result,setResult]=useState<number|null>(null);const [error,setError]=useState('');const [loading,setLoading]=useState(true);
+ useEffect(()=>{fetchTaxParameters().then(x=>setRate(typeof x.timMonthly==='number'?x.timMonthly:null)).catch(()=>setError('No se pudo obtener la TIM vigente.')).finally(()=>setLoading(false));},[]);
+ function calculate(){if(rate===null){setError('No hay una TIM vigente disponible.');return;}try{setResult(calculateDailyInterest(num(amount),num(days),rate));setError('');}catch(e:any){setError(e.message);}}
+ return <SafeAreaView style={s.page}><View style={s.content}><Text style={s.title}>Multas y TIM</Text><Text style={s.sub}>Interés calculado con el parámetro entregado por Declarafy.</Text>
+ <View style={s.card}>{loading?<ActivityIndicator/>:<><TextInput value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="Deuda tributaria (S/)" style={s.input}/><TextInput value={days} onChangeText={setDays} keyboardType="number-pad" placeholder="Días" style={s.input}/><Text style={s.rate}>TIM mensual recibida: {rate===null?'No disponible':rate+'%'}</Text><TouchableOpacity style={s.button} onPress={calculate}><Text style={s.buttonText}>Calcular</Text></TouchableOpacity></>}</View>
+ {!!error&&<Text style={s.error}>{error}</Text>}{result!==null&&<View style={s.result}><Text style={s.resultLabel}>Interés estimado</Text><Text style={s.resultValue}>S/ {result.toFixed(2)}</Text></View>}<Text style={s.note}>Estimación informativa. El backend debe proveer la tasa vigente y la liquidación oficial puede aplicar reglas adicionales.</Text></View></SafeAreaView>
 }
-const s=StyleSheet.create({page:{flex:1,backgroundColor:'#F5F8FC'},content:{padding:22},title:{fontSize:28,fontWeight:'900',color:'#0A2342'},sub:{color:'#60748A',marginTop:6,marginBottom:22},card:{backgroundColor:'#fff',padding:18,borderRadius:16},input:{borderWidth:1,borderColor:'#D7E1EA',borderRadius:12,padding:15,marginBottom:12,fontSize:16},button:{backgroundColor:'#0877E8',padding:16,borderRadius:12,alignItems:'center'},buttonText:{color:'#fff',fontWeight:'800'},note:{fontSize:12,color:'#718096',lineHeight:18,marginTop:18}});
+const s=StyleSheet.create({page:{flex:1,backgroundColor:'#F5F8FC'},content:{padding:22},title:{fontSize:28,fontWeight:'900',color:'#0A2342'},sub:{color:'#60748A',marginTop:6,marginBottom:22},card:{backgroundColor:'#fff',padding:18,borderRadius:16},input:{borderWidth:1,borderColor:'#D7E1EA',borderRadius:12,padding:15,marginBottom:12,fontSize:16},rate:{color:'#60748A',marginBottom:14},button:{backgroundColor:'#0877E8',padding:16,borderRadius:12,alignItems:'center'},buttonText:{color:'#fff',fontWeight:'800'},error:{color:'#B42318',marginTop:12},result:{backgroundColor:'#fff',padding:18,borderRadius:16,marginTop:14},resultLabel:{color:'#60748A'},resultValue:{fontSize:24,fontWeight:'900',color:'#0A2342',marginTop:5},note:{fontSize:12,color:'#718096',lineHeight:18,marginTop:18}});
