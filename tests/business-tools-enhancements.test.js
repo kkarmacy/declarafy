@@ -7,3 +7,5 @@ test('bank reconciliation and rate converter have functional workspaces',()=>{as
 test('frontend loads business enhancements',()=>{assert.match(ui,/business-tools-enhancements\.js/);assert.match(ui,/loadAuditedBusinessEnhancements\(\)/);});
 
 test('standalone reconciliation and rate converter are reachable from navigation',()=>{assert.match(src,/ensureNav\('concil_banc'/);assert.match(src,/ensureNav\('conversor_tasas'/);});
+
+test('reconciliation panel id matches concil_banc router key',()=>{assert.match(s,/mount\('ptConcilBanc'/);assert.match(s,/ensureNav\('concil_banc'/);});
