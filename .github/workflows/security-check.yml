@@ -32,6 +32,7 @@ jobs:
           node --check calculators.js
           node --check firebase-sync.js
           node --check scripts/verify-deployment-structure.js
+          for file in src/modules/*.js; do node --check "$file"; done
       - name: Check PHP syntax
         run: |
           php -l api/bootstrap.php
