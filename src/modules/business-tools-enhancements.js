@@ -31,7 +31,7 @@ function rateConvert(value,from,to,periods){
 }
 function installStandalone(){
  const nav=document.querySelector('.pnav');if(!nav)return;
- const ensureNav=(tab,label)=>{if(nav.querySelector('.pntab[onclick*="\\''+tab+'\\'"]'))return;const b=document.createElement('button');b.type='button';b.className='pntab';b.textContent=label;b.setAttribute('onclick',"setPTab('"+tab+"',this)");nav.appendChild(b);};
+ const ensureNav=(tab,label)=>{if(Array.from(nav.querySelectorAll('.pntab')).some(el=>(el.getAttribute('onclick')||'').includes("setPTab('"+tab+"'")))return;const b=document.createElement('button');b.type='button';b.className='pntab';b.textContent=label;b.setAttribute('onclick',"setPTab('"+tab+"',this)");nav.appendChild(b);};
  const mount=(id,title,html)=>{
    if(document.getElementById(id))return;
    const content=document.querySelector('#screen-panel > .pnav + div');if(!content)return;
