@@ -1,7 +1,7 @@
 import { apiRequest } from './client';
 import { getToken } from '../auth/session';
 
-async function authHeaders(){
+async function authHeaders():Promise<Record<string,string>>{
  const token=await getToken();
  return token?{Authorization:`Bearer ${token}`}:{};
 }
