@@ -159,9 +159,109 @@ function bootstrapDeclarafyCore() {
   });
 }
 
+function loadAuditedModuleEnhancements() {
+  if (document.querySelector('script[data-declarafy-audited-modules]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/modules/pension-labor-enhancements.js';
+  script.dataset.declarafyAuditedModules = 'true';
+  script.onerror = () => console.warn('[Declarafy modules] No se pudieron cargar las mejoras auditadas');
+  document.head.appendChild(script);
+}
+
+function loadAuditedTaxEnhancements() {
+  if (document.querySelector('script[data-declarafy-tax-audit]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/modules/tax-close-sunat-enhancements.js';
+  script.dataset.declarafyTaxAudit = 'true';
+  script.onerror = () => console.warn('[Declarafy modules] No se pudieron cargar las mejoras SUNAT auditadas');
+  document.head.appendChild(script);
+}
+
+function loadAuditedBusinessEnhancements() {
+  if (document.querySelector('script[data-declarafy-business-audit]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/modules/business-tools-enhancements.js';
+  script.dataset.declarafyBusinessAudit = 'true';
+  script.onerror = () => console.warn('[Declarafy modules] No se pudieron cargar las mejoras de negocio auditadas');
+  document.head.appendChild(script);
+}
+
+function loadAuditedAccountingTaxEnhancements() {
+  if (document.querySelector('script[data-declarafy-accounting-tax-audit]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/modules/accounting-tax-enhancements.js';
+  script.dataset.declarafyAccountingTaxAudit = 'true';
+  script.onerror = () => console.warn('[Declarafy modules] No se pudieron cargar las mejoras contables/tributarias');
+  document.head.appendChild(script);
+}
+
+function loadAuditedPayrollLaborEnhancements() {
+  if (document.querySelector('script[data-declarafy-payroll-labor-audit]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/modules/payroll-labor-enhancements.js';
+  script.dataset.declarafyPayrollLaborAudit = 'true';
+  script.onerror = () => console.warn('[Declarafy modules] No se pudieron cargar las mejoras laborales auditadas');
+  document.head.appendChild(script);
+}
+
+function loadAuditedInternationalTaxTradeEnhancements() {
+  if (document.querySelector('script[data-declarafy-intl-tax-audit]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/modules/international-tax-trade-enhancements.js';
+  script.dataset.declarafyIntlTaxAudit = 'true';
+  script.onerror = () => console.warn('[Declarafy modules] No se pudieron cargar las mejoras de comercio/impuestos internacionales');
+  document.head.appendChild(script);
+}
+
+function loadAuditedIncomeRegimeEnhancements() {
+  if (document.querySelector('script[data-declarafy-income-regime-audit]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/modules/income-regime-enhancements.js';
+  script.dataset.declarafyIncomeRegimeAudit = 'true';
+  script.onerror = () => console.warn('[Declarafy modules] No se pudieron cargar las mejoras de renta/regímenes');
+  document.head.appendChild(script);
+}
+
+function loadAuditedLegalComplianceEnhancements() {
+  if (document.querySelector('script[data-declarafy-legal-compliance-audit]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/modules/legal-compliance-enhancements.js';
+  script.dataset.declarafyLegalComplianceAudit = 'true';
+  script.onerror = () => console.warn('[Declarafy modules] No se pudieron cargar las mejoras legal/compliance');
+  document.head.appendChild(script);
+}
+
+function loadAuditedSpecializedValidationEnhancements() {
+  if (document.querySelector('script[data-declarafy-specialized-audit]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/modules/specialized-validation-enhancements.js';
+  script.dataset.declarafySpecializedAudit = 'true';
+  script.onerror = () => console.warn('[Declarafy modules] No se pudieron cargar las mejoras especializadas');
+  document.head.appendChild(script);
+}
+
+function loadFinalSafetyEnhancements() {
+  if (document.querySelector('script[data-declarafy-final-safety]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/modules/final-safety-enhancements.js';
+  script.dataset.declarafyFinalSafety = 'true';
+  script.onerror = () => console.warn('[Declarafy modules] No se pudieron cargar las correcciones finales');
+  document.head.appendChild(script);
+}
+
 function startDeclarafyFrontend() {
   installFrontendUsability();
   bootstrapDeclarafyCore().catch(error => console.warn('[Declarafy core]', error.message));
+  loadAuditedModuleEnhancements();
+  loadAuditedTaxEnhancements();
+  loadAuditedBusinessEnhancements();
+  loadAuditedAccountingTaxEnhancements();
+  loadAuditedPayrollLaborEnhancements();
+  loadAuditedInternationalTaxTradeEnhancements();
+  loadAuditedIncomeRegimeEnhancements();
+  loadAuditedLegalComplianceEnhancements();
+  loadAuditedSpecializedValidationEnhancements();
+  loadFinalSafetyEnhancements();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startDeclarafyFrontend);

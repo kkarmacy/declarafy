@@ -820,6 +820,12 @@ function setPTab(tab, btn) {
     const el = document.getElementById(_ptSectionId(t));
     if (el) el.style.display = (t === tab) ? '' : 'none';
   });
+  // Some legacy utility/legal panels intentionally predate the pbody class.
+  // Hide/show them explicitly so navigation remains deterministic.
+  ['terminos','privacidad'].forEach(t => {
+    const el = document.getElementById(_ptSectionId(t));
+    if (el) el.style.display = (t === tab) ? '' : 'none';
+  });
   document.querySelectorAll('.pntab').forEach(b => b.classList.remove('active'));
   if (btn) { btn.classList.add('active'); }
   else {
