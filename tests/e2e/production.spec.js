@@ -33,6 +33,24 @@ test.describe('servidor desplegado', () => {
     expect(deployedHtml).toContain('Módulos especializados');
     expect(deployedHtml).toContain('id="ptReferidos"');
     expect(deployedHtml).toContain('Invita, comparte y gana');
+
+    const moduleAssets = [
+      '/src/modules/pension-labor-enhancements.js',
+      '/src/modules/tax-close-sunat-enhancements.js',
+      '/src/modules/business-tools-enhancements.js',
+      '/src/modules/accounting-tax-enhancements.js',
+      '/src/modules/payroll-labor-enhancements.js',
+      '/src/modules/international-tax-trade-enhancements.js',
+      '/src/modules/income-regime-enhancements.js',
+      '/src/modules/legal-compliance-enhancements.js',
+      '/src/modules/specialized-validation-enhancements.js',
+      '/src/modules/final-safety-enhancements.js',
+    ];
+    for (const asset of moduleAssets) {
+      const assetResponse = await request.get(asset, { headers: { 'Cache-Control': 'no-cache' } });
+      expect(assetResponse.status(), `${asset} debe existir en producción`).toBe(200);
+      expect(await assetResponse.text(), `${asset} no debe estar vacío`).not.toHaveLength(0);
+    }
   });
 });
 
