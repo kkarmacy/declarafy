@@ -31,7 +31,8 @@ test.describe('servidor desplegado', () => {
     expect(deployedHtml).toContain('frontend-polish.css');
     expect(deployedHtml).toContain('frontend-ui.js');
     expect(deployedHtml).toContain('Módulos especializados');
-    expect(deployedHtml).toContain('Sistema de Referidos');
+    expect(deployedHtml).toContain('id="ptReferidos"');
+    expect(deployedHtml).toContain('Invita, comparte y gana');
   });
 });
 
