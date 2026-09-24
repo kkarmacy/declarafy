@@ -584,22 +584,52 @@ switch ($action) {
         if ($providers[$provider]['key'] === '') fail_request('ai/not-configured', 'El proveedor seleccionado aún no está configurado.', 503);
         $messages = $body['messages'] ?? [];
         if (!is_array($messages) || count($messages) < 1 || count($messages) > 60) fail_request('ai/messages', 'Conversación inválida.');
+        // Validate each message before forwarding it to a paid external provider.
+        $cleanMessages = [];
+        foreach ($messages as $message) {
+            if (!is_array($message) || !in_array($message['role'] ?? '', ['user', 'assistant'], true)
+                || !is_string($message['content'] ?? null) || trim($message['content']) === ''
+                || mb_strlen($message['content']) > 20000) {
+                fail_request('ai/messages', 'Uno o más mensajes tienen un formato inválido.');
+            }
+            $cleanMessages[] = ['role' => $message['role'], 'content' => $message['content']];
+        }
         $system = mb_substr((string) ($body['system'] ?? ''), 0, 20_000);
-        if ($system !== '') array_unshift($messages, ['role' => 'system', 'content' => $system]);
+        if ($system !== '') array_unshift($cleanMessages, ['role' => 'system', 'content' => $system]);
+        $request = ['model' => $providers[$provider]['model'], 'messages' => $cleanMessages,
+            'max_tokens' => max(64, min(4096, (int) ($body['max_tokens'] ?? 1024)))];
+        json_value($request, 1_500_000);
+        // Reserve before the external call, as the primary AI endpoint already does.
+        $pdo->beginTransaction();
+        try {
+            $lock = $pdo->prepare('SELECT id FROM users WHERE id = ? FOR UPDATE');
+            $lock->execute([$id]);
+            if (!$lock->fetch()) throw new RuntimeException('User not found');
+            $pdo->prepare('UPDATE users SET message_count = message_count + 1 WHERE id = ?')->execute([$id]);
+            $pdo->commit();
+        } catch (Throwable $error) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            error_log('Declarafy alternative AI quota reservation failed: ' . $error->getMessage());
+            fail_request('server/database-error', 'No se pudo reservar la consulta.', 503);
+        }
         try {
             $remote = remote_json($providers[$provider]['url'], 'POST', [
                 'Content-Type: application/json',
                 'Authorization: Bearer ' . $providers[$provider]['key'],
-            ], ['model' => $providers[$provider]['model'], 'messages' => $messages, 'max_tokens' => max(64, min(4096, (int) ($body['max_tokens'] ?? 1024)))], 90);
-            if ($remote['status'] < 200 || $remote['status'] >= 300) fail_request('ai/unavailable', 'El proveedor de IA no respondió correctamente.', 502);
-            $text = (string) ($remote['data']['choices'][0]['message']['content'] ?? '');
-            if ($text === '') fail_request('ai/invalid-response', 'El proveedor devolvió una respuesta vacía.', 502);
-            $pdo->prepare('UPDATE users SET message_count = message_count + 1 WHERE id = ?')->execute([$id]);
-            respond(['content' => [['type' => 'text', 'text' => $text]]]);
+            ], $request, 90);
+            $text = $remote['status'] >= 200 && $remote['status'] < 300
+                ? (string) ($remote['data']['choices'][0]['message']['content'] ?? '') : '';
+            if ($text === '') throw new RuntimeException('Empty response or provider failure');
         } catch (Throwable $error) {
+            try {
+                $pdo->prepare('UPDATE users SET message_count = GREATEST(message_count - 1, 0) WHERE id = ?')->execute([$id]);
+            } catch (Throwable $rollbackError) {
+                error_log('Declarafy alternative AI quota rollback failed: ' . $rollbackError->getMessage());
+            }
             error_log('Declarafy alternative AI failed: ' . $error->getMessage());
             fail_request('ai/unavailable', 'El proveedor de IA no está disponible.', 502);
         }
+        respond(['content' => [['type' => 'text', 'text' => $text]]]);
 
     case 'payments_list':
         require_method('GET');
