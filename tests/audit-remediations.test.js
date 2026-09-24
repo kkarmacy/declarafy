@@ -76,3 +76,27 @@ test('obsolete Firebase backends are retired but PHP adapter is retained', () =>
   assert.equal(fs.existsSync('firebase-sync.js'), true);
   assert.equal(fs.existsSync('server-api.js'), true);
 });
+
+test('calendar and regulatory alerts do not show unverifiable dates or monitoring', () => {
+  const { window } = setup();
+  const calendar = { innerHTML: '' };
+  const alerts = { innerHTML: '' };
+  window.document.getElementById = id => ({
+    calList: calendar, alertasReg: alerts,
+  })[id] || null;
+  window.renderCalendar('todos');
+  window.renderAlertasReg();
+  assert.match(calendar.innerHTML, /Fechas no verificadas/);
+  assert.doesNotMatch(calendar.innerHTML, /15.*Ene|31.*Mar/);
+  assert.match(alerts.innerHTML, /no hay un servicio oficial de monitoreo normativo/);
+});
+
+test('billing webhook maps paid amounts to internal plan only after provider verification', () => {
+  const php = fs.readFileSync('api/index.php', 'utf8');
+  const webhook = php.split("case 'culqi_webhook':")[1].split("case 'generateapikey':")[0];
+  assert.match(webhook, /api\\.culqi\\.com\\/v2\\/charges/);
+  assert.match(webhook, /19000 => \['plan' => 'pro', 'months' => 1\]/);
+  assert.match(webhook, /190000 => \['plan' => 'pro', 'months' => 12\]/);
+  assert.match(webhook, /75000 => \['plan' => 'empresa', 'months' => 1\]/);
+  assert.ok(webhook.indexOf('remote_json(') < webhook.indexOf('UPDATE users SET plan = ?'));
+});
