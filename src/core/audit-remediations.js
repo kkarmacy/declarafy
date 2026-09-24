@@ -94,10 +94,39 @@
     global.renderPortfolio();
   }
 
+  function renderCalendar(tipo) {
+    const panel = global.document.getElementById('calList');
+    if (!panel) return;
+    const topics = [
+      ['mensual', 'Declaraciones mensuales IGV / Renta'],
+      ['anual', 'Declaración jurada anual del Impuesto a la Renta'],
+      ['especial', 'ITAN, precios de transferencia y otras obligaciones según actividad'],
+    ].filter(([kind]) => !tipo || tipo === 'todos' || tipo === kind);
+    panel.innerHTML = '<div class="inf-alert">⚠️ Fechas no verificadas: los vencimientos dependen del ejercicio, cronograma SUNAT, dígito del RUC y obligaciones del contribuyente. No se muestran fechas genéricas como vencimientos reales. Consulta el cronograma oficial antes de presentar declaraciones.</div>' +
+      topics.map(([, label]) => '<div class="cal-item"><div class="cal-info"><div class="cal-name">' +
+        esc(label) + '</div><div class="cal-desc">Pendiente de verificar en SUNAT</div></div></div>').join('');
+  }
+
+  function renderAlertasReg() {
+    const panel = global.document.getElementById('alertasReg');
+    if (!panel) return;
+    panel.innerHTML = '<div class="inf-alert">⚠️ No hay un servicio oficial de monitoreo normativo en tiempo real conectado. Las alertas históricas de demostración se han ocultado para evitar presentar normas no verificadas como novedades vigentes. Verifica cambios en el portal oficial de SUNAT.</div>';
+  }
+
+  function activarAlertas() {
+    renderAlertasReg();
+    if (typeof global.tpToast === 'function') {
+      global.tpToast('Filtros seleccionados. El monitoreo normativo automático aún no está conectado.', 'warn');
+    }
+  }
+
   function install() {
     global.buildInformeDemo = buildInformeDemo;
     global.buildInformeHTML = buildInformeHTML;
     global.previewWLFull = previewWLFull;
+    global.renderCalendar = renderCalendar;
+    global.renderAlertasReg = renderAlertasReg;
+    global.activarAlertas = activarAlertas;
     installCryptoFX();
   }
   if (global.document.readyState === 'loading') {
