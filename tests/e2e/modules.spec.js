@@ -66,6 +66,8 @@ test('la barra de módulos se presenta en orden alfabético', async ({ page }) =
 });
 
 test('los 17 módulos especializados abren contenido real', async ({ page }) => {
+  // Este recorrido abre los 17 módulos de forma secuencial y puede superar el límite global de 45 s.
+  test.setTimeout(120_000);
   await page.locator('.pntab-featured').click();
   const cards = page.locator('#specializedModuleGrid .specialized-card');
   await expect(cards).toHaveCount(17);
