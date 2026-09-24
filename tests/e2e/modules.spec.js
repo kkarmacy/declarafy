@@ -118,14 +118,14 @@ test('clic real en cada módulo deja exactamente un panel visible y con contenid
     const state = await page.evaluate(currentTab => {
       const id = typeof _ptSectionId === 'function' ? _ptSectionId(currentTab) : '';
       const target = id ? document.getElementById(id) : null;
-      const visiblePanels = Array.from(document.querySelectorAll('#screen-panel .pbody')).filter(section => {
+      const visiblePanels = Array.from(new Set(PT_TAB_NAMES.concat(['terminos', 'privacidad']).map(name => document.getElementById(_ptSectionId(name))).filter(Boolean))).filter(section => {
         const style = getComputedStyle(section);
         return style.display !== 'none' && style.visibility !== 'hidden' && section.getClientRects().length > 0;
       });
       return {
         id,
         targetVisible: Boolean(target && getComputedStyle(target).display !== 'none' && target.getClientRects().length > 0),
-        contentLength: target?.innerText.replace(/\\s+/g, ' ').trim().length || 0,
+        contentLength: target?.innerText.replace(/\s+/g, ' ').trim().length || 0,
         visiblePanelIds: visiblePanels.map(section => section.id),
       };
     }, tab);
