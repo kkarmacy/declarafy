@@ -811,9 +811,16 @@ function _ptSectionId(tab) {
   const legacyId = 'pt' + tab.charAt(0).toUpperCase() + tab.slice(1);
   if (document.getElementById(legacyId)) return legacyId;
   const wanted = _ptKey(tab);
-  const match = Array.from(document.querySelectorAll('[id^="pt"]'))
-    .find(el => _ptKey(el.id.slice(2)) === wanted);
-  return match?.id || legacyId;
+  const candidates = Array.from(document.querySelectorAll('[id^="pt"]'));
+  const exact = candidates.find(el => _ptKey(el.id.slice(2)) === wanted);
+  if (exact) return exact.id;
+  // Navigation keys use snake_case while many legacy panel IDs use camelCase
+  // or abbreviations (for example afp_comisiones -> ptAfpComisiones).
+  // Compare normalized alphanumeric keys so the visible tab always resolves
+  // to the actual panel instead of an ID that does not exist.
+  const normalizedWanted = wanted.replace(/_/g, '');
+  const normalized = candidates.find(el => _ptKey(el.id.slice(2)).replace(/_/g, '') === normalizedWanted);
+  return normalized?.id || legacyId;
 }
 function setPTab(tab, btn) {
   PT_TAB_NAMES.forEach(t => {
