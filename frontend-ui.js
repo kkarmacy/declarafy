@@ -267,8 +267,35 @@ function loadAuditRemediations() {
   document.head.appendChild(script);
 }
 
+
+// Final navigation guard: the legacy app wraps setPTab several times. This guard
+// normalizes the target section and guarantees that a real user click leaves one
+// module visible instead of only changing the title/navigation state.
+function installModuleVisibilityGuard() {
+  if (window.__declarafyModuleVisibilityGuard || typeof window.setPTab !== 'function') return;
+  window.__declarafyModuleVisibilityGuard = true;
+  const legacySetPTab = window.setPTab;
+  window.setPTab = function(tab, btn) {
+    const result = legacySetPTab.apply(this, arguments);
+    const targetId = typeof window._ptSectionId === 'function'
+      ? window._ptSectionId(tab)
+      : 'pt' + String(tab || '').split('_').map(part => part ? part[0].toUpperCase() + part.slice(1) : '').join('');
+    const target = document.getElementById(targetId);
+    if (target) {
+      document.querySelectorAll('#screen-panel .pbody').forEach(section => {
+        section.style.display = section === target ? 'block' : 'none';
+      });
+      target.hidden = false;
+      target.removeAttribute('aria-hidden');
+    }
+    syncPanelAccessibility();
+    return result;
+  };
+}
+
 function startDeclarafyFrontend() {
   installFrontendUsability();
+  installModuleVisibilityGuard();
   bootstrapDeclarafyCore().catch(error => console.warn('[Declarafy core]', error.message));
   loadAuditedModuleEnhancements();
   loadAuditedTaxEnhancements();
