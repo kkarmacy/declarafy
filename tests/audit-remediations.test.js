@@ -94,7 +94,7 @@ test('calendar and regulatory alerts do not show unverifiable dates or monitorin
 test('billing webhook maps paid amounts to internal plan only after provider verification', () => {
   const php = fs.readFileSync('api/index.php', 'utf8');
   const webhook = php.split("case 'culqi_webhook':")[1].split("case 'generateapikey':")[0];
-  assert.match(webhook, /api\\.culqi\\.com\\/v2\\/charges/);
+  assert.ok(webhook.includes('api.culqi.com/v2/charges/'));
   assert.match(webhook, /19000 => \['plan' => 'pro', 'months' => 1\]/);
   assert.match(webhook, /190000 => \['plan' => 'pro', 'months' => 12\]/);
   assert.match(webhook, /75000 => \['plan' => 'empresa', 'months' => 1\]/);
