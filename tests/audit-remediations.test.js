@@ -88,7 +88,7 @@ test('calendar and regulatory alerts do not show unverifiable dates or monitorin
   window.renderAlertasReg();
   assert.match(calendar.innerHTML, /Fechas no verificadas/);
   assert.doesNotMatch(calendar.innerHTML, /15.*Ene|31.*Mar/);
-  assert.match(alerts.innerHTML, /no hay un servicio oficial de monitoreo normativo/);
+  assert.match(alerts.innerHTML, /no hay un servicio oficial de monitoreo normativo/i);
 });
 
 test('billing webhook maps paid amounts to internal plan only after provider verification', () => {
