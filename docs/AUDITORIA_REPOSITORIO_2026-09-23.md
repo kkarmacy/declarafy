@@ -53,3 +53,19 @@ El diagnóstico local facilitado informa que `npm test`, `php -l` y `node --chec
 5. Retirar el backend Firebase no utilizado después de verificar referencias, mantener el adaptador PHP compatible y descomponer gradualmente `app.js`.
 
 **Despliegue:** aprobar CI en GitHub no instala automáticamente archivos nuevos en Namecheap; actualizar el servidor y ejecutar el Production Smoke Test para confirmar que `safe-exports.js` se sirve correctamente.
+
+## Actualización de remediación en rama de auditoría
+
+Los siguientes cambios están implementados **en la rama**, no necesariamente desplegados en Namecheap:
+
+- Se retiraron los entrypoints Firebase antiguos (`index.js`, `secure-index.js`, `final-index.js`, `push-notifications.js`) y la configuración Firebase/Firestore obsoleta. Se conservaron `firebase-sync.js` y `server-api.js` porque el frontend aún depende del adaptador de compatibilidad PHP.
+- Se añadió escape de contenido en exportaciones PDF, informes mensuales y vista previa white-label. Los informes demo ahora advierten expresamente que no se ha verificado la situación tributaria.
+- El calendario oculta fechas genéricas y el panel de alertas no presenta el contenido estático histórico como monitoreo real. La conexión a un feed normativo oficial **sigue pendiente**.
+- El portafolio cripto ya no presenta el tipo de cambio fijo de 3.75 como conversión válida: pide un TC manual y muestra «TC pendiente» si falta. **La conexión automática a una fuente oficial y la determinación del tipo fiscal aplicable siguen pendientes.**
+- La ruta alternativa de IA valida mensajes, reserva consumo con transacción y revierte la reserva si falla el proveedor. No se ha realizado una prueba de carga con proveedores reales ni verificado el coste por tokens.
+- Se añadió CSP preventiva de bajo riesgo para `base-uri`, `object-src` y `frame-ancestors`. La política completa permanece en modo `Report-Only` hasta retirar handlers inline.
+- El contrato de planes y la verificación previa a activar cobros se documentan en `docs/CONTRATO_PLANES_Y_PAGOS.md`. No se ejecutaron pagos de prueba reales ni se configuró el webhook externo.
+
+**Deuda técnica no resuelta:** las múltiples implementaciones y wrappers de `app.js` requieren extracción gradual y pruebas de cada ruta; los reemplazos seguros de exportación reducen riesgo sin prometer que el monolito está completamente deduplicado. Las integraciones externas reales de SUNAT, Culqi, fuentes de TC y proveedores de IA dependen de credenciales y validación operativa en el hosting.
+
+**Antes de fusionar o desplegar:** exigir Security Check y Browser Tests aprobados en el commit final; probar la impresión en navegadores reales; verificar que Namecheap publique `src/core/safe-exports.js` y `src/core/audit-remediations.js` y que el cache del navegador cargue `frontend-ui.js` actualizado.
