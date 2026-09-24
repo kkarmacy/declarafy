@@ -112,7 +112,7 @@ test('clic real en cada módulo deja exactamente un panel visible y con contenid
   for (let index = 0; index < count; index += 1) {
     const button = buttons.nth(index);
     const onclick = await button.getAttribute('onclick') || '';
-    const tab = onclick.match(/setPTab\\('([^']+)'/)?.[1];
+    const tab = onclick.match(/setPTab\('([^']+)'/)?.[1];
     if (!tab || tab === 'inicio' || tab === 'especializados') continue;
     await button.click();
     const state = await page.evaluate(currentTab => {
