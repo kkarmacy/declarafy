@@ -27,6 +27,16 @@ for (const required of [
   if (!fs.existsSync(path.join(root, required))) fail(`missing Namecheap deployment file: ${required}`);
 }
 
+// Dynamic frontend modules are not visible to the HTML-only script scanner.
+for (const required of [
+  'src/core/core-loader.js',
+  'src/core/safe-exports.js',
+  'src/core/audit-remediations.js',
+  'src/modules/final-safety-enhancements.js',
+]) {
+  if (!fs.existsSync(path.join(root, required))) fail(`missing dynamically loaded module: ${required}`);
+}
+
 if (fs.existsSync(path.join(root, 'api/config.local.php'))) fail('api/config.local.php must never be committed or included in a release');
 
 const gitignore = fs.readFileSync(path.join(root, '.gitignore'), 'utf8');
