@@ -285,7 +285,7 @@ function installModuleVisibilityGuard() {
       // Legacy styles use !important; normal inline display cannot override them.
       const panel = document.getElementById('screen-panel');
       if (panel && !panel.classList.contains('active')) panel.classList.add('active');
-      document.querySelectorAll('#screen-panel .pbody').forEach(section => {
+      Array.from(new Set((typeof PT_TAB_NAMES !== 'undefined' ? PT_TAB_NAMES : []).concat(['terminos', 'privacidad']).map(name => document.getElementById(window._ptSectionId(name))).filter(Boolean))).forEach(section => {
         const selected = section === target;
         section.hidden = !selected;
         section.style.setProperty('display', selected ? 'block' : 'none', 'important');
