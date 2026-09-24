@@ -38,11 +38,14 @@
     if (!messages) return;
     let cfg = {};
     try {
-      const key = typeof global.WL_KEY === 'function' ? global.WL_KEY() : '';
+      const key = typeof WL_KEY === 'function' ? WL_KEY() : '';
       if (key) cfg = JSON.parse(global.localStorage.getItem(key) || '{}');
     } catch (_) {}
-    const studio = cfg.nombre || global.curUser?.studio || global.curUser?.name || 'DeclaraFY';
-    const area = global.AREAS?.[global.curArea]?.label || 'General';
+    const user = typeof curUser === 'undefined' ? null : curUser;
+    const areaMap = typeof AREAS === 'undefined' ? null : AREAS;
+    const activeArea = typeof curArea === 'undefined' ? 'general' : curArea;
+    const studio = cfg.nombre || user?.studio || user?.name || 'DeclaraFY';
+    const area = areaMap?.[activeArea]?.label || 'General';
     const date = new Date().toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' });
     const body = Array.from(messages.querySelectorAll('.msg')).map(message => {
       const who = message.classList.contains('user') ? 'Consulta' : 'DeclaraFY';
@@ -59,7 +62,8 @@
 
   function exportInformeMensual() {
     const select = global.document.getElementById('infClienteSel');
-    const client = Array.isArray(global.crmClients) ? global.crmClients.find(item => item.id === select?.value) : null;
+    const clients = typeof crmClients === 'undefined' ? [] : crmClients;
+    const client = Array.isArray(clients) ? clients.find(item => item.id === select?.value) : null;
     const studio = global.document.getElementById('infEstudio')?.value || 'Estudio';
     const preview = global.document.getElementById('infPreview');
     if (!preview) return;
@@ -69,7 +73,7 @@
       escapeHtml(client?.nombre || 'Cliente') + '</div></header>';
     writeReport('Informe — ' + (client?.nombre || 'Cliente'),
       header + '<article class="report-content">' + escapeHtml(body) + '</article>' +
-      '<footer>Documento orientativo generado por Declarafy.</footer>', global.infColor);
+      '<footer>Documento orientativo generado por Declarafy.</footer>', typeof infColor === 'undefined' ? undefined : infColor);
   }
 
   function install() {
