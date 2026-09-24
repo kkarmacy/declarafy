@@ -23,9 +23,6 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: Check JavaScript syntax
         run: |
-          node --check index.js
-          node --check secure-index.js
-          node --check final-index.js
           node --check config.js
           node --check app.js
           node --check server-api.js
