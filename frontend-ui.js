@@ -249,6 +249,24 @@ function loadFinalSafetyEnhancements() {
   document.head.appendChild(script);
 }
 
+function loadSafeExports() {
+  if (document.querySelector('script[data-declarafy-safe-exports]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/core/safe-exports.js';
+  script.dataset.declarafySafeExports = 'true';
+  script.onerror = () => console.warn('[Declarafy] No se pudo cargar la exportación segura');
+  document.head.appendChild(script);
+}
+
+function loadAuditRemediations() {
+  if (document.querySelector('script[data-declarafy-audit-remediations]')) return;
+  const script = document.createElement('script');
+  script.src = '/src/core/audit-remediations.js';
+  script.dataset.declarafyAuditRemediations = 'true';
+  script.onerror = () => console.warn('[Declarafy] No se pudieron cargar las correcciones auditadas');
+  document.head.appendChild(script);
+}
+
 function startDeclarafyFrontend() {
   installFrontendUsability();
   bootstrapDeclarafyCore().catch(error => console.warn('[Declarafy core]', error.message));
@@ -262,6 +280,8 @@ function startDeclarafyFrontend() {
   loadAuditedLegalComplianceEnhancements();
   loadAuditedSpecializedValidationEnhancements();
   loadFinalSafetyEnhancements();
+  loadSafeExports();
+  loadAuditRemediations();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startDeclarafyFrontend);
