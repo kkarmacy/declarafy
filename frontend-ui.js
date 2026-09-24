@@ -282,10 +282,17 @@ function installModuleVisibilityGuard() {
       : 'pt' + String(tab || '').split('_').map(part => part ? part[0].toUpperCase() + part.slice(1) : '').join('');
     const target = document.getElementById(targetId);
     if (target) {
+      // Legacy styles use !important; normal inline display cannot override them.
+      const panel = document.getElementById('screen-panel');
+      if (panel && !panel.classList.contains('active')) panel.classList.add('active');
       document.querySelectorAll('#screen-panel .pbody').forEach(section => {
-        section.style.display = section === target ? 'block' : 'none';
+        const selected = section === target;
+        section.hidden = !selected;
+        section.style.setProperty('display', selected ? 'block' : 'none', 'important');
+        section.setAttribute('aria-hidden', String(!selected));
       });
       target.hidden = false;
+      target.style.setProperty('display', 'block', 'important');
       target.removeAttribute('aria-hidden');
     }
     syncPanelAccessibility();
