@@ -127,6 +127,16 @@ test('clic real en cada módulo deja exactamente un panel visible y con contenid
         targetVisible: Boolean(target && getComputedStyle(target).display !== 'none' && target.getClientRects().length > 0),
         contentLength: target?.innerText.replace(/\s+/g, ' ').trim().length || 0,
         visiblePanelIds: visiblePanels.map(section => section.id),
+        blockers: target ? (() => {
+          const nodes = [];
+          for (let el = target; el; el = el.parentElement) {
+            const css = getComputedStyle(el);
+            if (el.hidden || css.display === 'none' || css.visibility === 'hidden' || el.getClientRects().length === 0) {
+              nodes.push({ tag: el.tagName, id: el.id, className: String(el.className).slice(0, 120), hidden: el.hidden, inlineStyle: el.getAttribute('style'), display: css.display, visibility: css.visibility, rects: el.getClientRects().length });
+            }
+          }
+          return nodes;
+        })() : [],
       };
     }, tab);
     if (!state.targetVisible || state.contentLength < 30 || state.visiblePanelIds.length !== 1) problems.push({ tab, ...state });
