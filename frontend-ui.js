@@ -282,8 +282,17 @@ function installModuleVisibilityGuard() {
       : 'pt' + String(tab || '').split('_').map(part => part ? part[0].toUpperCase() + part.slice(1) : '').join('');
     const target = document.getElementById(targetId);
     if (target) {
-      // Legacy styles use !important; normal inline display cannot override them.
+      // Some module sections were parsed outside #screen-panel (inside the
+      // hidden chat screen) because of legacy markup nesting. An inline
+      // display override cannot make a child of display:none visible.
+      // Move the requested module into the panel's actual content shell.
       const panel = document.getElementById('screen-panel');
+      const panelNav = panel && panel.querySelector('.pnav');
+      const moduleShell = panelNav && panelNav.nextElementSibling;
+      if (moduleShell && !panel.contains(target)) {
+        moduleShell.appendChild(target);
+      }
+      // Legacy styles use !important; normal inline display cannot override them.
       if (panel && !panel.classList.contains('active')) panel.classList.add('active');
       Array.from(new Set((typeof PT_TAB_NAMES !== 'undefined' ? PT_TAB_NAMES : []).concat(['terminos', 'privacidad']).map(name => document.getElementById(window._ptSectionId(name))).filter(Boolean))).forEach(section => {
         const selected = section === target;
