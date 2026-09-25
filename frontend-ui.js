@@ -267,8 +267,64 @@ function loadAuditRemediations() {
   document.head.appendChild(script);
 }
 
+
+// Final navigation guard: the legacy app wraps setPTab several times. This guard
+// normalizes the target section and guarantees that a real user click leaves one
+// module visible instead of only changing the title/navigation state.
+function installModuleVisibilityGuard() {
+  if (window.__declarafyModuleVisibilityGuard || typeof window.setPTab !== 'function') return;
+  window.__declarafyModuleVisibilityGuard = true;
+  const legacySetPTab = window.setPTab;
+  window.setPTab = function(tab, btn) {
+    const result = legacySetPTab.apply(this, arguments);
+    const targetId = typeof window._ptSectionId === 'function'
+      ? window._ptSectionId(tab)
+      : 'pt' + String(tab || '').split('_').map(part => part ? part[0].toUpperCase() + part.slice(1) : '').join('');
+    const target = document.getElementById(targetId);
+    if (target) {
+      // Some module sections were parsed outside #screen-panel (inside the
+      // hidden chat screen) because of legacy markup nesting. An inline
+      // display override cannot make a child of display:none visible.
+      // Move the requested module into the panel's actual content shell.
+      const panel = document.getElementById('screen-panel');
+      const panelNav = panel && panel.querySelector('.pnav');
+      const moduleShell = panelNav && panelNav.nextElementSibling;
+      if (moduleShell && !panel.contains(target)) {
+        moduleShell.appendChild(target);
+      }
+      // Legacy styles use !important; normal inline display cannot override them.
+      if (panel && !panel.classList.contains('active')) panel.classList.add('active');
+      Array.from(new Set((typeof PT_TAB_NAMES !== 'undefined' ? PT_TAB_NAMES : []).concat(['terminos', 'privacidad']).map(name => document.getElementById(window._ptSectionId(name))).filter(Boolean))).forEach(section => {
+        const selected = section === target;
+        section.hidden = !selected;
+        section.style.setProperty('display', selected ? 'block' : 'none', 'important');
+        section.setAttribute('aria-hidden', String(!selected));
+      });
+      // Some legacy panels are nested inside containers that a previous tab
+      // left hidden. Showing the child alone does not restore its layout.
+      // Restore only ancestors of the selected panel within the content shell.
+      const contentShell = document.querySelector('#screen-panel > .pnav + div');
+      if (contentShell && contentShell.contains(target)) {
+        for (let parent = target.parentElement; parent && parent !== contentShell; parent = parent.parentElement) {
+          if (parent.hidden || getComputedStyle(parent).display === 'none') {
+            parent.hidden = false;
+            parent.style.setProperty('display', 'block', 'important');
+            parent.removeAttribute('aria-hidden');
+          }
+        }
+      }
+      target.hidden = false;
+      target.style.setProperty('display', 'block', 'important');
+      target.removeAttribute('aria-hidden');
+    }
+    syncPanelAccessibility();
+    return result;
+  };
+}
+
 function startDeclarafyFrontend() {
   installFrontendUsability();
+  installModuleVisibilityGuard();
   bootstrapDeclarafyCore().catch(error => console.warn('[Declarafy core]', error.message));
   loadAuditedModuleEnhancements();
   loadAuditedTaxEnhancements();

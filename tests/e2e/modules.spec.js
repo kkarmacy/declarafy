@@ -103,3 +103,43 @@ test('historial y referidos muestran sus nuevos estados visuales', async ({ page
   await expect(page.locator('.ref-share-card')).toBeVisible();
   await expect(page.locator('#refLink')).toContainText('REFE2ETEST');
 });
+
+
+test('clic real en cada módulo deja exactamente un panel visible y con contenido', async ({ page }) => {
+  const buttons = page.locator('.pnav .pntab').filter({ visible: true });
+  const count = await buttons.count();
+  const problems = [];
+  for (let index = 0; index < count; index += 1) {
+    const button = buttons.nth(index);
+    const onclick = await button.getAttribute('onclick') || '';
+    const tab = onclick.match(/setPTab\('([^']+)'/)?.[1];
+    if (!tab || tab === 'inicio' || tab === 'especializados') continue;
+    await button.click();
+    const state = await page.evaluate(currentTab => {
+      const id = typeof _ptSectionId === 'function' ? _ptSectionId(currentTab) : '';
+      const target = id ? document.getElementById(id) : null;
+      const visiblePanels = Array.from(new Set(PT_TAB_NAMES.concat(['terminos', 'privacidad']).map(name => document.getElementById(_ptSectionId(name))).filter(Boolean))).filter(section => {
+        const style = getComputedStyle(section);
+        return style.display !== 'none' && style.visibility !== 'hidden' && section.getClientRects().length > 0;
+      });
+      return {
+        id,
+        targetVisible: Boolean(target && getComputedStyle(target).display !== 'none' && target.getClientRects().length > 0),
+        contentLength: target?.innerText.replace(/\s+/g, ' ').trim().length || 0,
+        visiblePanelIds: visiblePanels.map(section => section.id),
+        blockers: target ? (() => {
+          const nodes = [];
+          for (let el = target; el; el = el.parentElement) {
+            const css = getComputedStyle(el);
+            if (el.hidden || css.display === 'none' || css.visibility === 'hidden' || el.getClientRects().length === 0) {
+              nodes.push({ tag: el.tagName, id: el.id, className: String(el.className).slice(0, 120), hidden: el.hidden, inlineStyle: el.getAttribute('style'), display: css.display, visibility: css.visibility, rects: el.getClientRects().length });
+            }
+          }
+          return nodes;
+        })() : [],
+      };
+    }, tab);
+    if (!state.targetVisible || state.contentLength < 30 || state.visiblePanelIds.length !== 1) problems.push({ tab, ...state });
+  }
+  expect(problems, JSON.stringify(problems, null, 2)).toEqual([]);
+});
