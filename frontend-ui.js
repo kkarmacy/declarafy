@@ -291,6 +291,19 @@ function installModuleVisibilityGuard() {
         section.style.setProperty('display', selected ? 'block' : 'none', 'important');
         section.setAttribute('aria-hidden', String(!selected));
       });
+      // Some legacy panels are nested inside containers that a previous tab
+      // left hidden. Showing the child alone does not restore its layout.
+      // Restore only ancestors of the selected panel within the content shell.
+      const contentShell = document.querySelector('#screen-panel > .pnav + div');
+      if (contentShell && contentShell.contains(target)) {
+        for (let parent = target.parentElement; parent && parent !== contentShell; parent = parent.parentElement) {
+          if (parent.hidden || getComputedStyle(parent).display === 'none') {
+            parent.hidden = false;
+            parent.style.setProperty('display', 'block', 'important');
+            parent.removeAttribute('aria-hidden');
+          }
+        }
+      }
       target.hidden = false;
       target.style.setProperty('display', 'block', 'important');
       target.removeAttribute('aria-hidden');
