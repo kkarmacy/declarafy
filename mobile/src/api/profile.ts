@@ -1,7 +1,8 @@
-import { apiRequest } from './client';
-import { getToken } from '../auth/session';
+import { fetchSession } from './auth';
 import type { User } from './auth';
-export async function fetchProfile(){
- const token=await getToken();
- return apiRequest<User>('/auth/me',{headers:token?{Authorization:`Bearer ${token}`}:{}});
+
+export async function fetchProfile(): Promise<User> {
+  const user = await fetchSession();
+  if (!user) throw new Error('Tu sesión venció. Inicia sesión nuevamente.');
+  return user;
 }
