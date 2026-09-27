@@ -8,8 +8,8 @@ export type User = {
   plan?: string;
   features?: string[];
 };
-export type LoginResult = { token?: string; user: User };
-type PhpUser = { uid?: string; id?: string | number; name?: string; email: string; plan?: string; features?: string[] };
+export type LoginResult = { user: User };
+type PhpUser = { uid?: string; id?: string | number; name?: string; email: string; plan?: string; effectivePlan?: string; features?: string[] };
 type PhpResponse<T> = { ok: boolean; data?: T; csrfToken?: string; message?: string };
 
 const endpoint = (action: string) => `${API_BASE_URL}/index.php?action=${encodeURIComponent(action)}`;
@@ -41,7 +41,10 @@ async function phpRequest<T>(action: string, method: 'GET' | 'POST' = 'GET', pay
     if (!response.ok || !result.ok) {
       throw new ApiError(response.status, result.message || 'No se pudo completar la solicitud.');
     }
-    if (!result.data) throw new ApiError(response.status, 'Respuesta incompleta del servidor.');
+    // Some successful actions (e.g. logout) intentionally return an empty data object.
+    if (result.data === undefined || result.data === null) {
+      throw new ApiError(response.status, 'Respuesta incompleta del servidor.');
+    }
     return result.data;
   } catch (error: any) {
     if (error?.name === 'AbortError') throw new ApiError(408, 'La solicitud tardó demasiado.');
@@ -51,7 +54,14 @@ async function phpRequest<T>(action: string, method: 'GET' | 'POST' = 'GET', pay
 }
 
 function normalizeUser(user: PhpUser): User {
-  return { id: user.uid ?? user.id ?? user.email, name: user.name, email: user.email, plan: user.plan, features: user.features };
+  return {
+    id: user.uid ?? user.id ?? user.email,
+    name: user.name,
+    email: user.email,
+    // PHP provides effectivePlan for administrators; this is the authoritative UI plan.
+    plan: user.effectivePlan ?? user.plan,
+    features: user.features,
+  };
 }
 
 export async function fetchSession(): Promise<User | null> {
