@@ -30,5 +30,5 @@ async function handle(input){const file=input.files&&input.files[0];if(!file)ret
 function confirm(){const valid=pending.filter(r=>!r._errors.length&&!r._duplicate);const result=save(valid,pendingName);const box=document.getElementById('sunatImportPreview');if(box)box.innerHTML='<div class="sunat-api-result">✅ '+result.added+' registros importados. Base local acumulada: '+result.total+'. Ya están disponibles para el dashboard y análisis.</div>';pending=[];}
 function clear(){pending=[];pendingName='';const b=document.getElementById('sunatImportPreview');if(b)b.style.display='none';const i=document.getElementById('sunatImportFile');if(i)i.value='';}
 global.DeclarafySunatImport={parseDelimited,parseXml,validate,stored,summary,save};
-global.handleSunatImportFile=handle;global.confirmSunatImport=confirm;global.clearSunatImport=clear;
+global.DeclarafySunatImportUI={handle,confirm,clear};
 })(window);
