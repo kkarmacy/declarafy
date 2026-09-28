@@ -4,7 +4,7 @@
   const domains = [
     { id:'home', label:'Inicio', modules:['Dashboard'] },
     { id:'companies', label:'Mis Empresas', modules:['Plan Empresa','Plan Anual','Mi Perfil'] },
-    { id:'sunat', label:'SUNAT', modules:['Alertas RUC','Consultar SUNAT','Detector PDT','Importar PDT','PDT 621','Multas SUNAT','Fraccionamiento','ITAN','Intereses TIM','Requerimientos','Informes SUNAT','Simulador SUNAT','Ret./Perc.'] },
+    { id:'sunat', label:'SUNAT', modules:['Alertas RUC','Consultar SUNAT','Detector PDT','Importar datos SUNAT','PDT 621','Multas SUNAT','Fraccionamiento','ITAN','Intereses TIM','Requerimientos','Informes SUNAT','Simulador SUNAT','Ret./Perc.'] },
     { id:'accounting', label:'Contabilidad', modules:['Análisis EEFF','Cierre Contable','Depreciaciones','Liquidación','Utilidades','Facturación','Excel / Sheets','Calculadora','Estadísticas'] },
     { id:'legal', label:'Fiscal & Legal', modules:['Cambios Normativos','Monitor Normas','Biblioteca','CDI','Cripto Legal','Cripto/Digital','D. Comparado','INDECOPI','NIIF','Trib. Fiscal','SUNAFIL','Precios Transfer.'] },
     { id:'ai', label:'IA Fiscal', modules:['IA Fiscal','Comparador','Simulador'] },
@@ -23,7 +23,7 @@
     '🔍 Consultar SUNAT':'Consultar SUNAT','📜 Contratos':'Contratos','₿⚖️ Cripto Legal':'Cripto Legal',
     '₿ Cripto/Digital':'Cripto/Digital','🌎 D. Comparado':'D. Comparado','📉 Depreciaciones':'Depreciaciones',
     '🔍 Detector PDT':'Detector PDT','📦 Drawback':'Drawback','📊 Excel / Sheets':'Excel / Sheets','🗂 Expediente':'Expediente',
-    '🧾 Facturación':'Facturación','🏦 Fraccionamiento':'Fraccionamiento','🎯 IA Fiscal':'IA Fiscal','📂 Importar PDT':'Importar PDT',
+    '🧾 Facturación':'Facturación','🏦 Fraccionamiento':'Fraccionamiento','🎯 IA Fiscal':'IA Fiscal','📂 Importar PDT':'Importar datos SUNAT','📂 Importar datos SUNAT':'Importar datos SUNAT',
     '🏛 INDECOPI':'INDECOPI','📑 Informe Ejecutivo':'Informe Ejecutivo','📌 Informes SUNAT':'Informes SUNAT',
     '⏱ Intereses TIM':'Intereses TIM','🏛 ITAN':'ITAN','🧾 Liquidación':'Liquidación','💱 Moneda SBS':'Moneda SBS',
     '📡 Monitor Normas':'Monitor Normas','⚖️ Multas SUNAT':'Multas SUNAT','📐 NIIF':'NIIF','📸 OCR Factura':'OCR Factura',
