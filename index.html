@@ -587,7 +587,7 @@
     <button class="pntab" role="tab" onclick="setPTab('referidos',this)">Referidos 🎁</button>
     <button class="pntab" role="tab" onclick="setPTab('alertas',this)">🔔 Alertas RUC</button>
     <button class="pntab" role="tab" onclick="setPTab('informe',this)">📑 Informe Ejecutivo</button>
-    <button class="pntab" role="tab" onclick="setPTab('pdt_xml',this)">📂 Importar PDT</button>
+    <button class="pntab" role="tab" onclick="setPTab('pdt_xml',this)">📂 Importar datos SUNAT</button>
     <button class="pntab" role="tab" onclick="setPTab('sunat_api',this)">🔍 Consultar SUNAT</button>
     <button class="pntab" role="tab" onclick="setPTab('timeline',this)">📜 Cambios Normativos</button>
     <button class="pntab" role="tab" onclick="setPTab('excel_int',this)">📊 Excel / Sheets</button>
@@ -1319,21 +1319,21 @@
     </div>
   </div>
 
-  <!-- PDT XML ANALYZER -->
+  <!-- SUNAT FILE IMPORT (works without SUNAT API credentials) -->
   <div id="ptPdt_xml" class="pbody" style="display:none">
-    <div class="sec-title" style="margin-bottom:4px">📂 Importar y Analizar Declaración PDT</div>
-    <p style="font-size:14px;color:var(--muted);margin-bottom:18px">Sube tu archivo PDT en formato XML y la IA lo analizará buscando errores, inconsistencias y oportunidades de optimización.</p>
-    <label class="xml-drop" for="xmlFileInput" id="xmlDropZone">
-      <input type="file" id="xmlFileInput" accept=".xml,.txt" style="display:none" onchange="handleXmlFile(this)">
-      <div class="xml-drop-icon">📄</div>
-      <div class="xml-drop-title">Arrastra tu archivo XML aquí</div>
-      <div class="xml-drop-sub">o haz clic para seleccionar · PDT 621, 710, 601</div>
+    <div class="sec-title" style="margin-bottom:4px">📂 Importar datos SUNAT</div>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:10px">Importa la información descargada de SUNAT/SIRE sin conectar tu Clave SOL. Declarafy previsualiza, valida y evita duplicados antes de guardar.</p>
+    <div style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:16px;font-size:13px;color:var(--muted)">🔒 No requiere API SUNAT ni credenciales SOL. Formatos activos: CSV, TXT y XML. Para Excel, exporta temporalmente como CSV UTF-8; el lector XLSX se incorporará en la siguiente iteración.</div>
+    <label class="xml-drop" for="sunatImportFile" id="sunatImportDropZone">
+      <input type="file" id="sunatImportFile" accept=".csv,.txt,.xml,.xlsx,.xls" style="display:none" onchange="handleSunatImportFile(this)">
+      <div class="xml-drop-icon">📥</div>
+      <div class="xml-drop-title">Selecciona el archivo descargado de SUNAT/SIRE</div>
+      <div class="xml-drop-sub">CSV · TXT · XML · previsualización antes de importar</div>
     </label>
-    <div class="xml-analysis" id="xmlAnalysis">
-      <div class="xml-summary" id="xmlSummary"></div>
-      <div class="sec-title" style="margin-bottom:10px">Hallazgos del análisis</div>
-      <div class="xml-findings" id="xmlFindings"></div>
-      <button onclick="askAIAboutXML()" style="margin-top:14px;width:100%;padding:10px;border-radius:8px;background:var(--gold);border:none;color:var(--dark);font-size:14px;font-weight:500;cursor:pointer;font-family:inherit">✨ Analizar con IA en profundidad</button>
+    <div id="sunatImportPreview" style="display:none;margin-top:16px"></div>
+    <div style="margin-top:18px;padding:14px;border:1px solid var(--border);border-radius:10px">
+      <strong>Flujo de trabajo</strong>
+      <div style="font-size:13px;color:var(--muted);margin-top:6px">SUNAT/SIRE → descargar archivo → subir a Declarafy → validar → importar → dashboard y análisis. Cuando tengamos la API oficial, la sincronización automática se conectará sobre esta misma capa de datos.</div>
     </div>
   </div>
 
@@ -5529,6 +5529,7 @@ End Function</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="/app.js?v=20260915-1" defer></script>
 <script src="/frontend-ui.js?v=20260915-1" defer></script>
+<script src="/src/modules/sunat-file-import.js?v=20260928-1" defer></script>
 <script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js?v=14').then(reg => {
