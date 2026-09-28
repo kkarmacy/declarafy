@@ -829,7 +829,7 @@ function _ptSectionId(tab) {
 function setPTab(tab, btn) {
   PT_TAB_NAMES.forEach(t => {
     const el = document.getElementById(_ptSectionId(t));
-    if (el) el.style.display = (t === tab) ? '' : 'none';
+    if (el) { el.style.display = (t === tab) ? '' : 'none'; el.hidden = (t !== tab); }
   });
   // Some legacy utility/legal panels intentionally predate the pbody class.
   // Hide/show them explicitly so navigation remains deterministic.
