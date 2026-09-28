@@ -805,6 +805,10 @@ async function _sendMsgLayer1(txt) {
 }
 
 // Update setPTab to load profile form when visiting perfil tab
+function handleSunatImportFile(input) { return window.DeclarafySunatImportUI?.handle(input); }
+function confirmSunatImport() { return window.DeclarafySunatImportUI?.confirm(); }
+function clearSunatImport() { return window.DeclarafySunatImportUI?.clear(); }
+
 const PT_TAB_NAMES = ['admin','alertas','api_access','bcr','biblioteca','calculadora','calendario','cartas','casos','cdi','cierre','comparado','comparador','contratos_gen','cripto','cripto_legal','depreciacion','detector_pdt','drawback','eeff','empresa_hub','especializados','estadisticas','excel_int','expediente','facturacion','fraccionamiento','generador','historial','hs_clasificador','ia_fisc','indecopi','informe','inicio','itan','lavado','liquidacion','moneda','monitor','multas','niif','ocr_factura','pdt621','pdt_xml','perfil','plan_anual','privacidad','pt_modulo','referidos','requerimiento','ret_perc','rtf','sbs','simulador','simulador_esc','smv','sugerencias','sunafil','sunat_api','sunat_inf','terminos','tim','timeline','utilidades','widget','zonas','nomina','moras_sunat','importacion','selector_regimen','pdt_gen','radar_norm','concil_banc','cts_gratif','docs_legales','withholding','analisis_avanz','compliance','spot','arbitrios','renta_anual','perdida','tregistro','suspension','flujo_caja','guias_remision','validador','tea_multas','rmt_rer','amazonia','rus','cierre_fiscal','tim_historico','compensacion','exon_detraccion','recurso_multa','saldo_export','horas_extras','reg_agrario','afp_comisiones','asignacion_fam','leasing','conversor_tasas','isc','mineria','verificador_ruc','proyeccion_afp','analizador_contratos','itf','ir_5ta','dividendos','no_domiciliados','cas','royalties','afp_onp','percepciones','notas_credito','factura_electronica','rectificatoria','essalud_senati','onp','cobranza_coactiva','donaciones','sucesiones','cripto_portfolio'];
 function _ptKey(value) { return String(value || '').replace(/[^a-z0-9]/gi, '').toLowerCase(); }
 function _ptSectionId(tab) {
