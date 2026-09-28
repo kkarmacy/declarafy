@@ -1887,7 +1887,8 @@ setPTab = function(tab, btn) {
     if (s && curUser?.ruc) s.value = curUser.ruc;
   }
   if (tab === 'pdt_xml') {
-    document.getElementById('xmlAnalysis').style.display = 'none';
+    const xmlAnalysis = document.getElementById('xmlAnalysis');
+    if (xmlAnalysis) xmlAnalysis.style.display = 'none';
     document.getElementById('xmlDropZone')?.classList.remove('dragover');
   }
   if (tab === 'excel_int') {
