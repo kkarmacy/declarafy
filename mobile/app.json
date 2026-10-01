@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Declarafy",
+    "slug": "declarafy",
+    "scheme": "declarafy",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": ["expo-router"],
+    "ios": {"supportsTablet": true, "bundleIdentifier": "com.declarafy.app"},
+    "android": {"package": "com.declarafy.app"},
+    "extra": {"apiBaseUrl": "https://declarafy.com/api"}
+  }
+}
