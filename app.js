@@ -3826,9 +3826,56 @@ async function doRegisterFB() {
       if (_paidLink) window.open(_paidLink, '_blank');
       setTimeout(() => { hideAuth(); goPanel(); if (!curUser.onboarded) setTimeout(() => showOnboarding(), 600); }, 900);
     } catch(e) {
+      // Recovery for interrupted signups: Firebase Auth may have created the
+      // identity before profile/Firestore persistence failed. Never delete it.
+      if (e.code === 'auth/email-already-in-use') {
+        try {
+          const existingCred = await fbAuth.signInWithEmailAndPassword(em, pw);
+          const existingUser = existingCred.user;
+          const userRef = fbDb.collection('users').doc(existingUser.uid);
+          const userDoc = await userRef.get();
+          if (userDoc.exists) {
+            // Preserve the existing profile, plan, quota and referral data.
+            curUser = { ...userDoc.data(), uid: existingUser.uid, email: em };
+          } else {
+            // Complete only the missing profile for a verified owner of this
+            // Firebase identity; set defaults only because no profile exists.
+            const refCode = localStorage.getItem('tp_ref') || '';
+            const recoveredUser = {
+              name: existingUser.displayName || nm,
+              email: em,
+              uid: existingUser.uid,
+              plan: 'basico',
+              mc: 0,
+              since: new Date().toLocaleDateString('es-PE', {day:'2-digit',month:'short',year:'numeric'}),
+              refBy: refCode,
+              onboarded: false,
+              regimen: '',
+              sector: '',
+              ruc: ''
+            };
+            await userRef.set(recoveredUser, { merge: true });
+            curUser = recoveredUser;
+            if (refCode) localStorage.removeItem('tp_ref');
+          }
+          localStorage.setItem('tp_s', JSON.stringify({e:em,t:Date.now()}));
+          showAuthLoading(false);
+          aok('Recuperamos tu registro anterior. Ingresando...');
+          setTimeout(() => { hideAuth(); kvLoadAll().then(() => goPanel()); }, 500);
+          return;
+        } catch(recoveryError) {
+          console.warn('Declarafy interrupted registration recovery failed:', recoveryError.code || recoveryError.message);
+          showAuthLoading(false);
+          if (recoveryError.code === 'auth/wrong-password' || recoveryError.code === 'auth/invalid-credential') {
+            aerr('Este correo tiene una cuenta previa o un registro incompleto. Inicia sesión con tu contraseña o usa “¿Olvidaste tu contraseña?” para recuperar el acceso.');
+          } else {
+            aerr('Encontramos una cuenta previa, pero no pudimos completar la recuperación automáticamente. No se eliminó ningún dato. Inicia sesión o usa “¿Olvidaste tu contraseña?”.');
+          }
+          return;
+        }
+      }
       showAuthLoading(false);
       const msgs = {
-        'auth/email-already-in-use':'Ya existe una cuenta con ese correo.',
         'auth/weak-password':'Contraseña muy débil.',
         'auth/invalid-email':'Correo inválido.',
         'auth/network-request-failed':'No se pudo conectar con el servidor. Revisa tu conexión e intenta nuevamente.',
