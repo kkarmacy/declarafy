@@ -245,7 +245,28 @@ switch ($action) {
         try {
             $stmt->execute([public_id(), $name, $email, password_hash($password, PASSWORD_DEFAULT), $refBy]);
         } catch (PDOException $error) {
-            if ((string) $error->getCode() === '23000') fail_request('auth/email-already-in-use', 'Ya existe una cuenta con ese correo.', 409);
+            if ((string) $error->getCode() === '23000') {
+                // A previous registration may have committed before the browser lost its response.
+                // Only recover the existing account when the submitted password proves ownership.
+                $existingStmt = $pdo->prepare('SELECT id, password_hash FROM users WHERE email = ? LIMIT 1');
+                $existingStmt->execute([$email]);
+                $existing = $existingStmt->fetch();
+                if ($existing && password_verify($password, (string) $existing['password_hash'])) {
+                    session_regenerate_id(true);
+                    $_SESSION['user_id'] = (int) $existing['id'];
+                    $_SESSION['csrf'] = bin2hex(random_bytes(32));
+                    respond([
+                        'user' => client_user(user_row($pdo, (int) $_SESSION['user_id'])),
+                        'registrationRecovered' => true,
+                        'message' => 'Tu cuenta ya estaba creada. Recuperamos tu acceso.'
+                    ]);
+                }
+                fail_request(
+                    'auth/email-already-in-use',
+                    'Este correo ya tiene una cuenta. Inicia sesión o usa «¿Olvidaste tu contraseña?» para recuperar el acceso.',
+                    409
+                );
+            }
             throw $error;
         }
         session_regenerate_id(true);
