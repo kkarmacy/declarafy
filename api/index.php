@@ -246,8 +246,8 @@ switch ($action) {
             $stmt->execute([public_id(), $name, $email, password_hash($password, PASSWORD_DEFAULT), $refBy]);
         } catch (PDOException $error) {
             if ((string) $error->getCode() === '23000') {
-                // A previous registration may have committed before the browser lost its response.
-                // Only recover the existing account when the submitted password proves ownership.
+                // Only classify this as a duplicate email after confirming the email row exists.
+                // SQLSTATE 23000 also covers other integrity constraints (for example public_id).
                 $existingStmt = $pdo->prepare('SELECT id, password_hash FROM users WHERE email = ? LIMIT 1');
                 $existingStmt->execute([$email]);
                 $existing = $existingStmt->fetch();
@@ -261,10 +261,21 @@ switch ($action) {
                         'message' => 'Tu cuenta ya estaba creada. Recuperamos tu acceso.'
                     ]);
                 }
+                if ($existing) {
+                    fail_request(
+                        'auth/email-already-in-use',
+                        'Este correo ya tiene una cuenta. Inicia sesión o usa «¿Olvidaste tu contraseña?» para recuperar el acceso.',
+                        409
+                    );
+                }
+
+                // Log diagnostic identifiers only: never log the email, password, or SQL values.
+                $driverCode = (int) ($error->errorInfo[1] ?? 0);
+                error_log('Declarafy registration integrity constraint failed; SQLSTATE=23000; driver_code=' . $driverCode);
                 fail_request(
-                    'auth/email-already-in-use',
-                    'Este correo ya tiene una cuenta. Inicia sesión o usa «¿Olvidaste tu contraseña?» para recuperar el acceso.',
-                    409
+                    'server/database-error',
+                    'No se pudo completar el registro por un problema de datos. Intenta nuevamente más tarde.',
+                    503
                 );
             }
             throw $error;
