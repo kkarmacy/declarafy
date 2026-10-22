@@ -1,0 +1,55 @@
+name: Deploy Declarafy to Namecheap
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: declarafy-namecheap-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check required deployment secrets
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_SERVER_DIR: ${{ secrets.FTP_SERVER_DIR }}
+        run: |
+          test -n "$FTP_SERVER" || (echo "Missing GitHub secret FTP_SERVER" && exit 1)
+          test -n "$FTP_USERNAME" || (echo "Missing GitHub secret FTP_USERNAME" && exit 1)
+          test -n "$FTP_PASSWORD" || (echo "Missing GitHub secret FTP_PASSWORD" && exit 1)
+          test -n "$FTP_SERVER_DIR" || (echo "Missing GitHub secret FTP_SERVER_DIR" && exit 1)
+      - uses: actions/checkout@v4
+      - name: Deploy site files to Namecheap
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          dangerous-clean-slate: false
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/playwright-report/**
+            **/test-results/**
+            **/.env
+            **/.env.*
+            **/api/config.local.php
+            **/config.local.php
+            **/*.pem
+            **/*.key
+            **/service-account*.json
+            **/*serviceAccount*.json
