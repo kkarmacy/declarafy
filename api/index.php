@@ -269,7 +269,7 @@ switch ($action) {
                     );
                 }
 
-                // Log only the constraint identifier, never the duplicate value, email, password, or full SQL error.
+                // Log diagnostic identifiers only: never log the email, password, or SQL values.
                 $driverCode = (int) ($error->errorInfo[1] ?? 0);
                 $driverMessage = (string) ($error->errorInfo[2] ?? '');
                 $constraint = 'unknown';
