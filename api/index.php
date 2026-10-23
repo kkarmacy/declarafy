@@ -271,7 +271,12 @@ switch ($action) {
 
                 // Log diagnostic identifiers only: never log the email, password, or SQL values.
                 $driverCode = (int) ($error->errorInfo[1] ?? 0);
-                error_log('Declarafy registration integrity constraint failed; SQLSTATE=23000; driver_code=' . $driverCode);
+                $driverMessage = (string) ($error->errorInfo[2] ?? '');
+                $constraint = 'unknown';
+                if (preg_match("/for key ['`]([^'`]+)['`]/i", $driverMessage, $matches)) {
+                    $constraint = preg_replace('/[^a-zA-Z0-9_.-]/', '', (string) $matches[1]);
+                }
+                error_log('Declarafy registration integrity constraint failed; SQLSTATE=23000; driver_code=' . $driverCode . '; key=' . $constraint);
                 fail_request(
                     'server/database-error',
                     'No se pudo completar el registro por un problema de datos. Intenta nuevamente más tarde.',
