@@ -241,9 +241,20 @@ switch ($action) {
         $email = clean_email($body['email'] ?? '');
         $password = clean_password($body['password'] ?? '');
         $refBy = mb_substr(trim((string) ($body['refBy'] ?? '')), 0, 80);
-        $stmt = $pdo->prepare('INSERT INTO users (public_id, name, email, password_hash, ref_by) VALUES (?, ?, ?, ?, ?)');
+        // Production may have a referral_code column absent from older schema.sql versions.
+        // If present, explicitly generate a random code instead of relying on a possibly duplicated DB default.
+        $hasReferralCode = (bool) $pdo->query("SHOW COLUMNS FROM users LIKE 'referral_code'")->fetch();
+        $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+        if ($hasReferralCode) {
+            $referralCode = strtoupper(bin2hex(random_bytes(6)));
+            $stmt = $pdo->prepare('INSERT INTO users (public_id, name, email, password_hash, ref_by, referral_code) VALUES (?, ?, ?, ?, ?, ?)');
+            $insertValues = [public_id(), $name, $email, $passwordHash, $refBy, $referralCode];
+        } else {
+            $stmt = $pdo->prepare('INSERT INTO users (public_id, name, email, password_hash, ref_by) VALUES (?, ?, ?, ?, ?)');
+            $insertValues = [public_id(), $name, $email, $passwordHash, $refBy];
+        }
         try {
-            $stmt->execute([public_id(), $name, $email, password_hash($password, PASSWORD_DEFAULT), $refBy]);
+            $stmt->execute($insertValues);
         } catch (PDOException $error) {
             if ((string) $error->getCode() === '23000') {
                 // Only classify this as a duplicate email after confirming the email row exists.
@@ -269,9 +280,14 @@ switch ($action) {
                     );
                 }
 
-                // Log diagnostic identifiers only: never log the email, password, or SQL values.
+                // Log the constraint name only; never log duplicate values, email, password, or SQL values.
                 $driverCode = (int) ($error->errorInfo[1] ?? 0);
-                error_log('Declarafy registration integrity constraint failed; SQLSTATE=23000; driver_code=' . $driverCode);
+                $driverMessage = (string) ($error->errorInfo[2] ?? '');
+                $constraint = 'unknown';
+                if (preg_match("/for key ['`]([^'`]+)['`]/i", $driverMessage, $matches)) {
+                    $constraint = preg_replace('/[^a-zA-Z0-9_.-]/', '', (string) $matches[1]);
+                }
+                error_log('Declarafy registration integrity constraint failed; SQLSTATE=23000; driver_code=' . $driverCode . '; key=' . $constraint);
                 fail_request(
                     'server/database-error',
                     'No se pudo completar el registro por un problema de datos. Intenta nuevamente más tarde.',
