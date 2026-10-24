@@ -890,8 +890,7 @@ switch ($action) {
         }
 
         // No devolver ni registrar access_token, refresh_token ni credenciales.
-        raw_json_response([
-            'ok' => true,
+        respond([
             'service' => $serviceKey,
             'service_name' => $service['name'],
             'message' => 'SUNAT emitió un token para el alcance solicitado. Aún falta validar una operación real de este servicio.',
