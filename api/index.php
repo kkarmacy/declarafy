@@ -809,23 +809,40 @@ switch ($action) {
         $sunatUser = user_row($pdo, $sunatUserId);
         if (!is_admin($config, $sunatUser)) fail_request('auth/forbidden', 'Solo el administrador puede probar la conexión SUNAT.', 403);
 
+        // Lista permitida: el navegador solo puede elegir un servicio conocido.
+        // Esto prueba la obtención de token para ese scope; no confirma acceso a la API funcional.
+        $sunatServices = [
+            'controlcpe' => ['name' => 'MIGE Gestión Factoring', 'scope' => '/v1/contribuyente/controlcpe'],
+            'controlmsg' => ['name' => 'Control de mensajes y alertas', 'scope' => '/v1/contribuyente/controlmsg'],
+            'enviossp' => ['name' => 'SSPP Receptor XML', 'scope' => '/v1/contribuyente/enviossp'],
+            'programacion' => ['name' => 'Consulta ACE', 'scope' => '/v1/controladuanero/programacion'],
+            'documentossustentatorios' => ['name' => 'Transmisión de documentos digitalizados', 'scope' => '/v1/controladuanero/documentossustentatorios'],
+            'salida' => ['name' => 'Control Aduanero Salida', 'scope' => '/v1/controladuanero/salida'],
+            'autorizacionsalida' => ['name' => 'Declaraciones asociadas a documentos de transporte', 'scope' => '/v1/controladuanero/autorizacionsalida'],
+            'ingreso' => ['name' => 'Control Aduanero Ingreso', 'scope' => '/v1/controladuanero/ingreso'],
+        ];
+
+        $body = request_body();
+        $serviceKey = trim((string) ($body['service'] ?? ''));
+        if (!isset($sunatServices[$serviceKey])) {
+            fail_request('sunat/invalid-service', 'Selecciona uno de los ocho servicios SUNAT habilitados para la prueba.', 400);
+        }
+        $service = $sunatServices[$serviceKey];
+        $scope = $service['scope'];
+
         $clientId = trim((string) ($config['sunat_client_id'] ?? ''));
         $clientSecret = (string) ($config['sunat_client_secret'] ?? '');
-        $ruc = preg_replace('/\D/', '', (string) ($config['sunat_query_ruc'] ?? '')) ?? '';
+        $ruc = preg_replace('/\\D/', '', (string) ($config['sunat_query_ruc'] ?? '')) ?? '';
         $solUser = trim((string) ($config['sunat_sol_username'] ?? ''));
         $solPassword = (string) ($config['sunat_sol_password'] ?? '');
-        $scope = trim((string) ($config['sunat_oauth_scope'] ?? ''));
 
         if ($clientId === '' || $clientSecret === '' || !preg_match('/^(10|15|17|20)[0-9]{9}$/', $ruc)
-            || $solUser === '' || $solPassword === '' || $scope === '') {
-            fail_request('sunat/not-configured', 'Falta configurar credenciales y scope SUNAT en api/config.local.php.', 503);
-        }
-        if (strlen($scope) > 300 || preg_match('/[\r\n]/', $scope)) {
-            fail_request('sunat/invalid-scope', 'El scope SUNAT configurado no es válido.', 400);
+            || $solUser === '' || $solPassword === '') {
+            fail_request('sunat/not-configured', 'Faltan credenciales SUNAT en api/config.local.php.', 503);
         }
 
-        // SUNAT documenta el flujo clientessol/password para servicios que requieren usuario SOL.
-        // El RUC se concatena al usuario SOL, según el formato requerido por el endpoint.
+        // Este flujo clientessol/password solo aplica a servicios que aceptan usuario SOL.
+        // El RUC se concatena al usuario SOL según el formato del endpoint.
         $tokenUrl = 'https://api-seguridad.sunat.gob.pe/v1/clientessol/' . rawurlencode($clientId) . '/oauth2/token/';
         $curl = curl_init($tokenUrl);
         curl_setopt_array($curl, [
@@ -860,11 +877,13 @@ switch ($action) {
         }
         if ($sunatStatus < 200 || $sunatStatus >= 300 || empty($sunatPayload['access_token'])) {
             $sunatError = preg_replace('/[^A-Za-z0-9_.-]/', '', (string) ($sunatPayload['error'] ?? 'oauth_failed'));
-            error_log('Declarafy SUNAT OAuth rejected request; HTTP ' . $sunatStatus . '; error=' . $sunatError);
+            error_log('Declarafy SUNAT OAuth rejected request; HTTP ' . $sunatStatus . '; service=' . $serviceKey . '; error=' . $sunatError);
             raw_json_response([
                 'ok' => false,
+                'service' => $serviceKey,
+                'service_name' => $service['name'],
                 'error' => 'sunat/oauth-rejected',
-                'message' => 'SUNAT rechazó la autenticación. Verifica client_id/client_secret, RUC + usuario SOL, Clave SOL y el scope exacto del servicio.',
+                'message' => 'SUNAT rechazó la autenticación para este alcance. Verifica que el servicio esté asociado a la aplicación y que acepte el flujo usuario SOL/password.',
                 'sunat_http_status' => $sunatStatus,
                 'sunat_error' => $sunatError,
             ], 502);
@@ -873,7 +892,9 @@ switch ($action) {
         // No devolver ni registrar access_token, refresh_token ni credenciales.
         raw_json_response([
             'ok' => true,
-            'message' => 'Autenticación OAuth con SUNAT correcta.',
+            'service' => $serviceKey,
+            'service_name' => $service['name'],
+            'message' => 'SUNAT emitió un token para el alcance solicitado. Aún falta validar una operación real de este servicio.',
             'sunat_http_status' => $sunatStatus,
             'token_type' => (string) ($sunatPayload['token_type'] ?? 'Bearer'),
             'expires_in' => isset($sunatPayload['expires_in']) ? (int) $sunatPayload['expires_in'] : null,
