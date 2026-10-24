@@ -812,7 +812,7 @@ switch ($action) {
         // Lista permitida: el navegador solo puede elegir un servicio conocido.
         // Esto prueba la obtención de token para ese scope; no confirma acceso a la API funcional.
         $sunatServices = [
-            'controlcpe' => ['name' => 'MIGE Gestión Factoring', 'scope' => '/v1/contribuyente/controlcpe'],
+            'controlcpe' => ['name' => 'MIGE Gestión Factoring', 'scope' => 'https://api-cpe.sunat.gob.pe'],
             'controlmsg' => ['name' => 'Control de mensajes y alertas', 'scope' => '/v1/contribuyente/controlmsg'],
             'enviossp' => ['name' => 'SSPP Receptor XML', 'scope' => '/v1/contribuyente/enviossp'],
             'programacion' => ['name' => 'Consulta ACE', 'scope' => '/v1/controladuanero/programacion'],
