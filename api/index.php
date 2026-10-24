@@ -811,7 +811,7 @@ switch ($action) {
 
         $clientId = trim((string) ($config['sunat_client_id'] ?? ''));
         $clientSecret = (string) ($config['sunat_client_secret'] ?? '');
-        $ruc = preg_replace('/\\D/', '', (string) ($config['sunat_query_ruc'] ?? '')) ?? '';
+        $ruc = preg_replace('/\D/', '', (string) ($config['sunat_query_ruc'] ?? '')) ?? '';
         $solUser = trim((string) ($config['sunat_sol_username'] ?? ''));
         $solPassword = (string) ($config['sunat_sol_password'] ?? '');
         $scope = trim((string) ($config['sunat_oauth_scope'] ?? ''));
@@ -820,7 +820,7 @@ switch ($action) {
             || $solUser === '' || $solPassword === '' || $scope === '') {
             fail_request('sunat/not-configured', 'Falta configurar credenciales y scope SUNAT en api/config.local.php.', 503);
         }
-        if (strlen($scope) > 300 || preg_match('/[\\r\\n]/', $scope)) {
+        if (strlen($scope) > 300 || preg_match('/[\r\n]/', $scope)) {
             fail_request('sunat/invalid-scope', 'El scope SUNAT configurado no es válido.', 400);
         }
 
