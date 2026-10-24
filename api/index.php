@@ -802,6 +802,85 @@ switch ($action) {
         }
         respond(['saved' => true]);
 
+
+    case 'sunat_auth_test':
+        require_method('POST');
+        $sunatUserId = require_user();
+        $sunatUser = user_row($pdo, $sunatUserId);
+        if (!is_admin($config, $sunatUser)) fail_request('auth/forbidden', 'Solo el administrador puede probar la conexión SUNAT.', 403);
+
+        $clientId = trim((string) ($config['sunat_client_id'] ?? ''));
+        $clientSecret = (string) ($config['sunat_client_secret'] ?? '');
+        $ruc = preg_replace('/\D/', '', (string) ($config['sunat_query_ruc'] ?? '')) ?? '';
+        $solUser = trim((string) ($config['sunat_sol_username'] ?? ''));
+        $solPassword = (string) ($config['sunat_sol_password'] ?? '');
+        $scope = trim((string) ($config['sunat_oauth_scope'] ?? ''));
+
+        if ($clientId === '' || $clientSecret === '' || !preg_match('/^(10|15|17|20)[0-9]{9}$/', $ruc)
+            || $solUser === '' || $solPassword === '' || $scope === '') {
+            fail_request('sunat/not-configured', 'Falta configurar credenciales y scope SUNAT en api/config.local.php.', 503);
+        }
+        if (strlen($scope) > 300 || preg_match('/[\r\n]/', $scope)) {
+            fail_request('sunat/invalid-scope', 'El scope SUNAT configurado no es válido.', 400);
+        }
+
+        // SUNAT documenta el flujo clientessol/password para servicios que requieren usuario SOL.
+        // El RUC se concatena al usuario SOL, según el formato requerido por el endpoint.
+        $tokenUrl = 'https://api-seguridad.sunat.gob.pe/v1/clientessol/' . rawurlencode($clientId) . '/oauth2/token/';
+        $curl = curl_init($tokenUrl);
+        curl_setopt_array($curl, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 8,
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => ['Accept: application/json', 'Content-Type: application/x-www-form-urlencoded'],
+            CURLOPT_POSTFIELDS => http_build_query([
+                'grant_type' => 'password',
+                'scope' => $scope,
+                'client_id' => $clientId,
+                'client_secret' => $clientSecret,
+                'username' => $ruc . $solUser,
+                'password' => $solPassword,
+            ], '', '&', PHP_QUERY_RFC3986),
+        ]);
+        $sunatRaw = curl_exec($curl);
+        $sunatStatus = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        $sunatCurlError = curl_error($curl);
+        curl_close($curl);
+
+        if ($sunatRaw === false) {
+            error_log('Declarafy SUNAT OAuth connection failed: ' . $sunatCurlError);
+            fail_request('sunat/connection-failed', 'No se pudo conectar con SUNAT. Revisa cURL, SSL y conectividad del hosting.', 502);
+        }
+        $sunatPayload = json_decode($sunatRaw, true);
+        if (!is_array($sunatPayload)) {
+            error_log('Declarafy SUNAT OAuth returned non-JSON response; HTTP ' . $sunatStatus);
+            fail_request('sunat/invalid-response', 'SUNAT devolvió una respuesta no válida.', 502);
+        }
+        if ($sunatStatus < 200 || $sunatStatus >= 300 || empty($sunatPayload['access_token'])) {
+            $sunatError = preg_replace('/[^A-Za-z0-9_.-]/', '', (string) ($sunatPayload['error'] ?? 'oauth_failed'));
+            error_log('Declarafy SUNAT OAuth rejected request; HTTP ' . $sunatStatus . '; error=' . $sunatError);
+            raw_json_response([
+                'ok' => false,
+                'error' => 'sunat/oauth-rejected',
+                'message' => 'SUNAT rechazó la autenticación. Verifica client_id/client_secret, RUC + usuario SOL, Clave SOL y el scope exacto del servicio.',
+                'sunat_http_status' => $sunatStatus,
+                'sunat_error' => $sunatError,
+            ], 502);
+        }
+
+        // No devolver ni registrar access_token, refresh_token ni credenciales.
+        raw_json_response([
+            'ok' => true,
+            'message' => 'Autenticación OAuth con SUNAT correcta.',
+            'sunat_http_status' => $sunatStatus,
+            'token_type' => (string) ($sunatPayload['token_type'] ?? 'Bearer'),
+            'expires_in' => isset($sunatPayload['expires_in']) ? (int) $sunatPayload['expires_in'] : null,
+            'scope' => $scope,
+            'token_received' => true,
+        ]);
+
     case 'public_api':
         require_method('POST');
         rate_limit($pdo, 'public_api', 30, 60);

@@ -47,3 +47,17 @@ Configura en Culqi el webhook:
 `https://www.declarafy.com/api/index.php?action=culqi_webhook`
 
 El servidor vuelve a consultar el cargo directamente a Culqi antes de activar un plan. Se reconocen los importes mensuales y anuales publicados en la web; el navegador no puede asignarse un plan por sí mismo.
+
+
+## 6. Prueba controlada de autenticación OAuth SUNAT
+
+La acción administrativa `POST /api/index.php?action=sunat_auth_test` prueba la obtención de un token sin exponerlo al navegador. Requiere una sesión autenticada de superadministrador y la protección de mutaciones que ya aplica el backend. No modifica datos tributarios ni consulta comprobantes.
+
+Antes de probar:
+
+1. Si decides conservar el `client_secret` actual, puedes configurarlo de forma privada en el servidor; ten presente que compartirlo fuera del servidor aumenta el riesgo de uso no autorizado. No lo vuelvas a copiar en chats, capturas ni código fuente.
+2. En el servidor, configura únicamente en `api/config.local.php` los campos `sunat_client_id`, `sunat_client_secret`, `sunat_query_ruc`, `sunat_sol_username`, `sunat_sol_password` y `sunat_oauth_scope`.
+3. En `sunat_sol_username`, coloca solo el usuario SOL, sin RUC. En `sunat_oauth_scope`, usa el scope exacto documentado para el servicio que se probará; no se asume que todos los servicios compartan scope o flujo.
+4. Invoca la acción desde una sesión de superadministrador con el mecanismo CSRF/seguridad de mutaciones que use la instalación. La respuesta indica únicamente si se recibió token, el estado HTTP y la expiración; nunca devuelve el token ni credenciales.
+
+Este primer test usa el flujo `clientessol/password` de SUNAT para servicios que requieren Clave SOL. Si el servicio seleccionado documenta otro flujo OAuth (por ejemplo, `client_credentials`), no uses esta prueba para ese servicio: debe implementarse el flujo específico antes de probarlo.

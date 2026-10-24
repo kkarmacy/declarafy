@@ -19,6 +19,10 @@ return [
     'sunat_client_id' => '',
     'sunat_client_secret' => '',
     'sunat_query_ruc' => '',
+    // OAuth SUNAT para servicios que requieren Clave SOL (mantener solo en config.local.php).
+    'sunat_sol_username' => '', // usuario SOL, sin el RUC
+    'sunat_sol_password' => '', // Clave SOL; nunca subirla a GitHub
+    'sunat_oauth_scope' => '', // scope exacto del servicio a probar, por ejemplo /v1/contribuyente/controlmsg
     'culqi_private_key' => '',
     'mail_from' => 'no-reply@declarafy.com',
 ];
