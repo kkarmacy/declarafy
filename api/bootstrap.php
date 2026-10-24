@@ -24,6 +24,8 @@ $config = [
     'sunat_client_id' => trim((string) env_value('DECLARAFY_SUNAT_CLIENT_ID', $fileConfig['sunat_client_id'] ?? '')),
     'sunat_client_secret' => (string) env_value('DECLARAFY_SUNAT_CLIENT_SECRET', $fileConfig['sunat_client_secret'] ?? ''),
     'sunat_query_ruc' => preg_replace('/\D/', '', (string) env_value('DECLARAFY_SUNAT_QUERY_RUC', $fileConfig['sunat_query_ruc'] ?? '')),
+    'sunat_sol_username' => trim((string) env_value('DECLARAFY_SUNAT_SOL_USERNAME', $fileConfig['sunat_sol_username'] ?? '')),
+    'sunat_sol_password' => (string) env_value('DECLARAFY_SUNAT_SOL_PASSWORD', $fileConfig['sunat_sol_password'] ?? ''),
     'culqi_private_key' => (string) env_value('CULQI_PRIVATE_KEY', $fileConfig['culqi_private_key'] ?? ''),
     'mail_from' => (string) env_value('DECLARAFY_MAIL_FROM', $fileConfig['mail_from'] ?? 'no-reply@declarafy.com'),
 ];
