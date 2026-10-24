@@ -9067,7 +9067,39 @@ function _validPeruvianRuc(ruc) {
   return Number(ruc[10]) === (remainder === 0 ? 0 : 11 - remainder);
 }
 
+function updateSunatAuthAdminTools() {
+  const panel = document.getElementById('sunatAuthAdminTools');
+  if (panel) panel.style.display = isAdminUser() ? 'block' : 'none';
+}
+
+async function testSunatAuthService() {
+  if (!isAdminUser()) {
+    tpToast('Solo el superadministrador puede probar la autenticación SUNAT.', 'warn');
+    return;
+  }
+  const selector = document.getElementById('sunatAuthService');
+  const button = document.getElementById('sunatAuthTestButton');
+  const result = document.getElementById('sunatAuthTestResult');
+  const service = selector?.value || '';
+  if (!result || !service) return;
+  if (button) { button.disabled = true; button.textContent = 'Probando…'; }
+  result.textContent = 'Contactando SUNAT desde el servidor…';
+  result.style.color = 'var(--muted)';
+  try {
+    const data = await declarafyApi('sunat_auth_test', { body: { service } });
+    result.textContent = (data.message || 'SUNAT emitió un token.') +
+      (data.expires_in ? ' Duración informada: ' + data.expires_in + ' segundos.' : '');
+    result.style.color = 'var(--green, #16803c)';
+  } catch (error) {
+    result.textContent = error.message || 'No se pudo completar la prueba.';
+    result.style.color = 'var(--red, #b42318)';
+  } finally {
+    if (button) { button.disabled = false; button.textContent = 'Probar autenticación'; }
+  }
+}
+
 async function loadSunatStatus() {
+  updateSunatAuthAdminTools();
   const targets = document.querySelectorAll('[data-sunat-status]');
   if (!targets.length) return;
   try {
