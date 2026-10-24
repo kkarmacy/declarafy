@@ -816,7 +816,7 @@ switch ($action) {
             'controlmsg' => ['name' => 'Control de mensajes y alertas', 'scope' => '/v1/contribuyente/controlmsg'],
             'enviossp' => ['name' => 'SSPP Receptor XML', 'scope' => '/v1/contribuyente/enviossp'],
             'programacion' => ['name' => 'Consulta ACE', 'scope' => '/v1/controladuanero/programacion'],
-            'documentossustentatorios' => ['name' => 'Transmisión de documentos digitalizados', 'scope' => '/v1/controladuanero/documentossustentatorios'],
+            'documentossustentatorios' => ['name' => 'Transmisión de documentos digitalizados', 'scope' => ''],
             'salida' => ['name' => 'Control Aduanero Salida', 'scope' => '/v1/controladuanero/salida'],
             'autorizacionsalida' => ['name' => 'Declaraciones asociadas a documentos de transporte', 'scope' => '/v1/controladuanero/autorizacionsalida'],
             'ingreso' => ['name' => 'Control Aduanero Ingreso', 'scope' => '/v1/controladuanero/ingreso'],
