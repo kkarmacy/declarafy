@@ -1342,6 +1342,24 @@
     <div class="sec-title" style="margin-bottom:4px">🔍 Consultor SUNAT en Tiempo Real</div>
     <p style="font-size:14px;color:var(--muted);margin-bottom:16px">Acceso seguro a los servicios oficiales: consulta pública de RUC, SUNAT Operaciones en Línea y validación CPE desde DeclaraFY.</p>
     <div class="sunat-connection-status" data-sunat-status><div class="sunat-status-item">Comprobando conexiones SUNAT…</div></div>
+    <div id="sunatAuthAdminTools" style="display:none;margin:16px 0;padding:16px;border:1px solid var(--border);border-radius:10px">
+      <strong>🔐 Prueba de autenticación SUNAT (administrador)</strong>
+      <p style="font-size:13px;color:var(--muted);margin:6px 0 12px">Selecciona un servicio a la vez. Esta prueba verifica la emisión de token; no ejecuta operaciones tributarias.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="sunatAuthService" aria-label="Servicio SUNAT para probar" style="flex:1;min-width:230px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+          <option value="controlcpe">1. MIGE Gestión Factoring</option>
+          <option value="controlmsg">2. Control de mensajes y alertas</option>
+          <option value="enviossp">3. SSPP Receptor XML</option>
+          <option value="programacion">4. Consulta ACE</option>
+          <option value="documentossustentatorios">5. Documentos digitalizados</option>
+          <option value="salida">6. Control Aduanero Salida</option>
+          <option value="autorizacionsalida">7. Declaraciones asociadas a transporte</option>
+          <option value="ingreso">8. Control Aduanero Ingreso</option>
+        </select>
+        <button type="button" id="sunatAuthTestButton" onclick="testSunatAuthService()" style="padding:10px 14px;border:0;border-radius:8px;background:var(--primary);color:#fff;cursor:pointer">Probar autenticación</button>
+      </div>
+      <div id="sunatAuthTestResult" role="status" aria-live="polite" style="margin-top:12px;font-size:13px"></div>
+    </div>
     <div class="sunat-tabs">
       <button class="sunat-tab active" onclick="setSunatTab('ruc',this)">Estado RUC</button>
       <button class="sunat-tab" onclick="setSunatTab('deudas',this)">Deudas pendientes</button>
