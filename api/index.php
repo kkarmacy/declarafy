@@ -836,9 +836,19 @@ switch ($action) {
         $solUser = trim((string) ($config['sunat_sol_username'] ?? ''));
         $solPassword = (string) ($config['sunat_sol_password'] ?? '');
 
-        if ($clientId === '' || $clientSecret === '' || !preg_match('/^(10|15|17|20)[0-9]{9}$/', $ruc)
-            || $solUser === '' || $solPassword === '') {
-            fail_request('sunat/not-configured', 'Faltan credenciales SUNAT en api/config.local.php.', 503);
+        $missingSunatFields = [];
+        if ($clientId === '') $missingSunatFields[] = 'sunat_client_id';
+        if ($clientSecret === '') $missingSunatFields[] = 'sunat_client_secret';
+        if (!preg_match('/^(10|15|17|20)[0-9]{9}$/', $ruc)) $missingSunatFields[] = 'sunat_query_ruc (RUC de 11 dígitos válido)';
+        if ($solUser === '') $missingSunatFields[] = 'sunat_sol_username';
+        if ($solPassword === '') $missingSunatFields[] = 'sunat_sol_password';
+
+        if ($missingSunatFields !== []) {
+            fail_request(
+                'sunat/not-configured',
+                'Configuración SUNAT incompleta en api/config.local.php. Revisa estos campos: ' . implode(', ', $missingSunatFields) . '. No se muestran sus valores por seguridad.',
+                503
+            );
         }
 
         // Este flujo clientessol/password solo aplica a servicios que aceptan usuario SOL.
