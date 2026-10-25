@@ -142,10 +142,31 @@ function handleKey(e) {
 function goToChat() { showScreen('screen-chat'); setTimeout(() => document.getElementById('userInput')?.focus(), 100); }
 function goPanel() { showScreen('screen-panel'); loadPanel(); }
 function newChat() {
-  convHist = []; convId = null; attached = [];
-  const msgs = document.getElementById('messages'); if (msgs) msgs.innerHTML = '';
-  renderChips();
-  goToChat();
+  // Mantener el botón funcional incluso si el panel no está montado por completo.
+  try {
+    convHist = []; convId = null; attached = [];
+    const msgs = document.getElementById('messages');
+    if (msgs) msgs.replaceChildren();
+    const typing = document.getElementById('typingIndicator');
+    if (typing) typing.remove();
+    if (typeof renderChips === 'function') renderChips();
+    const chat = document.getElementById('screen-chat');
+    const input = document.getElementById('userInput');
+    if (!chat) {
+      if (typeof tpToast === 'function') tpToast('No se encontró la pantalla de consulta. Recarga Declarafy e inténtalo otra vez.', 'warn');
+      console.error('Declarafy: #screen-chat no existe; no se puede abrir una consulta nueva.');
+      return;
+    }
+    goToChat();
+    if (input) {
+      input.value = '';
+      input.style.height = 'auto';
+      window.setTimeout(() => input.focus(), 100);
+    }
+  } catch (error) {
+    console.error('Declarafy newChat failed:', error);
+    if (typeof tpToast === 'function') tpToast('No se pudo abrir una consulta nueva. Recarga la página e inténtalo otra vez.', 'error');
+  }
 }
 function saveAndPanel() {
   if (curUser && convHist.length) {
