@@ -260,3 +260,7 @@ body:has(#screen-chat.active) .kbd-hint{
   .off-cached{width:100%!important}
   .kbd-hint{display:none!important}
 }
+
+/* Fix: allow the AI chat screen to render when activated. */
+#screen-chat.active{display:flex!important;flex-direction:column!important;min-height:100vh!important;width:100%!important;max-width:none!important;overflow-y:auto!important;background:#f5f7fb!important;color:#172033!important}
+#screen-chat.active>*{max-width:100%}
