@@ -55,9 +55,9 @@ La acción administrativa `POST /api/index.php?action=sunat_auth_test` prueba la
 
 Antes de probar:
 
-1. Si decides conservar el `client_secret` actual, puedes configurarlo de forma privada en el servidor; ten presente que compartirlo fuera del servidor aumenta el riesgo de uso no autorizado. No lo vuelvas a copiar en chats, capturas ni código fuente.
-2. En el servidor, configura únicamente en `api/config.local.php` los campos `sunat_client_id`, `sunat_client_secret`, `sunat_query_ruc`, `sunat_sol_username`, `sunat_sol_password` y `sunat_oauth_scope`.
-3. En `sunat_sol_username`, coloca solo el usuario SOL, sin RUC. En `sunat_oauth_scope`, usa el scope exacto documentado para el servicio que se probará; no se asume que todos los servicios compartan scope o flujo.
+1. Confirma que `api/config.local.php` existe dentro de `public_html/api/`, devuelve un array PHP válido y conserva la configuración de base de datos que ya permite iniciar sesión. Nunca pegues credenciales en chats, capturas ni código fuente.
+2. En el servidor, configura únicamente en `api/config.local.php` los campos `sunat_client_id`, `sunat_client_secret`, `sunat_query_ruc`, `sunat_sol_username` y `sunat_sol_password`. El scope se selecciona en el backend según el servicio; no hace falta configurar `sunat_oauth_scope`.
+3. En `sunat_sol_username`, coloca solo el usuario SOL, sin RUC. La prueba concatena el RUC al usuario para formar el identificador OAuth. No todas las APIs SUNAT usan necesariamente el mismo flujo de autenticación; esta prueba solo valida el flujo `clientessol/password`.
 4. Invoca la acción desde una sesión de superadministrador con el mecanismo CSRF/seguridad de mutaciones que use la instalación. La respuesta indica únicamente si se recibió token, el estado HTTP y la expiración; nunca devuelve el token ni credenciales.
 
 Este primer test usa el flujo `clientessol/password` de SUNAT para servicios que requieren Clave SOL. Si el servicio seleccionado documenta otro flujo OAuth (por ejemplo, `client_credentials`), no uses esta prueba para ese servicio: debe implementarse el flujo específico antes de probarlo.
