@@ -69,4 +69,4 @@ expectSame(false, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
     ['role' => 'user', 'content' => 'Ahora calcula el impuesto de esta operación.'],
 ], 18.0), 'does not reuse a rate from an earlier user message');
 
-echo "OK: Declarafy tax calculator tests passed\n";\n\necho "OK: Declarafy tax calculator tests passed\\n";\n
+echo "OK: Declarafy tax calculator tests passed\\n";
