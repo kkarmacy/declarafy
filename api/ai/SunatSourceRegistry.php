@@ -102,9 +102,11 @@ final class DeclarafySunatSourceRegistry
             throw new RuntimeException('La extensión cURL no está disponible en el servidor.');
         }
 
+        $body = '';
+        $tooLarge = false;
         $curl = curl_init($url);
         curl_setopt_array($curl, [
-            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_RETURNTRANSFER => false,
             CURLOPT_CONNECTTIMEOUT => 5,
             CURLOPT_TIMEOUT => 12,
             CURLOPT_FOLLOWLOCATION => false,
@@ -112,14 +114,27 @@ final class DeclarafySunatSourceRegistry
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_HTTPHEADER => ['Accept: text/html', 'User-Agent: DeclarafySourceReader/1.0'],
+            // Enforce the limit while receiving bytes; CURLOPT_MAXFILESIZE alone
+            // may not protect responses without a trustworthy Content-Length.
+            CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use (&$body, &$tooLarge): int {
+                if (strlen($body) + strlen($chunk) > self::MAX_RESPONSE_BYTES) {
+                    $tooLarge = true;
+                    return 0;
+                }
+                $body .= $chunk;
+                return strlen($chunk);
+            },
         ]);
-        $body = curl_exec($curl);
+        $ok = curl_exec($curl);
         $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
         $contentType = (string) curl_getinfo($curl, CURLINFO_CONTENT_TYPE);
         $error = curl_error($curl);
         curl_close($curl);
 
-        if (!is_string($body)) {
+        if ($tooLarge) {
+            throw new RuntimeException('La respuesta de SUNAT supera el límite de tamaño permitido.');
+        }
+        if ($ok !== true) {
             throw new RuntimeException($error !== '' ? $error : 'Falló la recuperación de la fuente SUNAT.');
         }
         return ['status' => $status, 'content_type' => $contentType, 'body' => $body];
