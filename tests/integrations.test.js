@@ -225,6 +225,20 @@ test('coordinator supplies bounded untrusted SUNAT context for IGV questions and
   assert.match(endpoint, /mb_substr\(\$source\['text'\], 0, 9000, 'UTF-8'\)/);
 });
 
+test('AI coordinator tool use is bounded, provenance-checked, and quota-safe', () => {
+  const coordinator = read('api/ai/AgentCoordinator.php');
+  const calculator = read('api/ai/TaxCalculator.php');
+  const start = api.indexOf("case 'ai':");
+  const endpoint = api.slice(start, api.indexOf("case '", start + 10));
+  assert.match(coordinator, /getenv\('DECLARAFY_AI_AGENTS_ENABLED'\) ?: 'false'/);
+  assert.match(endpoint, /count\(\$toolCalls\) !== 1/);
+  assert.match(endpoint, /\$toolCalls\[0\]\['name'\] \?\? ''\) !== 'calculate_tax_amount'/);
+  assert.match(endpoint, /rateWasExplicitlyProvided\(\$messages/);
+  assert.match(calculator, /Only the latest user message can authorize the rate/);
+  assert.match(endpoint, /unset\(\$followUp\['tools'\], \$followUp\['tool_choice'\]\)/);
+  assert.match(endpoint, /\$releaseQuota\(\)/);
+});
+
 test('AFP projection compounds salary annually', () => {
   const projection = app.slice(app.indexOf('function calcProyAfp()'), app.indexOf('// ── 23. ANALIZADOR CONTRATOS'));
   assert.match(projection, /sueldo \* \(0\.10 \+ comision \+ prima\)/);
