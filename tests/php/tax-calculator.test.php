@@ -80,6 +80,12 @@ expectSame(false, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
     ['role' => 'user', 'content' => 'No uses una tasa de 18%.'],
 ], 18.0), 'rejects an explicitly negated rate even when it is the only percentage');
 expectSame(false, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
+    ['role' => 'user', 'content' => 'No aplicar 18% a esta operación.'],
+], 18.0), 'rejects a Spanish infinitive negation');
+expectSame(false, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
+    ['role' => 'user', 'content' => "Don't use 18% for this calculation."],
+], 18.0), 'rejects a basic English negation');
+expectSame(false, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
     ['role' => 'user', 'content' => 'Antes mencioné 18% para otro caso.'],
     ['role' => 'assistant', 'content' => 'Entendido.'],
     ['role' => 'user', 'content' => 'Ahora calcula el impuesto de esta operación.'],
