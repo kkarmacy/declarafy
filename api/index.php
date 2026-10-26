@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/ai/AgentCoordinator.php';
 
 $action = preg_replace('/[^a-z0-9_]/', '', strtolower((string) ($_GET['action'] ?? 'health')));
 $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
@@ -961,6 +962,32 @@ switch ($action) {
         $body = request_body();
         $messages = $body['messages'] ?? [];
         if (!is_array($messages) || count($messages) < 1 || count($messages) > 60) fail_request('ai/messages', 'Conversación inválida.');
+
+        // Optional coordinator mode: uses the existing authenticated Anthropic request,
+        // quota reservation and rate limits. It is disabled unless explicitly enabled
+        // in the server environment; no extra provider calls or costs are introduced.
+        $agentStatus = DeclarafyAgentCoordinator::status();
+        if ($agentStatus['enabled']) {
+            $lastQuestion = '';
+            foreach (array_reverse($messages) as $message) {
+                if (is_array($message) && ($message['role'] ?? '') === 'user' && is_string($message['content'] ?? null)) {
+                    $lastQuestion = trim($message['content']);
+                    break;
+                }
+            }
+            if ($lastQuestion !== '') {
+                try {
+                    $workflow = DeclarafyAgentCoordinator::plan($lastQuestion);
+                    $agentGuide = "\\n\\n[DECLARAFY COORDINATOR MODE]\\n"
+                        . "Workflow intent: " . $workflow['intent'] . "\\n"
+                        . "Selected logical roles (planning only; do not claim separate agents ran): " . implode(', ', $workflow['steps']) . "\\n"
+                        . "Apply the relevant Peruvian tax rules carefully. Cite official SUNAT or legal sources when known; if uncertain or rules may have changed, state that and request verification. Do not invent rates, deadlines, or citations. Separate calculations from assumptions. Human review is required for consequential tax decisions.";
+                    $body['system'] = mb_substr((string) ($body['system'] ?? ''), 0, 18_000) . $agentGuide;
+                } catch (InvalidArgumentException $error) {
+                    fail_request('ai/question', 'La consulta supera el límite permitido para el modo coordinado.');
+                }
+            }
+        }
         $request = [
             'model' => preg_match('/^[A-Za-z0-9._-]{1,80}$/', (string) ($body['model'] ?? '')) ? $body['model'] : 'claude-sonnet-4-5',
             'max_tokens' => max(64, min(4096, (int) ($body['max_tokens'] ?? 1024))),
