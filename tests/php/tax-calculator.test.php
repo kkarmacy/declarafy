@@ -57,11 +57,16 @@ expectSame(true, DeclarafyTaxCalculator::rateWasExplicitlyProvided($rateMessages
 expectSame(false, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
     ['role' => 'assistant', 'content' => 'La tasa es 18%.'],
 ], 18.0), 'does not treat assistant text as user-supplied rate provenance');
-assert(!DeclarafyTaxCalculator::rateWasExplicitlyProvided([
+expectSame(false, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
     ['role' => 'user', 'content' => 'Calcula el impuesto.'],
 ], 18.0), 'rejects a rate absent from user messages');
-assert(!DeclarafyTaxCalculator::rateWasExplicitlyProvided([
+expectSame(false, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
     ['role' => 'user', 'content' => 'Aplica una tasa de 8%.'],
 ], 18.0), 'rejects a rate that does not match the user-provided rate');
+expectSame(false, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
+    ['role' => 'user', 'content' => 'Antes mencioné 18% para otro caso.'],
+    ['role' => 'assistant', 'content' => 'Entendido.'],
+    ['role' => 'user', 'content' => 'Ahora calcula el impuesto de esta operación.'],
+], 18.0), 'does not reuse a rate from an earlier user message');
 
-echo "OK: Declarafy tax calculator tests passed\n";
+echo "OK: Declarafy tax calculator tests passed\n";\n\necho "OK: Declarafy tax calculator tests passed\\n";\n
