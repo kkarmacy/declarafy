@@ -84,6 +84,8 @@ function remote_json(string $url, string $method = 'GET', array $headers = [], ?
         CURLOPT_CONNECTTIMEOUT => 8,
         CURLOPT_TIMEOUT => $timeout,
         CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_HTTPHEADER => array_merge(['Accept: application/json'], $headers),
     ];
     if ($method !== 'GET') {
@@ -115,6 +117,8 @@ function remote_form(string $url, array $fields, int $timeout = 20): array {
         CURLOPT_CONNECTTIMEOUT => 8,
         CURLOPT_TIMEOUT => $timeout,
         CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_POST => true,
         CURLOPT_HTTPHEADER => ['Accept: application/json', 'Content-Type: application/x-www-form-urlencoded'],
         CURLOPT_POSTFIELDS => http_build_query($fields, '', '&', PHP_QUERY_RFC3986),
