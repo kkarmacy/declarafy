@@ -1119,28 +1119,8 @@ switch ($action) {
                 $releaseQuota();
                 fail_request('ai/tool-invalid', 'Los parámetros del cálculo no son válidos.', 502);
             }
-            // The model cannot establish rate provenance by itself. Until a verified
-            // official-source retrieval layer exists, only execute a rate explicitly
-            // stated by the user in this conversation.
-            $userRateText = [];
-            foreach ($messages as $message) {
-                if (is_array($message) && ($message['role'] ?? '') === 'user' && is_string($message['content'] ?? null)) {
-                    $userRateText[] = $message['content'];
-                }
-            }
-            preg_match_all('/(?<![\\d.])(\\d{1,3}(?:[.,]\\d+)?)\\s*(?:%|por\\s+ciento)/iu', implode("\\n", $userRateText), $rateMatches);
-            $explicitRateMatches = array_map(
-                static fn($value): float => (float) str_replace(',', '.', $value),
-                $rateMatches[1] ?? []
-            );
-            $rateWasExplicitlyProvided = false;
-            foreach ($explicitRateMatches as $explicitRate) {
-                if (abs($explicitRate - (float) $input['rate_percent']) < 0.000001) {
-                    $rateWasExplicitlyProvided = true;
-                    break;
-                }
-            }
-            if (!$rateWasExplicitlyProvided) {
+            // Until verified official-source retrieval exists, require an explicit user-provided rate.
+            if (!DeclarafyTaxCalculator::rateWasExplicitlyProvided($messages, (float) $input['rate_percent'])) {
                 $releaseQuota();
                 fail_request('ai/tool-rate-unverified', 'No se ejecutó el cálculo: indica explícitamente la tasa porcentual que deseas aplicar. La tasa legal debe verificarse por separado.', 422);
             }
