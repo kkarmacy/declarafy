@@ -990,7 +990,7 @@ switch ($action) {
 
         // Optional coordinator mode: uses the existing authenticated Anthropic request,
         // quota reservation and rate limits. It is disabled unless explicitly enabled
-        // in the server environment; no extra provider calls or costs are introduced.
+        // in the server environment; tool use can require one additional provider call.
         $agentStatus = DeclarafyAgentCoordinator::status();
         if ($agentStatus['enabled']) {
             $lastQuestion = '';
