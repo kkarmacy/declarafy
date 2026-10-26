@@ -1,6 +1,6 @@
 # Declarafy secure file-processing plan (cPanel-first)
 
-**Status:** design only; no upload endpoint or file parser is enabled by this document. This plan is on `feat/ai-agent-coordinator-v1` and is not deployed.
+**Status (branch only):** initial CSV/TXT parser and `POST action=ai_file_analyze` backend endpoint are implemented on `feat/ai-agent-coordinator-v1`. This branch is not deployed, and the frontend upload control, cPanel staging test, and full abuse-case tests are still pending. Do not treat this as production-ready.
 
 ## Goal
 
@@ -8,16 +8,16 @@ Add authenticated file analysis for tax-support documents without requiring Pyth
 
 ## Phase 1 — safe intake (PHP on Namecheap/cPanel)
 
-1. Add a dedicated `POST action=ai_file_analyze` endpoint; require a valid logged-in session, CSRF protection consistent with existing write endpoints, and a per-user/IP rate limit.
-2. Accept one file per request. Initial limits: 8 MiB maximum, 1 file, bounded request time. Enforce both PHP upload error codes and server-side size checks.
-3. Allow only a documented extension/MIME pair; never trust the browser-provided filename or Content-Type. Inspect content with PHP Fileinfo (`finfo`) and reject mismatches.
-4. Move the uploaded file to a generated random name in a non-public temporary/quarantine directory. Never store uploads in `public_html`, never use the original filename as a path, and never execute or render uploaded content directly.
+1. Implemented on the branch: `POST action=ai_file_analyze` requires a logged-in session, the existing write-endpoint CSRF/header checks, and a rate limit of 10 attempts per hour per IP/action bucket. Additional per-user upload limits and abuse tests remain to be added.
+2. Implemented on the branch: one uploaded file, an 8 MiB parser limit, PHP upload error checks, and a 90-second provider timeout. The hosting PHP `upload_max_filesize`/`post_max_size` settings still need confirmation.
+3. Implemented for CSV/TXT: extension allowlist and PHP Fileinfo MIME allowlist are checked. The original filename is used only as sanitized metadata, not as a filesystem path.
+4. Current implementation parses PHP's request-scoped uploaded temporary file in place and does not persist it or move it into `public_html`. A dedicated private quarantine directory is not yet implemented; confirm PHP temporary-directory permissions on cPanel before enabling.
 5. Do not accept archives/ZIP files in the first version. They introduce decompression-bomb and nested-file risks.
-6. Clean up temporary files in a `finally` path after parsing/provider use, including error cases. Do not log file contents, tax IDs, or extracted personal data.
+6. The application does not create persistent copies; PHP manages its upload temporary file. A dedicated application-owned temporary-file cleanup path is therefore not yet applicable. Error logs record exception class/status context, not extracted document text.
 
 ## Phase 2 — parsers and deterministic preview
 
-Start with **CSV and plain text** only, subject to checking that the required PHP extensions are present. Validate encoding, cap rows/columns/cell length, reject malformed input, and return a preview before any import or database write.
+Implemented on the branch: **CSV and plain text** parsing with UTF-8 validation and caps (8 MiB, 500 rows, 30 columns, 2,000 characters per cell, 12,000 extracted characters). The endpoint sends the extracted text to the configured AI provider and returns findings; it does not import or write document data to the database. A separate preview-first UI has not yet been implemented.
 
 Add XML only after implementing safe XML parsing with external entity/network resolution disabled. PDF, DOC/DOCX and XLS/XLSX must remain unsupported until the server's available libraries, licensing, file size behavior, and parser security are verified. File extension recognition alone is not file processing.
 
@@ -45,4 +45,4 @@ Add XML only after implementing safe XML parsing with external entity/network re
 
 ## Current limitations
 
-This is a plan, not an implementation. The current coordinator's `documents` role is routing metadata only; it does not receive uploads, parse files, or independently run as an agent. The coordinator PR also does not install HKUDS/OpenHarness.
+The branch now contains an initial CSV/TXT parser and authenticated AI analysis endpoint, but not a frontend upload control or cPanel end-to-end validation. It is not deployed. The current coordinator's `documents` role remains routing metadata; it does not independently run as an agent. The coordinator PR also does not install HKUDS/OpenHarness.
