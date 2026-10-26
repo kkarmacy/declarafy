@@ -964,9 +964,22 @@ switch ($action) {
             'messages' => [['role' => 'user', 'content' => "Régimen: {$regimen}\n\n{$question}"]],
         ];
         $curl = curl_init('https://api.anthropic.com/v1/messages');
-        curl_setopt_array($curl, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 10, CURLOPT_TIMEOUT => 90,
+        if ($curl === false) fail_request('ai/unavailable', 'No se pudo iniciar la conexión con el proveedor de IA.', 502);
+        $configured = curl_setopt_array($curl, [
+            CURLOPT_POST => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 90,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'x-api-key: ' . $config['anthropic_api_key'], 'anthropic-version: 2023-06-01'],
-            CURLOPT_POSTFIELDS => json_value($request, 100_000)]);
+            CURLOPT_POSTFIELDS => json_value($request, 100_000),
+        ]);
+        if (!$configured) {
+            curl_close($curl);
+            fail_request('ai/unavailable', 'No se pudo configurar la conexión con el proveedor de IA.', 502);
+        }
         $response = curl_exec($curl);
         $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
         if ($response === false) { error_log('Declarafy public API failed: ' . curl_error($curl)); curl_close($curl); fail_request('ai/unavailable', 'La IA no respondió.', 502); }
