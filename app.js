@@ -129,6 +129,70 @@ function handleFiles(input) {
 function renderChips() {
   const el = document.getElementById('chips'); if (!el) return;
   el.innerHTML = attached.map((f,i) => `<div class="chip">📎 ${_escapeHtml(f.name)}<button onclick="removeChip(${i})" aria-label="Quitar archivo">×</button></div>`).join('');
+  const analyzeButton = document.getElementById('analyzeFileBtn');
+  if (analyzeButton) analyzeButton.style.display = attached.length ? 'inline-flex' : 'none';
+}
+async function analyzeAttachedFile() {
+  if (!curUser) {
+    if (typeof tpToast === 'function') tpToast('Inicia sesión antes de analizar un archivo.', 'warn');
+    return;
+  }
+  if (attached.length !== 1) {
+    if (typeof tpToast === 'function') tpToast('Selecciona exactamente un archivo CSV o TXT para el análisis seguro.', 'warn');
+    return;
+  }
+  const file = attached[0];
+  const ext = String(file.name.split('.').pop() || '').toLowerCase();
+  if (!['csv', 'txt'].includes(ext)) {
+    if (typeof tpToast === 'function') tpToast('El análisis seguro admite por ahora solo CSV y TXT.', 'warn');
+    return;
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    if (typeof tpToast === 'function') tpToast('El archivo supera el límite de 8 MiB.', 'warn');
+    return;
+  }
+  const questionInput = document.getElementById('userInput');
+  const question = String(questionInput?.value || '').trim();
+  const button = document.getElementById('analyzeFileBtn');
+  const originalLabel = button?.textContent || '🔎 Analizar archivo con IA';
+  if (button) { button.disabled = true; button.textContent = 'Analizando…'; }
+  try {
+    if (!declarafyCsrfToken) await declarafyLoadSession();
+    const endpoint = new URL(DECLARAFY_PROXY_URL, window.location.origin);
+    endpoint.searchParams.set('action', 'ai_file_analyze');
+    const form = new FormData();
+    form.append('file', file, file.name);
+    form.append('question', question);
+    const response = await fetch(endpoint.toString(), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'DeclarafyWeb',
+        'X-CSRF-Token': declarafyCsrfToken
+      },
+      body: form
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok !== true) {
+      const message = payload.message || payload.error?.message || 'No se pudo analizar el archivo.';
+      throw new Error(message);
+    }
+    const result = payload.data || {};
+    addMsg('user', '📎 Análisis seguro del archivo: ' + file.name + (question ? '\n' + question : ''));
+    addMsg('ai', String(result.answer || 'La IA no devolvió resultados.') + '\n\n' + String(result.disclaimer || 'Revisa los datos antes de tomar decisiones.'));
+    convHist.push({ role: 'user', content: '[Análisis seguro del archivo: ' + file.name + '] ' + (question || 'Resume el archivo y detecta posibles inconsistencias.') });
+    convHist.push({ role: 'assistant', content: String(result.answer || '') });
+    attached = [];
+    renderChips();
+    if (questionInput) { questionInput.value = ''; questionInput.style.height = 'auto'; }
+    if (typeof tpToast === 'function') tpToast('Análisis de archivo completado.', 'success');
+  } catch (error) {
+    if (typeof tpToast === 'function') tpToast(error.message || 'Falló el análisis del archivo.', 'error');
+    else addMsg('ai', 'No se pudo analizar el archivo: ' + String(error.message || error));
+  } finally {
+    if (button) { button.disabled = false; button.textContent = originalLabel; }
+  }
 }
 function removeChip(i) { attached.splice(i,1); renderChips(); }
 
