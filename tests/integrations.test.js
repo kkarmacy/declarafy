@@ -244,7 +244,7 @@ test('coordinator exposes only a bounded calculator tool and validates model too
   assert.match(ai, /\$releaseQuota\(\)/);
   assert.match(ai, /ai\/tool-rate-unverified/);
   assert.match(ai, /rateWasExplicitlyProvided/);
-  assert.match(ai, /userRateText/);
+  assert.match(ai, /DeclarafyTaxCalculator::rateWasExplicitlyProvided/);
 });
 
 test('inline module handlers reference declared application functions and ids stay unique', () => {
