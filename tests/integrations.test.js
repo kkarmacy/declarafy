@@ -230,7 +230,7 @@ test('AI coordinator tool use is bounded, provenance-checked, and quota-safe', (
   const calculator = read('api/ai/TaxCalculator.php');
   const start = api.indexOf("case 'ai':");
   const endpoint = api.slice(start, api.indexOf("case '", start + 10));
-  assert.match(coordinator, /getenv\('DECLARAFY_AI_AGENTS_ENABLED'\) ?: 'false'/);
+  assert.match(coordinator, /getenv\('DECLARAFY_AI_AGENTS_ENABLED'\)\s*\?:\s*'false'/);
   assert.match(endpoint, /count\(\$toolCalls\) !== 1/);
   assert.match(endpoint, /\$toolCalls\[0\]\['name'\] \?\? ''\) !== 'calculate_tax_amount'/);
   assert.match(endpoint, /rateWasExplicitlyProvided\(\$messages/);
