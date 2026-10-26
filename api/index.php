@@ -1107,13 +1107,19 @@ switch ($action) {
                 static fn($block): bool => is_array($block) && ($block['type'] ?? '') === 'tool_use'
             ));
             // Only one tool invocation is allowed per user turn; never execute model-provided code.
-            if (count($toolCalls) !== 1 || ($toolCalls[0]['name'] ?? '') !== 'calculate_tax_amount' || !is_array($toolCalls[0]['input'] ?? null)) {
+            if (count($toolCalls) !== 1 || ($toolCalls[0]['name'] ?? '') !== 'calculate_tax_amount'
+                || !is_array($toolCalls[0]['input'] ?? null)
+                || !is_string($toolCalls[0]['id'] ?? null) || trim($toolCalls[0]['id']) === ''
+                || strlen($toolCalls[0]['id']) > 200) {
                 $releaseQuota();
                 fail_request('ai/tool-invalid', 'La IA solicitó una herramienta no permitida.', 502);
             }
             $tool = $toolCalls[0];
             $input = $tool['input'];
-            if ((!is_int($input['amount'] ?? null) && !is_float($input['amount'] ?? null))
+            $inputKeys = array_keys($input);
+            sort($inputKeys);
+            if ($inputKeys !== ['amount', 'rate_percent', 'tax_included']
+                || (!is_int($input['amount'] ?? null) && !is_float($input['amount'] ?? null))
                 || (!is_int($input['rate_percent'] ?? null) && !is_float($input['rate_percent'] ?? null))
                 || !is_bool($input['tax_included'] ?? null)) {
                 $releaseQuota();
