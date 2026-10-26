@@ -33,5 +33,37 @@ $thrown = false;
 try { DeclarafyAgentCoordinator::validateAnswer(str_repeat('x', 20001)); } catch (UnexpectedValueException $e) { $thrown = true; }
 check($thrown, 'oversized answer is rejected');
 
+
+$allowedRoles = ['tax', 'documents', 'calculator', 'verifier', 'report'];
+foreach (['tax', 'documents', 'calculator', 'verifier', 'report'] as $role) {
+    check(in_array($role, $allowedRoles, true), 'role allowlist includes ' . $role);
+}
+check($tax['requires_human_review'] === true, 'tax workflow requires human review');
+check(is_bool($tax['requires_sources']), 'source requirement is explicit');
+
+$combined = DeclarafyAgentCoordinator::plan('Importar archivo XML y calcula el IGV');
+check($combined['intent'] === 'document_review', 'document intent takes precedence for combined document and calculation requests');
+check(count($combined['steps']) <= DeclarafyAgentCoordinator::MAX_STEPS, 'combined workflow never exceeds maximum steps');
+foreach ($combined['steps'] as $step) {
+    check(in_array($step, $allowedRoles, true), 'workflow emits only allowlisted roles');
+}
+
+$thrown = false;
+try { DeclarafyAgentCoordinator::plan(str_repeat('x', DeclarafyAgentCoordinator::MAX_INPUT_CHARS + 1)); } catch (InvalidArgumentException $e) { $thrown = true; }
+check($thrown, 'oversized input is rejected');
+
+$atLimit = DeclarafyAgentCoordinator::plan(str_repeat('x', DeclarafyAgentCoordinator::MAX_INPUT_CHARS));
+check(count($atLimit['steps']) <= DeclarafyAgentCoordinator::MAX_STEPS, 'maximum-length input is accepted and bounded');
+
+check(DeclarafyAgentCoordinator::validateAnswer('  respuesta válida  ') === 'respuesta válida', 'answer is trimmed before display');
+$thrown = false;
+try { DeclarafyAgentCoordinator::validateAnswer('   '); } catch (UnexpectedValueException $e) { $thrown = true; }
+check($thrown, 'empty answer is rejected');
+
+putenv('DECLARAFY_AI_AGENTS_ENABLED=true');
+check(DeclarafyAgentCoordinator::status()['enabled'] === true, 'feature flag can be explicitly enabled');
+putenv('DECLARAFY_AI_AGENTS_ENABLED=false');
+check(DeclarafyAgentCoordinator::status()['enabled'] === false, 'feature flag can be disabled again');
+
 if ($previous === false) putenv('DECLARAFY_AI_AGENTS_ENABLED'); else putenv('DECLARAFY_AI_AGENTS_ENABLED=' . $previous);
 echo "OK: Declarafy AI coordinator tests passed\n";
