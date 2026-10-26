@@ -192,6 +192,19 @@ test('SUNAT source retrieval is authenticated, rate-limited and fails closed', (
   assert.doesNotMatch(registry, /retrieve\(string \$url\)/);
 });
 
+test('coordinator supplies bounded untrusted SUNAT context for IGV questions and fails closed', () => {
+  const start = api.indexOf("case 'ai':");
+  const endpoint = api.slice(start, api.indexOf("case '", start + 10));
+  assert.match(endpoint, /DeclarafySunatSourceRegistry\(\)->retrieve\('igv_rate'\)/);
+  assert.match(endpoint, /preg_match\('\/\\\\bigv\\\\b\/u/);
+  assert.match(endpoint, /UNTRUSTED OFFICIAL SOURCE EXCERPT/);
+  assert.match(endpoint, /Retrieved at UTC/);
+  assert.match(endpoint, /SHA-256/);
+  assert.match(endpoint, /OFFICIAL SOURCE UNAVAILABLE/);
+  assert.match(endpoint, /Do not present an IGV rate, exemption, or effective period as verified/);
+  assert.match(endpoint, /mb_substr\(\$source\['text'\], 0, 9000, 'UTF-8'\)/);
+});
+
 test('AFP projection compounds salary annually', () => {
   const projection = app.slice(app.indexOf('function calcProyAfp()'), app.indexOf('// ── 23. ANALIZADOR CONTRATOS'));
   assert.match(projection, /sueldo \* \(0\.10 \+ comision \+ prima\)/);
