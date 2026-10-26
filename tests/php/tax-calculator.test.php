@@ -50,3 +50,18 @@ expectInvalid(fn() => DeclarafyTaxCalculator::calculate(100, 100.01), 'rate abov
 expectInvalid(fn() => DeclarafyTaxCalculator::calculate(100, NAN), 'NaN rate rejected');
 
 echo "OK: Declarafy tax calculator tests passed\n";
+
+$rateMessages = [
+    ['role' => 'user', 'content' => 'Calcula el impuesto con una tasa de 18%.'],
+    ['role' => 'assistant', 'content' => 'La tasa es 18%.'],
+];
+assert(DeclarafyTaxCalculator::rateWasExplicitlyProvided($rateMessages, 18.0), 'Accepts a rate explicitly written by the user.');
+assert(!DeclarafyTaxCalculator::rateWasExplicitlyProvided([
+    ['role' => 'assistant', 'content' => 'La tasa es 18%.'],
+], 18.0), 'Does not treat assistant text as user-supplied rate provenance.');
+assert(!DeclarafyTaxCalculator::rateWasExplicitlyProvided([
+    ['role' => 'user', 'content' => 'Calcula el impuesto.'],
+], 18.0), 'Rejects a rate absent from user messages.');
+assert(!DeclarafyTaxCalculator::rateWasExplicitlyProvided([
+    ['role' => 'user', 'content' => 'Aplica una tasa de 8%.'],
+], 18.0), 'Rejects a rate that does not match the user-provided rate.');
