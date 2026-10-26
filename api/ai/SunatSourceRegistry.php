@@ -66,8 +66,11 @@ final class DeclarafySunatSourceRegistry
             throw new RuntimeException('No se pudo recuperar una página HTML oficial de SUNAT de forma segura.');
         }
 
-        $text = html_entity_decode(strip_tags($response['body']), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $text = preg_replace('/\s+/u', ' ', $text) ?? '';
+        // Remove executable/non-content blocks before stripping remaining markup.
+        // Resulting text remains untrusted and must never be treated as instructions.
+        $html = preg_replace('~<(script|style|noscript|iframe|object)\\b[^>]*>.*?</\\1\\s*>~is', ' ', $response['body']) ?? '';
+        $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace('/\\s+/u', ' ', $text) ?? '';
         $text = trim($text);
         if ($text === '') {
             throw new RuntimeException('La fuente SUNAT no contiene texto legible.');
