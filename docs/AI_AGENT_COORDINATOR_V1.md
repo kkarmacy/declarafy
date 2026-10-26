@@ -34,3 +34,15 @@ This is a first integration slice, not a full multi-agent product. It still uses
 4. Add source/consistency validation and prompt-injection tests.
 5. Run PHP lint, unit tests, `npm test`, and synthetic E2E/security tests.
 6. Review the PR before merging; production deployment remains a separate explicit step.
+
+
+## Official-source policy (preparatory, not yet automated)
+
+The coordinator prompt now distinguishes a source that is merely known from a source actually supplied or retrieved for the current answer. It must not claim it checked a source unless the source content or URL was actually available, and it must not invent URLs, quotations, legal provisions, or citations.
+
+Initial official reference pages identified for future source integration:
+- SUNAT, IGV rate and taxable operations: https://orientacion.sunat.gob.pe/3053-concepto-tasa-y-operaciones-gravadas-igv-empresas
+- SUNAT, calculation of IGV: https://orientacion.sunat.gob.pe/3109-05-calculo-del-impuesto
+- SUNAT, taxpayer-facing IGV overview: https://emprender.sunat.gob.pe/principales-impuestos/impuesto-general-las-ventas-igv/impuesto-general-las-ventas
+
+These URLs are candidate references, not a live retrieval service. The current application does not fetch, archive, parse, or verify their content or effective dates. A production implementation still needs a controlled source registry/retrieval layer, timestamps, applicability/effective-period metadata, and tests that fail closed when sources are unavailable or conflicting.
