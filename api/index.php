@@ -1153,7 +1153,7 @@ switch ($action) {
                 $releaseQuota();
                 fail_request('ai/tool-invalid', 'Los parámetros del cálculo no son válidos.', 502);
             }
-            // Until verified official-source retrieval exists, require an explicit user-provided rate.
+            // Source retrieval provides reference evidence only; it does not establish legal applicability. Require an explicit user-provided rate for arithmetic.
             if (!DeclarafyTaxCalculator::rateWasExplicitlyProvided($messages, (float) $input['rate_percent'])) {
                 $releaseQuota();
                 fail_request('ai/tool-rate-unverified', 'No se ejecutó el cálculo: indica explícitamente la tasa porcentual que deseas aplicar. La tasa legal debe verificarse por separado.', 422);
