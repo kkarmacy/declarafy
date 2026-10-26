@@ -237,6 +237,8 @@ test('coordinator exposes only a bounded calculator tool and validates model too
   assert.match(ai, /'additionalProperties' => false/);
   assert.match(ai, /unset\(\$followUp\['tools'\], \$followUp\['tool_choice'\]\)/);
   assert.match(ai, /count\(\$toolCalls\) !== 1/);
+  assert.match(ai, /\$inputKeys !== \['amount', 'rate_percent', 'tax_included'\]/);
+  assert.match(ai, /strlen\(\$toolCalls\[0\]\['id'\]\) > 200/);
   assert.match(ai, /DeclarafyTaxCalculator::calculate/);
   assert.match(ai, /'type' => 'tool_result'/);
   assert.match(ai, /no verificó la aplicabilidad legal/i);
