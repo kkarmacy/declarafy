@@ -47,6 +47,29 @@ final class DeclarafyTaxCalculator
     }
 
     /**
+     * Validate a decoded JSON request body and calculate only after strict type checks.
+     * JSON numeric strings are intentionally rejected rather than silently coerced.
+     *
+     * @return array{taxable_base:float, rate_percent:float, tax_amount:float, total_amount:float, tax_included:bool}
+     */
+    public static function calculateRequest(array $body): array
+    {
+        $amount = $body['amount'] ?? null;
+        $ratePercent = $body['rate_percent'] ?? null;
+        $taxIncluded = $body['tax_included'] ?? false;
+
+        if ((!is_int($amount) && !is_float($amount)) ||
+            (!is_int($ratePercent) && !is_float($ratePercent))) {
+            throw new InvalidArgumentException('El importe y la tasa deben enviarse como números.');
+        }
+        if (!is_bool($taxIncluded)) {
+            throw new InvalidArgumentException('tax_included debe ser true o false.');
+        }
+
+        return self::calculate((float) $amount, (float) $ratePercent, $taxIncluded);
+    }
+
+    /**
      * Calculate tax for a supplied base amount and explicit rate.
      *
      * @return array{taxable_base:float, rate_percent:float, tax_amount:float, total_amount:float, tax_included:bool}
