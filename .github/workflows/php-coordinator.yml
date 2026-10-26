@@ -28,7 +28,11 @@ jobs:
           php -l api/ai/TaxCalculator.php
           php -l tests/php/agent-coordinator.test.php
           php -l tests/php/tax-calculator.test.php
+          php -l api/ai/SunatSourceRegistry.php
+          php -l tests/php/sunat-source-registry.test.php
       - name: Coordinator unit tests
         run: php tests/php/agent-coordinator.test.php
       - name: Tax calculator unit tests
         run: php tests/php/tax-calculator.test.php
+      - name: SUNAT source registry tests
+        run: php tests/php/sunat-source-registry.test.php
