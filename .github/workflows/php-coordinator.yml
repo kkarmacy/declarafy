@@ -25,6 +25,10 @@ jobs:
         run: |
           php -l api/index.php
           php -l api/ai/AgentCoordinator.php
+          php -l api/ai/TaxCalculator.php
           php -l tests/php/agent-coordinator.test.php
+          php -l tests/php/tax-calculator.test.php
       - name: Coordinator unit tests
         run: php tests/php/agent-coordinator.test.php
+      - name: Tax calculator unit tests
+        run: php tests/php/tax-calculator.test.php
