@@ -4,6 +4,7 @@ declare(strict_types=1);
 require __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/ai/AgentCoordinator.php';
 require_once __DIR__ . '/ai/TaxCalculator.php';
+require_once __DIR__ . '/ai/SunatSourceRegistry.php';
 
 $action = preg_replace('/[^a-z0-9_]/', '', strtolower((string) ($_GET['action'] ?? 'health')));
 $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
@@ -224,6 +225,24 @@ switch ($action) {
             'externalProvider' => $config['sunat_api_url'] !== '' && $config['sunat_api_token'] !== '',
             'rucPublicUrl' => 'https://e-consultaruc.sunat.gob.pe/',
             'solUrl' => 'https://e-menu.sunat.gob.pe/',
+        ]);
+
+    case 'sunat_source':
+        require_method('GET');
+        require_user();
+        rate_limit($pdo, 'sunat_source', 20, 3600);
+        $sourceId = trim((string) ($_GET['id'] ?? ''));
+        try {
+            $source = (new DeclarafySunatSourceRegistry())->retrieve($sourceId);
+        } catch (InvalidArgumentException $error) {
+            fail_request('sunat/source-not-allowed', 'La fuente solicitada no está autorizada.', 400);
+        } catch (Throwable $error) {
+            error_log('Declarafy SUNAT source retrieval failed: ' . get_class($error));
+            fail_request('sunat/source-unavailable', 'No se pudo consultar la fuente oficial de SUNAT. No se ha verificado la información tributaria.', 503);
+        }
+        respond([
+            'source' => $source,
+            'notice' => 'Texto recuperado de una página oficial; la recuperación no determina por sí sola la vigencia ni la aplicabilidad legal a tu operación.',
         ]);
 
     case 'session':
