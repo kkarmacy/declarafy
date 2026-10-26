@@ -62,6 +62,7 @@ test('AI key stays server-side and requests have quota and time limits', () => {
   assert.match(api, /message_count'\] >= 30/);
   assert.match(api, /GREATEST\(message_count - 1, 0\)/);
   assert.match(api, /CURLOPT_TIMEOUT => 90/);
+  assert.match(api, /if \(\$curl === false\) \{\s*throw new RuntimeException\('No se pudo iniciar la conexión con el proveedor de IA\.'/);
   assert.doesNotMatch(html + app + apiClient, /sk-ant-[A-Za-z0-9_-]{20,}/);
   assert.doesNotMatch(html + app, /api\.anthropic\.com/);
 });
