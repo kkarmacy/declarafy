@@ -49,8 +49,6 @@ expectInvalid(fn() => DeclarafyTaxCalculator::calculate(100, -0.01), 'negative r
 expectInvalid(fn() => DeclarafyTaxCalculator::calculate(100, 100.01), 'rate above 100 rejected');
 expectInvalid(fn() => DeclarafyTaxCalculator::calculate(100, NAN), 'NaN rate rejected');
 
-echo "OK: Declarafy tax calculator tests passed\n";
-
 $rateMessages = [
     ['role' => 'user', 'content' => 'Calcula el impuesto con una tasa de 18%.'],
     ['role' => 'assistant', 'content' => 'La tasa es 18%.'],
@@ -65,3 +63,5 @@ assert(!DeclarafyTaxCalculator::rateWasExplicitlyProvided([
 assert(!DeclarafyTaxCalculator::rateWasExplicitlyProvided([
     ['role' => 'user', 'content' => 'Aplica una tasa de 8%.'],
 ], 18.0), 'rejects a rate that does not match the user-provided rate');
+
+echo "OK: Declarafy tax calculator tests passed\n";
