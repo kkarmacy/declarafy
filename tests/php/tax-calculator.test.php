@@ -77,6 +77,9 @@ expectSame(false, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
     ['role' => 'user', 'content' => 'No uses 18%; para este cálculo usa 8%.'],
 ], 18.0), 'rejects ambiguous messages that mention multiple rates');
 expectSame(false, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
+    ['role' => 'user', 'content' => 'No uses una tasa de 18%.'],
+], 18.0), 'rejects an explicitly negated rate even when it is the only percentage');
+expectSame(false, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
     ['role' => 'user', 'content' => 'Antes mencioné 18% para otro caso.'],
     ['role' => 'assistant', 'content' => 'Entendido.'],
     ['role' => 'user', 'content' => 'Ahora calcula el impuesto de esta operación.'],
