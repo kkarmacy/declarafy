@@ -44,14 +44,27 @@ final class DeclarafyAgentCoordinator
         $calculation = preg_match('/\b(calcula|calcular|cuánto|cuanto|tasa|porcentaje|igv|impuesto|retención|retencion|percepción|percepcion|renta)\b/u', $text) === 1;
         $tax = preg_match('/\b(sunat|tribut|norma|ley|resolución|resolucion|ruc|declaración|declaracion|igv|impuesto|renta|vencimiento)\b/u', $text) === 1;
 
+        // Reserve one slot for verification before adding the optional report step.
+        // The previous slice could drop "verifier" on combined document+tax requests.
         $steps = [];
-        if ($documents) $steps[] = 'documents';
-        if ($tax || (!$documents && !$calculation)) $steps[] = 'tax';
-        if ($calculation) $steps[] = 'calculator';
+        if ($documents) {
+            $steps[] = 'documents';
+        }
+        if ($calculation) {
+            $steps[] = 'calculator';
+        }
+        if ($tax && (!$documents || !$calculation)) {
+            $steps[] = 'tax';
+        }
+        if (!$documents && !$calculation && !$tax) {
+            $steps[] = 'tax';
+        }
         $steps[] = 'verifier';
-        $steps[] = 'report';
         $steps = array_values(array_unique($steps));
         $steps = array_slice($steps, 0, self::MAX_STEPS);
+        if (count($steps) < self::MAX_STEPS) {
+            $steps[] = 'report';
+        }
 
         return [
             'intent' => $documents ? 'document_review' : ($calculation ? 'tax_calculation' : 'tax_question'),
