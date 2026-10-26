@@ -174,6 +174,24 @@ test('SUNAT uses the official CPE OAuth service and protected data opens officia
   assert.doesNotMatch(app, /DECLARAFY_FN_BASE\/consultaRuc/);
 });
 
+test('SUNAT source retrieval is authenticated, rate-limited and fails closed', () => {
+  assert.match(api, /require_once __DIR__ \. '\/ai\/SunatSourceRegistry\.php'/);
+  const start = api.indexOf("case 'sunat_source':");
+  const endpoint = api.slice(start, api.indexOf("case 'session':", start));
+  assert.match(endpoint, /require_method\('GET'\)/);
+  assert.match(endpoint, /require_user\(\)/);
+  assert.match(endpoint, /rate_limit\(\$pdo, 'sunat_source', 20, 3600\)/);
+  assert.match(endpoint, /DeclarafySunatSourceRegistry\(\)\)->retrieve\(\$sourceId\)/);
+  assert.match(endpoint, /sunat\/source-not-allowed/);
+  assert.match(endpoint, /sunat\/source-unavailable/);
+  assert.match(endpoint, /No se ha verificado la información tributaria/);
+  const registry = read('api/ai/SunatSourceRegistry.php');
+  assert.match(registry, /CURLOPT_FOLLOWLOCATION => false/);
+  assert.match(registry, /CURLOPT_SSL_VERIFYPEER => true/);
+  assert.match(registry, /orientacion\.sunat\.gob\.pe/);
+  assert.doesNotMatch(registry, /retrieve\(string \$url\)/);
+});
+
 test('AFP projection compounds salary annually', () => {
   const projection = app.slice(app.indexOf('function calcProyAfp()'), app.indexOf('// ── 23. ANALIZADOR CONTRATOS'));
   assert.match(projection, /sueldo \* \(0\.10 \+ comision \+ prima\)/);
