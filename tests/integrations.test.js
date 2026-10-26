@@ -195,7 +195,7 @@ test('SUNAT source retrieval is authenticated, rate-limited and fails closed', (
 test('coordinator supplies bounded untrusted SUNAT context for IGV questions and fails closed', () => {
   const start = api.indexOf("case 'ai':");
   const endpoint = api.slice(start, api.indexOf("case '", start + 10));
-  assert.match(endpoint, /DeclarafySunatSourceRegistry\(\)->retrieve\('igv_rate'\)/);
+  assert.match(endpoint, /new DeclarafySunatSourceRegistry\(\)->retrieve\('igv_rate'\)/);
   assert.match(endpoint, /preg_match\('\/\\\\bigv\\\\b\/u/);
   assert.match(endpoint, /UNTRUSTED OFFICIAL SOURCE EXCERPT/);
   assert.match(endpoint, /Retrieved at UTC/);
