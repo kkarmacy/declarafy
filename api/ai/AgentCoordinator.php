@@ -4,8 +4,9 @@ declare(strict_types=1);
 /**
  * Declarafy AI coordinator — safe, feature-flagged orchestration primitives.
  *
- * This file deliberately performs no network requests and executes no user-supplied
- * code. Provider adapters and authenticated endpoint wiring are a separate step.
+ * This class deliberately performs no network requests and executes no user-supplied
+ * code. The authenticated provider adapter and allowlisted calculator tool live in
+ * api/index.php; these roles are planning metadata, not independently running agents.
  */
 final class DeclarafyAgentCoordinator
 {
