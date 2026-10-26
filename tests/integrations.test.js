@@ -236,10 +236,12 @@ test('tax calculator API requires POST, an authenticated session, bounded rate l
   assert.match(endpoint, /require_method\('POST'\)/);
   assert.match(endpoint, /require_user\(\)/);
   assert.match(endpoint, /rate_limit\(\$pdo, 'tax_calculate', 120, 3600\)/);
-  assert.match(endpoint, /!is_int\(\$amountValue\) && !is_float\(\$amountValue\)/);
-  assert.match(endpoint, /!is_int\(\$rateValue\) && !is_float\(\$rateValue\)/);
-  assert.match(endpoint, /!is_bool\(\$taxIncluded\)/);
-  assert.match(endpoint, /DeclarafyTaxCalculator::calculate/);
+  assert.match(endpoint, /DeclarafyTaxCalculator::calculateRequest\(\$body\)/);
+  const calculator = read('api/ai/TaxCalculator.php');
+  assert.match(calculator, /!is_int\(\$amount\) && !is_float\(\$amount\)/);
+  assert.match(calculator, /!is_int\(\$ratePercent\) && !is_float\(\$ratePercent\)/);
+  assert.match(calculator, /!is_bool\(\$taxIncluded\)/);
+  assert.match(calculator, /self::calculate\(\(float\) \$amount, \(float\) \$ratePercent, \$taxIncluded\)/);
   assert.match(endpoint, /no ha verificado si esa tasa corresponde legalmente/i);
 });
 
