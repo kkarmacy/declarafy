@@ -960,17 +960,8 @@ switch ($action) {
         require_user();
         rate_limit($pdo, 'tax_calculate', 120, 3600);
         $body = request_body();
-        $amountValue = $body['amount'] ?? null;
-        $rateValue = $body['rate_percent'] ?? null;
-        $taxIncluded = $body['tax_included'] ?? false;
-        if ((!is_int($amountValue) && !is_float($amountValue)) || (!is_int($rateValue) && !is_float($rateValue))) {
-            fail_request('tax-calculator/invalid-input', 'El importe y la tasa deben enviarse como números.', 422);
-        }
-        if (!is_bool($taxIncluded)) {
-            fail_request('tax-calculator/invalid-input', 'tax_included debe ser true o false.', 422);
-        }
         try {
-            $calculation = DeclarafyTaxCalculator::calculate((float) $amountValue, (float) $rateValue, $taxIncluded);
+            $calculation = DeclarafyTaxCalculator::calculateRequest($body);
         } catch (InvalidArgumentException $error) {
             fail_request('tax-calculator/invalid-input', $error->getMessage(), 422);
         }
