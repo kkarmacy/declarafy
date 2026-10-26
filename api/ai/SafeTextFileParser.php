@@ -66,7 +66,7 @@ final class DeclarafySafeTextFileParser
             $rows = [];
             $maxColumns = 0;
             $totalChars = 0;
-            while (($row = fgetcsv($stream, 100000, ',', '"', '\\\\')) !== false) {
+            while (($row = fgetcsv($stream, 100000, ',', '"', '')) !== false) {
                 if (count($row) > self::MAX_COLUMNS) {
                     throw new InvalidArgumentException('El CSV supera el límite de 30 columnas.');
                 }
