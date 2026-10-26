@@ -888,11 +888,16 @@ switch ($action) {
         // El RUC se concatena al usuario SOL según el formato del endpoint.
         $tokenUrl = 'https://api-seguridad.sunat.gob.pe/v1/clientessol/' . rawurlencode($clientId) . '/oauth2/token/';
         $curl = curl_init($tokenUrl);
-        curl_setopt_array($curl, [
+        if ($curl === false) {
+            fail_request('sunat/connection-failed', 'No se pudo iniciar la conexión segura con SUNAT.', 502);
+        }
+        $configured = curl_setopt_array($curl, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CONNECTTIMEOUT => 8,
             CURLOPT_TIMEOUT => 20,
             CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_POST => true,
             CURLOPT_HTTPHEADER => ['Accept: application/json', 'Content-Type: application/x-www-form-urlencoded'],
             CURLOPT_POSTFIELDS => http_build_query([
@@ -904,6 +909,10 @@ switch ($action) {
                 'password' => $solPassword,
             ], '', '&', PHP_QUERY_RFC3986),
         ]);
+        if (!$configured) {
+            curl_close($curl);
+            fail_request('sunat/connection-failed', 'No se pudo configurar la conexión segura con SUNAT.', 502);
+        }
         $sunatRaw = curl_exec($curl);
         $sunatStatus = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
         $sunatCurlError = curl_error($curl);
