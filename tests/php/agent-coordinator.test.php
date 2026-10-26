@@ -28,6 +28,9 @@ check($pdf['intent'] === 'document_review', 'PDF review request is classified as
 $docx = DeclarafyAgentCoordinator::plan('Analiza el documento DOCX');
 check($docx['intent'] === 'document_review', 'DOCX analysis request is classified as document work');
 
+$genericAnalysis = DeclarafyAgentCoordinator::plan('Analiza mi situación tributaria y dime qué opciones tengo');
+check($genericAnalysis['intent'] === 'tax_question', 'generic analysis is not misclassified as document work');
+
 $calc = DeclarafyAgentCoordinator::plan('Calcula el IGV de esta operación');
 check($calc['intent'] === 'tax_calculation', 'calculation request is classified');
 
