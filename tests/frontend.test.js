@@ -144,3 +144,16 @@ test('history and referrals use styled dashboards and copy the displayed referra
   assert.match(app, /const shown = document\.getElementById\('refLink'\)/);
   assert.match(app, /_escapeHtml\(c\.area/);
 });
+
+
+test('CSV/TXT analysis button remains wired after UI initialization', () => {
+  const html = read('index.html');
+  const app = read('app.js');
+  const config = read('config.js');
+  assert.match(html, /id="analyzeFileBtn"/);
+  assert.match(html, /\/app\.js\?v=20261026-file-analysis-1/);
+  assert.match(app, /async function analyzeAttachedFile\(\)/);
+  assert.match(app, /searchParams\.set\('action', 'ai_file_analyze'\)/);
+  assert.match(config, /getElementById\('analyzeFileBtn'\)/);
+  assert.match(config, /attached\.length \? 'inline-flex' : 'none'/);
+});
