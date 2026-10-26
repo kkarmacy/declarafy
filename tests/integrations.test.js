@@ -242,6 +242,9 @@ test('coordinator exposes only a bounded calculator tool and validates model too
   assert.match(ai, /no verificó la aplicabilidad legal/i);
   assert.match(ai, /\$agentStatus\['enabled'\]/);
   assert.match(ai, /\$releaseQuota\(\)/);
+  assert.match(ai, /ai\/tool-rate-unverified/);
+  assert.match(ai, /rateWasExplicitlyProvided/);
+  assert.match(ai, /userRateText/);
 });
 
 test('inline module handlers reference declared application functions and ids stay unique', () => {
