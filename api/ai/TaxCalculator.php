@@ -18,13 +18,20 @@ final class DeclarafyTaxCalculator
         if (!is_finite($ratePercent)) {
             return false;
         }
-        $userText = [];
-        foreach ($messages as $message) {
-            if (is_array($message) && ($message['role'] ?? '') === 'user' && is_string($message['content'] ?? null)) {
-                $userText[] = $message['content'];
+        // Only the latest user message can authorize the rate for this calculation.
+        // An unrelated percentage mentioned earlier must not carry over.
+        $latestUserText = null;
+        for ($index = count($messages) - 1; $index >= 0; $index--) {
+            $message = $messages[$index] ?? null;
+            if (is_array($message) && ($message['role'] ?? '') === 'user') {
+                $latestUserText = is_string($message['content'] ?? null) ? $message['content'] : '';
+                break;
             }
         }
-        preg_match_all('/(?<![\\d.])(\\d{1,3}(?:[.,]\\d+)?)\\s*(?:%|por\\s+ciento)/iu', implode("\\n", $userText), $matches);
+        if ($latestUserText === null || $latestUserText === '') {
+            return false;
+        }
+        preg_match_all('/(?<![\\d.])(\\d{1,3}(?:[.,]\\d+)?)\\s*(?:%|por\\s+ciento)/iu', $latestUserText, $matches);
         foreach ($matches[1] ?? [] as $match) {
             $explicitRate = (float) str_replace(',', '.', $match);
             if (abs($explicitRate - $ratePercent) < 0.000001) {
