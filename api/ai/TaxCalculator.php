@@ -33,7 +33,7 @@ final class DeclarafyTaxCalculator
         }
         // This lightweight provenance check must fail closed for obvious negation
         // or correction language; it cannot safely infer which rate the user intended.
-        if (preg_match('/\\b(?:no\\s+(?:usar|use|uses|utilices|utilizar|apliques|aplicar|aplica|aplique)|no\\s+se\\s+aplique|no\\s+(?:para|en\\s+esta\\s+operaci[oó]n)|en\\s+lugar\\s+de|en\\s+vez\\s+de|sino|correcci[oó]n|mejor\\s+(?:usa|use|utiliza|utilice|aplica|aplique)|don.t\\s+use|do\\s+not\\s+use|antes.{0,80}otro\\s+caso)\\b/iu', $latestUserText) === 1) {
+        if (preg_match('/\\b(?:no\\s+(?:usar|use|uses|utilices|utilizar|apliques|aplicar|aplica|aplique|es|debe\\s+(?:ser|aplicar|aplicarse|usar|utilizar|corresponder)|deber[ií]a\\s+(?:ser|aplicar|aplicarse|usar|utilizar|corresponder)|puede\\s+(?:ser|aplicar|aplicarse|usar|utilizar|corresponder)|corresponde)|no\\s+se\\s+aplique|no\\s+(?:para|en\\s+esta\\s+operaci[oó]n)|en\\s+lugar\\s+de|en\\s+vez\\s+de|sino|correcci[oó]n|mejor\\s+(?:usa|use|utiliza|utilice|aplica|aplique)|don.t\\s+use|do\\s+not\\s+use|doesn.t\\s+apply|does\\s+not\\s+apply|antes.{0,80}otro\\s+caso|\\d{1,3}(?:[.,]\\d+)?\\s*%?\\s+no\\s+(?:aplica|corresponde|debe\\s+aplicarse))\\b/iu', $latestUserText) === 1) {
             return false;
         }
         preg_match_all('/(?<![\\d.])(\\d{1,3}(?:[.,]\\d+)?)\\s*(?:%|por\\s+ciento)/iu', $latestUserText, $matches);
