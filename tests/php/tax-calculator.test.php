@@ -100,4 +100,14 @@ expectSame(true, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
     ['role' => 'user', 'content' => 'Usa una tasa de 18,0 por ciento.'],
 ], 18.0), 'accepts an explicitly supplied decimal-comma percentage');
 
+expectSame(false, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
+    ['role' => 'user', 'content' => 'La tasa no debe aplicarse es 18%.'],
+], 18.0), 'rejects a rate described as not to be applied');
+expectSame(false, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
+    ['role' => 'user', 'content' => '18% no aplica a esta operación.'],
+], 18.0), 'rejects a rate negated after the percentage');
+expectSame(false, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
+    ['role' => 'user', 'content' => "The 18% rate does not apply to this transaction."],
+], 18.0), 'rejects an English rate described as not applicable');
+
 echo "OK: Declarafy tax calculator tests passed\n";
