@@ -364,3 +364,18 @@ test('rendered user and AI content is escaped or sanitized', () => {
   assert.match(app, /preview\.innerHTML = '<p style="color:var\(--red\)">Error: ' \+ _escapeHtml\(err\.message\)/);
   assert.doesNotMatch(app, /\.content\?\.\[0\]\?\.text\|\|'[^']*'\)\.replace\(\/\\n/);
 });
+
+
+test('SUNAT source endpoint requires an authenticated session and limits retrieval', () => {
+  const start = api.indexOf("case 'sunat_source':");
+  const end = api.indexOf("case 'session':", start);
+  assert.ok(start >= 0 && end > start, 'SUNAT source endpoint must exist');
+  const route = api.slice(start, end);
+  assert.match(route, /require_method\('GET'\)/, 'source retrieval must be GET-only');
+  assert.match(route, /require_user\(\)/, 'source retrieval must require authentication');
+  assert.match(route, /rate_limit\(\$pdo, 'sunat_source', 20, 3600\)/, 'source retrieval must be rate-limited');
+  assert.match(route, /retrieve\(\$sourceId\)/, 'endpoint must use the allowlisted registry');
+  assert.match(route, /sunat\/source-not-allowed/, 'unknown source IDs must be rejected');
+  assert.match(route, /sunat\/source-unavailable/, 'failed retrieval must not be represented as verified tax data');
+  assert.match(route, /no determina por sí sola la vigencia ni la aplicabilidad legal/, 'response must state legal applicability limits');
+});
