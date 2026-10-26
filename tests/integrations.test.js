@@ -230,6 +230,19 @@ test('chat consumes the backend JSON contract instead of expecting an SSE stream
   assert.doesNotMatch(chat, /getReader\(|content_block_delta|line\.startsWith\('data: '\)/);
 });
 
+test('tax calculator API requires POST, an authenticated session, bounded rate limit and strict numeric inputs', () => {
+  const start = api.indexOf("case 'tax_calculate':");
+  const endpoint = api.slice(start, api.indexOf("case 'ai':", start));
+  assert.match(endpoint, /require_method\('POST'\)/);
+  assert.match(endpoint, /require_user\(\)/);
+  assert.match(endpoint, /rate_limit\(\$pdo, 'tax_calculate', 120, 3600\)/);
+  assert.match(endpoint, /!is_int\(\$amountValue\) && !is_float\(\$amountValue\)/);
+  assert.match(endpoint, /!is_int\(\$rateValue\) && !is_float\(\$rateValue\)/);
+  assert.match(endpoint, /!is_bool\(\$taxIncluded\)/);
+  assert.match(endpoint, /DeclarafyTaxCalculator::calculate/);
+  assert.match(endpoint, /no ha verificado si esa tasa corresponde legalmente/i);
+});
+
 test('coordinator exposes only a bounded calculator tool and validates model tool input', () => {
   const start = api.indexOf("case 'ai':");
   const ai = api.slice(start, api.indexOf("default:", start));
