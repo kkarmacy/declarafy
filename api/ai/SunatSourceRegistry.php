@@ -105,6 +105,9 @@ final class DeclarafySunatSourceRegistry
         $body = '';
         $tooLarge = false;
         $curl = curl_init($url);
+        if ($curl === false) {
+            throw new RuntimeException('No se pudo iniciar la conexión segura con SUNAT.');
+        }
         curl_setopt_array($curl, [
             CURLOPT_RETURNTRANSFER => false,
             CURLOPT_CONNECTTIMEOUT => 5,
