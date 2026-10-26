@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/ai/AgentCoordinator.php';
+require_once __DIR__ . '/ai/TaxCalculator.php';
 
 $action = preg_replace('/[^a-z0-9_]/', '', strtolower((string) ($_GET['action'] ?? 'health')));
 $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
@@ -953,6 +954,30 @@ switch ($action) {
         // Compatibilidad con clientes antiguos: el contador se consume de forma
         // atómica dentro de `ai`, nunca mediante una segunda petición del navegador.
         respond(['mc' => (int) user_row($pdo, $id)['message_count']]);
+
+    case 'tax_calculate':
+        require_method('POST');
+        require_user();
+        rate_limit($pdo, 'tax_calculate', 120, 3600);
+        $body = request_body();
+        $amountValue = $body['amount'] ?? null;
+        $rateValue = $body['rate_percent'] ?? null;
+        $taxIncluded = $body['tax_included'] ?? false;
+        if ((!is_int($amountValue) && !is_float($amountValue)) || (!is_int($rateValue) && !is_float($rateValue))) {
+            fail_request('tax-calculator/invalid-input', 'El importe y la tasa deben enviarse como números.', 422);
+        }
+        if (!is_bool($taxIncluded)) {
+            fail_request('tax-calculator/invalid-input', 'tax_included debe ser true o false.', 422);
+        }
+        try {
+            $calculation = DeclarafyTaxCalculator::calculate((float) $amountValue, (float) $rateValue, $taxIncluded);
+        } catch (InvalidArgumentException $error) {
+            fail_request('tax-calculator/invalid-input', $error->getMessage(), 422);
+        }
+        respond([
+            'calculation' => $calculation,
+            'disclaimer' => 'Cálculo aritmético basado en la tasa enviada. Declarafy no ha verificado si esa tasa corresponde legalmente a la operación; confirma la tasa, exoneraciones y reglas aplicables antes de declarar o pagar.',
+        ]);
 
     case 'ai':
         require_method('POST');
