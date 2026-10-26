@@ -78,6 +78,7 @@ function raw_json_response(array $payload, int $status = 200): never {
 
 function remote_json(string $url, string $method = 'GET', array $headers = [], ?array $body = null, int $timeout = 20): array {
     $curl = curl_init($url);
+    if ($curl === false) throw new RuntimeException('No se pudo iniciar la conexión remota.');
     $options = [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CONNECTTIMEOUT => 8,
@@ -89,7 +90,10 @@ function remote_json(string $url, string $method = 'GET', array $headers = [], ?
         $options[CURLOPT_CUSTOMREQUEST] = $method;
         $options[CURLOPT_POSTFIELDS] = json_encode($body ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
-    curl_setopt_array($curl, $options);
+    if (!curl_setopt_array($curl, $options)) {
+        curl_close($curl);
+        throw new RuntimeException('No se pudo configurar la conexión remota.');
+    }
     $raw = curl_exec($curl);
     $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
     if ($raw === false) {
@@ -105,7 +109,8 @@ function remote_json(string $url, string $method = 'GET', array $headers = [], ?
 
 function remote_form(string $url, array $fields, int $timeout = 20): array {
     $curl = curl_init($url);
-    curl_setopt_array($curl, [
+    if ($curl === false) throw new RuntimeException('No se pudo iniciar la conexión remota.');
+    if (!curl_setopt_array($curl, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CONNECTTIMEOUT => 8,
         CURLOPT_TIMEOUT => $timeout,
@@ -113,7 +118,10 @@ function remote_form(string $url, array $fields, int $timeout = 20): array {
         CURLOPT_POST => true,
         CURLOPT_HTTPHEADER => ['Accept: application/json', 'Content-Type: application/x-www-form-urlencoded'],
         CURLOPT_POSTFIELDS => http_build_query($fields, '', '&', PHP_QUERY_RFC3986),
-    ]);
+    ])) {
+        curl_close($curl);
+        throw new RuntimeException('No se pudo configurar la conexión remota.');
+    }
     $raw = curl_exec($curl);
     $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
     if ($raw === false) {
