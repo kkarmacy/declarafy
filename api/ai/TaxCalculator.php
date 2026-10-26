@@ -10,6 +10,31 @@ declare(strict_types=1);
 final class DeclarafyTaxCalculator
 {
     /**
+     * Confirm that a rate appears explicitly in user-authored conversation text.
+     * Assistant messages and tool outputs are deliberately not accepted as provenance.
+     */
+    public static function rateWasExplicitlyProvided(array $messages, float $ratePercent): bool
+    {
+        if (!is_finite($ratePercent)) {
+            return false;
+        }
+        $userText = [];
+        foreach ($messages as $message) {
+            if (is_array($message) && ($message['role'] ?? '') === 'user' && is_string($message['content'] ?? null)) {
+                $userText[] = $message['content'];
+            }
+        }
+        preg_match_all('/(?<![\\d.])(\\d{1,3}(?:[.,]\\d+)?)\\s*(?:%|por\\s+ciento)/iu', implode("\\n", $userText), $matches);
+        foreach ($matches[1] ?? [] as $match) {
+            $explicitRate = (float) str_replace(',', '.', $match);
+            if (abs($explicitRate - $ratePercent) < 0.000001) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Calculate tax for a supplied base amount and explicit rate.
      *
      * @return array{taxable_base:float, rate_percent:float, tax_amount:float, total_amount:float, tax_included:bool}
