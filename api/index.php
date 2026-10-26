@@ -1110,14 +1110,21 @@ switch ($action) {
             if ($curl === false) {
                 throw new RuntimeException('No se pudo iniciar la conexión con el proveedor de IA.');
             }
-            curl_setopt_array($curl, [
+            $configured = curl_setopt_array($curl, [
                 CURLOPT_POST => true,
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_CONNECTTIMEOUT => 10,
                 CURLOPT_TIMEOUT => 90,
+                CURLOPT_FOLLOWLOCATION => false,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
                 CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'x-api-key: ' . $config['anthropic_api_key'], 'anthropic-version: 2023-06-01'],
                 CURLOPT_POSTFIELDS => $providerJson,
             ]);
+            if (!$configured) {
+                curl_close($curl);
+                throw new RuntimeException('No se pudo configurar la conexión con el proveedor de IA.');
+            }
             $raw = curl_exec($curl);
             $httpStatus = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
             if ($raw === false) {
