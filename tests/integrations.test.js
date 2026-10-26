@@ -240,7 +240,7 @@ test('coordinator exposes only a bounded calculator tool and validates model too
   assert.match(ai, /DeclarafyTaxCalculator::calculate/);
   assert.match(ai, /'type' => 'tool_result'/);
   assert.match(ai, /no verificó la aplicabilidad legal/i);
-  assert.match(ai, /DECLARAFY_AI_AGENTS_ENABLED/);
+  assert.match(ai, /\$agentStatus\['enabled'\]/);
   assert.match(ai, /\$releaseQuota\(\)/);
 });
 
