@@ -25,10 +25,10 @@ php tests/php/tax-calculator.test.php
 The GitHub Actions workflow runs these syntax checks and unit tests automatically.
 
 ## Important limitations
-This is a first integration slice, not a full multi-agent product. It still uses one existing Anthropic model call; the selected roles are planning guidance, not independently executing agents. The arithmetic helper is exposed through an authenticated `POST api/index.php?action=tax_calculate` endpoint. The request body requires numeric `amount` and `rate_percent`, plus optional boolean `tax_included`; the endpoint enforces session authentication and rate limits. It returns the calculation and a disclaimer. This is a deterministic calculation API, not an automatic chat tool invocation. It deliberately does not decide which tax rate applies: callers must supply a rate verified for the relevant transaction and date. It does not retrieve official SUNAT sources or read uploaded documents. The feature flag remains off by default. Before enabling it, add security tests for prompt injection, source citations, model output, and production behavior.
+This is a first integration slice, not a full multi-agent product. It still uses one existing Anthropic model call; the selected roles are planning guidance, not independently executing agents. The arithmetic helper is exposed through an authenticated `POST api/index.php?action=tax_calculate` endpoint. The request body requires numeric `amount` and `rate_percent`, plus optional boolean `tax_included`; the endpoint enforces session authentication and rate limits. It returns the calculation and a disclaimer. It deliberately does not decide which tax rate applies: callers must supply a rate verified for the relevant transaction and date. It does not retrieve official SUNAT sources or read uploaded documents. The feature flag remains off by default. Before enabling it, add security tests for prompt injection, source citations, model output, and production behavior.
 
 ## Next implementation steps
-1. Add authenticated endpoint integration tests and a UI/chat tool adapter for the calculator.
+1. Add endpoint-level integration tests against a controlled PHP test harness and run the full CI suite on the latest commit.
 2. Add approved official-source retrieval with publication/effective dates and citations.
 3. Add separately executing agents only if latency, provider cost, and quality tests justify multiple calls.
 4. Add source/consistency validation and prompt-injection tests.
