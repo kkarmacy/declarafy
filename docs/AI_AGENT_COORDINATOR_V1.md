@@ -1,52 +1,50 @@
 # Declarafy AI Agent Coordinator (prototype)
 
-Status: prototype on `feat/ai-agent-coordinator-v1`. Wired into the existing authenticated Anthropic `ai` route behind a disabled-by-default feature flag. Not deployed.
+**Status:** prototype on `feat/ai-agent-coordinator-v1`. Changes are in pull request #38 and are not deployed. Coordinator mode is disabled by default.
 
-## What is implemented
-- Fixed allowlist of logical roles: tax, documents, calculator, verifier, report.
-- Bounded workflow planning (maximum three steps).
-- Input size checks for coordinator planning and a standalone response-length validator.
-- Feature flag `DECLARAFY_AI_AGENTS_ENABLED`, disabled by default.
-- Deterministic arithmetic helper in `api/ai/TaxCalculator.php` for calculating a tax amount from an explicitly supplied rate, including tax-exclusive and tax-inclusive amounts.
-- Standalone PHP tests for coordinator routing, calculator rounding/validation, and explicit user-provided rate provenance.
-- Optional coordinator prompt and one allowlisted `calculate_tax_amount` tool are enabled only when `DECLARAFY_AI_AGENTS_ENABLED=true`; the tool is executed in PHP, not as model-provided code. A tool-using chat turn can require one additional Anthropic request, increasing latency and provider cost.
+## Implemented
+
+- Fixed logical roles: tax, documents, calculator, verifier and report.
+- Bounded workflow planning (maximum three steps), with verifier retained for combined document/calculation workflows.
+- Coordinator prompt and one allowlisted `calculate_tax_amount` tool, enabled only when `DECLARAFY_AI_AGENTS_ENABLED=true`. Tool execution happens in PHP, never as model-supplied code. A tool-using turn may require an additional Anthropic request, increasing latency and provider cost.
+- Deterministic tax arithmetic helper in `api/ai/TaxCalculator.php`. It calculates using a supplied rate; it does not decide which rate is legally applicable.
+- Allowlisted official SUNAT source retrieval in `api/ai/SunatSourceRegistry.php`, limited to two fixed HTTPS pages on `orientacion.sunat.gob.pe`. Redirects are refused, TLS is verified, time and response size are bounded, and extracted text is capped. The response includes the canonical URL, UTC retrieval timestamp and SHA-256 of the response body.
+- Authenticated, rate-limited endpoint: `GET api/index.php?action=sunat_source&id=igv_rate` or `id=igv_calculation`.
+- When coordinator mode is enabled, IGV-related questions trigger bounded retrieval of the registered `igv_rate` page. The retrieved text and provenance are added to provider context as **untrusted evidence**, not instructions. If retrieval fails, the prompt tells the model not to claim the rate or its effective period was verified.
+- Tests use an injected source transport and do not make live network requests.
 
 ## Compatibility
-Designed as plain PHP for the existing PHP 8.3 + MySQL/MariaDB + Namecheap/cPanel stack. This prototype does not require Python, a database migration, a new service, or new paid dependencies.
+
+Designed for the existing PHP 8.3 + MySQL/MariaDB + Namecheap/cPanel stack. No Python runtime, database migration, separate service or new paid dependency is required by this prototype.
+
+## Tax calculation limitations
+
+The authenticated `POST api/index.php?action=tax_calculate` endpoint accepts numeric `amount` and `rate_percent`, plus optional boolean `tax_included`. The caller must provide a rate verified for the transaction and date. In the chat tool path, the backend requires exactly one distinct percentage in the latest user message and rejects multiple rates and obvious negation/correction language. This is a conservative ambiguity guard, not legal validation or full natural-language interpretation.
+
+## Source retrieval limitations
+
+Retrieving a page does **not** establish that a rule applies to a particular taxpayer, transaction or tax period. The registry currently covers only two SUNAT pages, does not archive snapshots in persistent storage, does not parse or validate publication/effective dates, and does not resolve conflicting guidance. HTML is reduced to bounded text, but the retrieved content remains untrusted and must never override system/developer instructions. A retrieval timestamp and hash provide provenance, not proof of legal applicability or correctness.
+
+No live SUNAT fetch or production behavior has been verified by the automated tests; source tests use a controlled injected transport. Coordinator mode remains off by default.
 
 ## Tests
-Run in an environment with PHP CLI and mbstring:
+
+The GitHub Actions workflows run PHP syntax/unit checks, security checks and browser/integration tests on pull request updates. Relevant local checks include:
+
 ```sh
 php -l api/ai/AgentCoordinator.php
 php -l api/ai/TaxCalculator.php
+php -l api/ai/SunatSourceRegistry.php
 php tests/php/agent-coordinator.test.php
 php tests/php/tax-calculator.test.php
+php tests/php/sunat-source-registry.test.php
+npm test
 ```
-The GitHub Actions workflow runs these syntax checks and unit tests automatically.
 
-## Important limitations
-This is a first integration slice, not a full multi-agent product. It still uses one existing Anthropic model call; the selected roles are planning guidance, not independently executing agents. The arithmetic helper is exposed through an authenticated `POST api/index.php?action=tax_calculate` endpoint. The request body requires numeric `amount` and `rate_percent`, plus optional boolean `tax_included`; the endpoint enforces session authentication and rate limits. It returns the calculation and a disclaimer. It deliberately does not decide which tax rate applies: callers must supply a rate verified for the relevant transaction and date. In the chat tool path, the backend requires exactly one distinct percentage in the latest user message and rejects multiple rates plus obvious negation/correction language. This is a conservative ambiguity guard, not legal validation or full natural-language interpretation. It does not retrieve official SUNAT sources or read uploaded documents. The feature flag remains off by default. Before enabling it, add security tests for prompt injection, source citations, model output, and production behavior.
+## Next steps
 
-## Next implementation steps
-1. Add endpoint-level integration tests against a controlled PHP test harness and run the full CI suite on the latest commit.
-2. Add approved official-source retrieval with publication/effective dates and citations.
-3. Add separately executing agents only if latency, provider cost, and quality tests justify multiple calls.
-4. Add source/consistency validation and prompt-injection tests.
-5. Run PHP lint, unit tests, `npm test`, and synthetic E2E/security tests.
-6. Review the PR before merging; production deployment remains a separate explicit step.
-
-
-## Official-source policy (preparatory, not yet automated)
-
-The coordinator prompt now distinguishes a source that is merely known from a source actually supplied or retrieved for the current answer. It must not claim it checked a source unless the source content or URL was actually available, and it must not invent URLs, quotations, legal provisions, or citations.
-
-Initial official reference pages identified for future source integration:
-- SUNAT, IGV rate and taxable operations: https://orientacion.sunat.gob.pe/3053-concepto-tasa-y-operaciones-gravadas-igv-empresas
-- SUNAT, calculation of IGV: https://orientacion.sunat.gob.pe/3109-05-calculo-del-impuesto
-- SUNAT, taxpayer-facing IGV overview: https://emprender.sunat.gob.pe/principales-impuestos/impuesto-general-las-ventas-igv/impuesto-general-las-ventas
-
-The allowlisted retrieval primitive now exists in `api/ai/SunatSourceRegistry.php`. It fetches only the two fixed `orientacion.sunat.gob.pe` HTTPS pages, refuses redirects, verifies TLS, applies time/response limits, extracts bounded plain text, and returns the canonical URL, UTC retrieval timestamp and SHA-256 of the response body. Tests use an injected transport and do not make external network calls.
-
-An authenticated `GET api/index.php?action=sunat_source&id=igv_rate` or `id=igv_calculation` endpoint now exposes the retrieved page text and provenance. It is rate-limited to 20 requests/hour per the existing server limiter. When coordinator mode is enabled, IGV-related questions now trigger a bounded retrieval of the registered IGV source and attach its text, URL, retrieval timestamp and SHA-256 to the provider context. If retrieval fails, the prompt explicitly instructs the model not to present the IGV rate or effective period as verified. This does not yet establish legal applicability or automatically parse/validate effective dates.\n\nImportant: this primitive is not yet connected to the chat endpoint and does not itself determine which legal rule applies to a taxpayer or period. It does not archive snapshots in persistent storage or validate the effective date. Before user-facing integration, add caching/retention policy, source-content/effective-period checks, conflict handling, prompt-injection isolation for retrieved HTML text, and end-to-end tests. If retrieval fails, callers must not present a rate as freshly verified.
-
-
+1. Add explicit tests for prompt-injection-like text in retrieved source content and ensure it remains data, not instructions.
+2. Add endpoint-level tests for authentication, rate limiting, and source retrieval failures.
+3. Design caching/retention, effective-period checks and conflicting-source handling before relying on retrieved rates in user-facing answers.
+4. Run full CI and review the pull request.
+5. Merge and production deployment are separate steps and require explicit approval.
