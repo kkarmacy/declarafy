@@ -44,6 +44,11 @@ check(is_bool($tax['requires_sources']), 'source requirement is explicit');
 $combined = DeclarafyAgentCoordinator::plan('Importar archivo XML y calcula el IGV');
 check($combined['intent'] === 'document_review', 'document intent takes precedence for combined document and calculation requests');
 check(count($combined['steps']) <= DeclarafyAgentCoordinator::MAX_STEPS, 'combined workflow never exceeds maximum steps');
+check(in_array('verifier', $combined['steps'], true), 'combined document and calculation workflow keeps verifier within step limit');
+$combinedTaxCalculation = DeclarafyAgentCoordinator::plan('Calcula el impuesto y verifica la tasa de IGV');
+check(in_array('verifier', $combinedTaxCalculation['steps'], true), 'tax calculation workflow keeps verifier within step limit');
+check(count($combinedTaxCalculation['steps']) <= DeclarafyAgentCoordinator::MAX_STEPS, 'tax calculation workflow remains bounded');
+
 foreach ($combined['steps'] as $step) {
     check(in_array($step, $allowedRoles, true), 'workflow emits only allowlisted roles');
 }
