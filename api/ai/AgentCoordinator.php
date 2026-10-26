@@ -40,7 +40,7 @@ final class DeclarafyAgentCoordinator
         }
 
         $text = mb_strtolower($question, 'UTF-8');
-        $documents = preg_match('/\b(xlsx|xls|csv|xml|comprobante|factura|archivo|adjunto|importar)\b/u', $text) === 1;
+        $documents = preg_match('/\\b(pdf|docx?|xlsx?|csv|xml|json|txt|jpg|jpeg|png|imagen|documento|comprobante|factura|archivo|adjunto|importar|analiza|revisa)\\b/u', $text) === 1;
         $calculation = preg_match('/\b(calcula|calcular|cuánto|cuanto|tasa|porcentaje|igv|impuesto|retención|retencion|percepción|percepcion|renta)\b/u', $text) === 1;
         $tax = preg_match('/\b(sunat|tribut|norma|ley|resolución|resolucion|ruc|declaración|declaracion|igv|impuesto|renta|vencimiento)\b/u', $text) === 1;
 
