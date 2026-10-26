@@ -175,6 +175,17 @@ test('SUNAT uses the official CPE OAuth service and protected data opens officia
   assert.doesNotMatch(app, /DECLARAFY_FN_BASE\/consultaRuc/);
 });
 
+test('remote SUNAT helpers fail safely when cURL initialization or configuration fails', () => {
+  const jsonHelper = api.slice(api.indexOf('function remote_json'), api.indexOf('function remote_form'));
+  const formHelper = api.slice(api.indexOf('function remote_form'), api.indexOf('function clean_ruc'));
+  assert.match(jsonHelper, /\$curl = curl_init\(\$url\);\s*if \(\$curl === false\) throw new RuntimeException/);
+  assert.match(jsonHelper, /if \(!curl_setopt_array\(\$curl, \$options\)\)/);
+  assert.match(jsonHelper, /curl_close\(\$curl\);\s*throw new RuntimeException\('No se pudo configurar la conexión remota\.'/);
+  assert.match(formHelper, /\$curl = curl_init\(\$url\);\s*if \(\$curl === false\) throw new RuntimeException/);
+  assert.match(formHelper, /if \(!curl_setopt_array\(\$curl, \[/);
+  assert.match(formHelper, /curl_close\(\$curl\);\s*throw new RuntimeException\('No se pudo configurar la conexión remota\.'/);
+});
+
 test('SUNAT source retrieval is authenticated, rate-limited and fails closed', () => {
   assert.match(api, /require_once __DIR__ \. '\/ai\/SunatSourceRegistry\.php'/);
   const start = api.indexOf("case 'sunat_source':");
