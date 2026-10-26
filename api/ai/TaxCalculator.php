@@ -32,13 +32,18 @@ final class DeclarafyTaxCalculator
             return false;
         }
         preg_match_all('/(?<![\\d.])(\\d{1,3}(?:[.,]\\d+)?)\\s*(?:%|por\\s+ciento)/iu', $latestUserText, $matches);
+        $explicitRates = [];
         foreach ($matches[1] ?? [] as $match) {
             $explicitRate = (float) str_replace(',', '.', $match);
-            if (abs($explicitRate - $ratePercent) < 0.000001) {
-                return true;
-            }
+            $explicitRates[(string) $explicitRate] = $explicitRate;
         }
-        return false;
+        // Fail closed when the latest message mentions multiple different rates.
+        // This lightweight check cannot reliably resolve corrections or negation.
+        if (count($explicitRates) !== 1) {
+            return false;
+        }
+        $onlyRate = reset($explicitRates);
+        return abs($onlyRate - $ratePercent) < 0.000001;
     }
 
     /**
