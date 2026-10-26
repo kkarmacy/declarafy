@@ -978,9 +978,9 @@ switch ($action) {
             if ($lastQuestion !== '') {
                 try {
                     $workflow = DeclarafyAgentCoordinator::plan($lastQuestion);
-                    $agentGuide = "\\n\\n[DECLARAFY COORDINATOR MODE]\\n"
-                        . "Workflow intent: " . $workflow['intent'] . "\\n"
-                        . "Selected logical roles (planning only; do not claim separate agents ran): " . implode(', ', $workflow['steps']) . "\\n"
+                    $agentGuide = "\n\n[DECLARAFY COORDINATOR MODE]\n"
+                        . "Workflow intent: " . $workflow['intent'] . "\n"
+                        . "Selected logical roles (planning only; do not claim separate agents ran): " . implode(', ', $workflow['steps']) . "\n"
                         . "Apply the relevant Peruvian tax rules carefully. Cite official SUNAT or legal sources when known; if uncertain or rules may have changed, state that and request verification. Do not invent rates, deadlines, or citations. Separate calculations from assumptions. Human review is required for consequential tax decisions.";
                     $body['system'] = mb_substr((string) ($body['system'] ?? ''), 0, 18_000) . $agentGuide;
                 } catch (InvalidArgumentException $error) {
