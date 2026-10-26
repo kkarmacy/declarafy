@@ -90,5 +90,14 @@ expectSame(false, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
     ['role' => 'assistant', 'content' => 'Entendido.'],
     ['role' => 'user', 'content' => 'Ahora calcula el impuesto de esta operación.'],
 ], 18.0), 'does not reuse a rate from an earlier user message');
+expectSame(false, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
+    ['role' => 'user', 'content' => 'Antes mencioné 18% para otro caso; calcula este impuesto.'],
+], 18.0), 'rejects a rate explicitly associated with another case');
+expectSame(false, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
+    ['role' => 'user', 'content' => 'La tasa es 18%, pero no para esta operación.'],
+], 18.0), 'rejects a rate explicitly excluded from this operation');
+expectSame(true, DeclarafyTaxCalculator::rateWasExplicitlyProvided([
+    ['role' => 'user', 'content' => 'Usa una tasa de 18,0 por ciento.'],
+], 18.0), 'accepts an explicitly supplied decimal-comma percentage');
 
 echo "OK: Declarafy tax calculator tests passed\n";
