@@ -997,7 +997,7 @@ switch ($action) {
                     $agentGuide = "\n\n[DECLARAFY COORDINATOR MODE]\n"
                         . "Workflow intent: " . $workflow['intent'] . "\n"
                         . "Selected logical roles (planning only; do not claim separate agents ran): " . implode(', ', $workflow['steps']) . "\n"
-                        . "Apply the relevant Peruvian tax rules carefully. Cite official SUNAT or legal sources when known; if uncertain or rules may have changed, state that and request verification. Do not invent rates, deadlines, or citations. Separate calculations from assumptions. Human review is required for consequential tax decisions.";
+                        . "Apply Peruvian tax rules carefully. Cite a source only if its URL/content was actually supplied or retrieved for this answer; never imply a source was checked when it was not. For legal rates, exemptions, deadlines, and filing duties, require an official source and identify its effective period when available. If no verified source is available, say so plainly, do not present a rate or deadline as verified, and ask for verification. Never invent URLs, quotations, legal provisions, or citations. Separate arithmetic from legal applicability and assumptions. Human review is required for consequential tax decisions.";
                     $body['system'] = mb_substr((string) ($body['system'] ?? ''), 0, 18_000) . $agentGuide;
                 } catch (InvalidArgumentException $error) {
                     fail_request('ai/question', 'La consulta supera el límite permitido para el modo coordinado.');
