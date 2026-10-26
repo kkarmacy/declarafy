@@ -75,7 +75,7 @@ test('brand asset exists, is referenced, and is available offline', () => {
   assert.match(styles, /declarafy-logo\.svg/);
   assert.match(worker, /declarafy-logo\.svg/);
   assert.match(logo, /DeclaraFY/);
-  assert.match(html, /20260915-1/);
+  assert.match(html, /20261025-2/);
 });
 
 test('theme control activates a real dark mode and preserves an accessible label', () => {
