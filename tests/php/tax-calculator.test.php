@@ -49,6 +49,16 @@ expectInvalid(fn() => DeclarafyTaxCalculator::calculate(100, -0.01), 'negative r
 expectInvalid(fn() => DeclarafyTaxCalculator::calculate(100, 100.01), 'rate above 100 rejected');
 expectInvalid(fn() => DeclarafyTaxCalculator::calculate(100, NAN), 'NaN rate rejected');
 
+$requestCalc = DeclarafyTaxCalculator::calculateRequest(['amount' => 100, 'rate_percent' => 18]);
+expectSame(18.0, $requestCalc['tax_amount'], 'request validator calculates valid numeric JSON fields');
+$requestInclusive = DeclarafyTaxCalculator::calculateRequest(['amount' => 118, 'rate_percent' => 18, 'tax_included' => true]);
+expectSame(100.0, $requestInclusive['taxable_base'], 'request validator accepts boolean tax_included');
+expectInvalid(fn() => DeclarafyTaxCalculator::calculateRequest(['amount' => '100', 'rate_percent' => 18]), 'numeric strings rejected for amount');
+expectInvalid(fn() => DeclarafyTaxCalculator::calculateRequest(['amount' => 100, 'rate_percent' => '18']), 'numeric strings rejected for rate');
+expectInvalid(fn() => DeclarafyTaxCalculator::calculateRequest(['amount' => 100, 'rate_percent' => 18, 'tax_included' => 'false']), 'string tax_included rejected');
+expectInvalid(fn() => DeclarafyTaxCalculator::calculateRequest(['amount' => 100]), 'missing rate rejected');
+
+
 $rateMessages = [
     ['role' => 'user', 'content' => 'Calcula el impuesto con una tasa de 18%.'],
     ['role' => 'assistant', 'content' => 'La tasa es 18%.'],
