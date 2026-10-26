@@ -24,3 +24,18 @@ test('Anthropic transport validates cURL setup before execution and enforces TLS
   assert.match(transport, /CURLOPT_SSL_VERIFYHOST => 2/);
   assert.match(transport, /CURLOPT_TIMEOUT => 90/);
 });
+
+test('public API Anthropic transport also fails closed and enforces TLS without redirects', () => {
+  const start = api.indexOf("case 'public_api':");
+  const end = api.indexOf("case 'increment_message':", start);
+  assert.ok(start >= 0 && end > start, 'public API route must exist');
+  const route = api.slice(start, end);
+  assert.match(route, /\$curl = curl_init\('https:\/\/api\.anthropic\.com\/v1\/messages'\)/);
+  assert.match(route, /if \(\$curl === false\)/);
+  assert.match(route, /\$configured = curl_setopt_array\(\$curl, \[/);
+  assert.match(route, /CURLOPT_FOLLOWLOCATION => false/);
+  assert.match(route, /CURLOPT_SSL_VERIFYPEER => true/);
+  assert.match(route, /CURLOPT_SSL_VERIFYHOST => 2/);
+  assert.match(route, /if \(!\$configured\) \{\s*curl_close\(\$curl\);\s*fail_request/);
+  assert.ok(route.indexOf('if (!$configured)') < route.indexOf('$response = curl_exec($curl)'));
+});
