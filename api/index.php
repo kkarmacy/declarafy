@@ -1099,6 +1099,9 @@ switch ($action) {
         $sendAnthropic = static function (array $providerRequest) use ($config): array {
             $providerJson = json_value($providerRequest, 1_500_000);
             $curl = curl_init('https://api.anthropic.com/v1/messages');
+            if ($curl === false) {
+                throw new RuntimeException('No se pudo iniciar la conexión con el proveedor de IA.');
+            }
             curl_setopt_array($curl, [
                 CURLOPT_POST => true,
                 CURLOPT_RETURNTRANSFER => true,
