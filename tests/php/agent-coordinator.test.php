@@ -22,6 +22,12 @@ check(count($tax['steps']) <= DeclarafyAgentCoordinator::MAX_STEPS, 'workflow is
 $docs = DeclarafyAgentCoordinator::plan('Quiero importar un archivo XML de comprobantes');
 check($docs['intent'] === 'document_review', 'document request is classified');
 
+$pdf = DeclarafyAgentCoordinator::plan('Revisa el PDF adjunto y resume el documento');
+check($pdf['intent'] === 'document_review', 'PDF review request is classified as document work');
+
+$docx = DeclarafyAgentCoordinator::plan('Analiza el documento DOCX');
+check($docx['intent'] === 'document_review', 'DOCX analysis request is classified as document work');
+
 $calc = DeclarafyAgentCoordinator::plan('Calcula el IGV de esta operación');
 check($calc['intent'] === 'tax_calculation', 'calculation request is classified');
 
