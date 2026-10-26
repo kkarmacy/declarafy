@@ -108,7 +108,7 @@ final class DeclarafySunatSourceRegistry
         if ($curl === false) {
             throw new RuntimeException('No se pudo iniciar la conexión segura con SUNAT.');
         }
-        curl_setopt_array($curl, [
+        $configured = curl_setopt_array($curl, [
             CURLOPT_RETURNTRANSFER => false,
             CURLOPT_CONNECTTIMEOUT => 5,
             CURLOPT_TIMEOUT => 12,
@@ -128,6 +128,11 @@ final class DeclarafySunatSourceRegistry
                 return strlen($chunk);
             },
         ]);
+        if (!$configured) {
+            curl_close($curl);
+            throw new RuntimeException('No se pudo configurar la conexión segura con SUNAT.');
+        }
+
         $ok = curl_exec($curl);
         $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
         $contentType = (string) curl_getinfo($curl, CURLINFO_CONTENT_TYPE);
