@@ -1,0 +1,30 @@
+name: PHP coordinator tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, "feat/ai-agent-coordinator-v1"]
+
+permissions:
+  contents: read
+
+jobs:
+  php-coordinator:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring
+          coverage: none
+      - name: PHP syntax checks
+        run: |
+          php -l api/index.php
+          php -l api/ai/AgentCoordinator.php
+          php -l tests/php/agent-coordinator.test.php
+      - name: Coordinator unit tests
+        run: php tests/php/agent-coordinator.test.php
