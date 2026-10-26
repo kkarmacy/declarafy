@@ -1020,6 +1020,26 @@ switch ($action) {
             'messages' => $messages,
             'stream' => false,
         ];
+        // Expose one bounded, allowlisted calculator tool only in coordinator mode.
+        // The model must not infer a legally applicable rate; it should ask the user
+        // when the rate is unknown or unverified. Tool use may require one extra call.
+        if ($agentStatus['enabled']) {
+            $request['tools'] = [[
+                'name' => 'calculate_tax_amount',
+                'description' => 'Perform deterministic arithmetic using an amount and an explicitly supplied tax rate. Never invent or decide the legally applicable rate. If the user has not supplied a rate and no verified source in the conversation establishes it, ask a clarification instead of calling this tool.',
+                'input_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'amount' => ['type' => 'number', 'description' => 'Amount in currency units.'],
+                        'rate_percent' => ['type' => 'number', 'description' => 'Rate percentage explicitly supplied or verified in context.'],
+                        'tax_included' => ['type' => 'boolean', 'description' => 'True when amount already includes the tax.'],
+                    ],
+                    'required' => ['amount', 'rate_percent', 'tax_included'],
+                    'additionalProperties' => false,
+                ],
+            ]];
+            $request['tool_choice'] = ['type' => 'auto'];
+        }
         $encoded = json_value($request, 1_500_000);
         $pdo->beginTransaction();
         try {
@@ -1048,21 +1068,89 @@ switch ($action) {
                 error_log('Declarafy quota rollback failed: ' . $error->getMessage());
             }
         };
-        $curl = curl_init('https://api.anthropic.com/v1/messages');
-        curl_setopt_array($curl, [
-            CURLOPT_POST => true,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_TIMEOUT => 90,
-            CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'x-api-key: ' . $config['anthropic_api_key'], 'anthropic-version: 2023-06-01'],
-            CURLOPT_POSTFIELDS => $encoded,
-        ]);
-        $response = curl_exec($curl);
-        $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        if ($response === false) { error_log('Declarafy Anthropic request failed: ' . curl_error($curl)); curl_close($curl); $releaseQuota(); fail_request('ai/unavailable', 'La IA no respondió. Intenta de nuevo.', 502); }
-        curl_close($curl);
-        $payload = json_decode($response, true);
-        if (!is_array($payload)) { $releaseQuota(); fail_request('ai/invalid-response', 'La IA devolvió una respuesta inválida.', 502); }
+        $sendAnthropic = static function (array $providerRequest) use ($config): array {
+            $providerJson = json_value($providerRequest, 1_500_000);
+            $curl = curl_init('https://api.anthropic.com/v1/messages');
+            curl_setopt_array($curl, [
+                CURLOPT_POST => true,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_TIMEOUT => 90,
+                CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'x-api-key: ' . $config['anthropic_api_key'], 'anthropic-version: 2023-06-01'],
+                CURLOPT_POSTFIELDS => $providerJson,
+            ]);
+            $raw = curl_exec($curl);
+            $httpStatus = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            if ($raw === false) {
+                $message = curl_error($curl);
+                curl_close($curl);
+                throw new RuntimeException($message ?: 'Anthropic request failed');
+            }
+            curl_close($curl);
+            $decoded = json_decode($raw, true);
+            if (!is_array($decoded)) throw new UnexpectedValueException('Anthropic returned invalid JSON');
+            return ['status' => $httpStatus, 'payload' => $decoded];
+        };
+
+        try {
+            $providerResponse = $sendAnthropic($request);
+        } catch (Throwable $error) {
+            error_log('Declarafy Anthropic request failed: ' . $error->getMessage());
+            $releaseQuota();
+            fail_request('ai/unavailable', 'La IA no respondió. Intenta de nuevo.', 502);
+        }
+        $status = $providerResponse['status'];
+        $payload = $providerResponse['payload'];
+        if ($status >= 200 && $status < 300 && $agentStatus['enabled'] && ($payload['stop_reason'] ?? '') === 'tool_use') {
+            $toolCalls = array_values(array_filter(
+                is_array($payload['content'] ?? null) ? $payload['content'] : [],
+                static fn($block): bool => is_array($block) && ($block['type'] ?? '') === 'tool_use'
+            ));
+            // Only one tool invocation is allowed per user turn; never execute model-provided code.
+            if (count($toolCalls) !== 1 || ($toolCalls[0]['name'] ?? '') !== 'calculate_tax_amount' || !is_array($toolCalls[0]['input'] ?? null)) {
+                $releaseQuota();
+                fail_request('ai/tool-invalid', 'La IA solicitó una herramienta no permitida.', 502);
+            }
+            $tool = $toolCalls[0];
+            $input = $tool['input'];
+            if ((!is_int($input['amount'] ?? null) && !is_float($input['amount'] ?? null))
+                || (!is_int($input['rate_percent'] ?? null) && !is_float($input['rate_percent'] ?? null))
+                || !is_bool($input['tax_included'] ?? null)) {
+                $releaseQuota();
+                fail_request('ai/tool-invalid', 'Los parámetros del cálculo no son válidos.', 502);
+            }
+            try {
+                $calculation = DeclarafyTaxCalculator::calculate(
+                    (float) $input['amount'],
+                    (float) $input['rate_percent'],
+                    $input['tax_included']
+                );
+            } catch (InvalidArgumentException $error) {
+                $releaseQuota();
+                fail_request('ai/tool-invalid', 'El importe o la tasa están fuera del rango permitido.', 422);
+            }
+            $toolResult = [
+                'calculation' => $calculation,
+                'disclaimer' => 'Cálculo aritmético basado en la tasa enviada por la IA. Declarafy no verificó la aplicabilidad legal de esa tasa; confirma la tasa, exoneraciones y reglas vigentes antes de declarar o pagar.',
+            ];
+            $followUp = $request;
+            unset($followUp['tools'], $followUp['tool_choice']);
+            $followUp['messages'][] = ['role' => 'assistant', 'content' => $payload['content']];
+            $followUp['messages'][] = ['role' => 'user', 'content' => [[
+                'type' => 'tool_result',
+                'tool_use_id' => (string) $tool['id'],
+                'content' => json_value($toolResult, 8000),
+            ]]];
+            try {
+                $secondResponse = $sendAnthropic($followUp);
+            } catch (Throwable $error) {
+                error_log('Declarafy Anthropic calculator follow-up failed: ' . $error->getMessage());
+                $releaseQuota();
+                fail_request('ai/unavailable', 'No se pudo completar la respuesta del cálculo. Intenta de nuevo.', 502);
+            }
+            $status = $secondResponse['status'];
+            $payload = $secondResponse['payload'];
+        }
         if ($status < 200 || $status >= 300) $releaseQuota();
         raw_json_response($payload, $status >= 200 && $status < 600 ? $status : 502);
 
