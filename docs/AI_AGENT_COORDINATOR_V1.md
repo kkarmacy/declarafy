@@ -45,4 +45,8 @@ Initial official reference pages identified for future source integration:
 - SUNAT, calculation of IGV: https://orientacion.sunat.gob.pe/3109-05-calculo-del-impuesto
 - SUNAT, taxpayer-facing IGV overview: https://emprender.sunat.gob.pe/principales-impuestos/impuesto-general-las-ventas-igv/impuesto-general-las-ventas
 
-These URLs are candidate references, not a live retrieval service. The current application does not fetch, archive, parse, or verify their content or effective dates. A production implementation still needs a controlled source registry/retrieval layer, timestamps, applicability/effective-period metadata, and tests that fail closed when sources are unavailable or conflicting.
+The allowlisted retrieval primitive now exists in `api/ai/SunatSourceRegistry.php`. It fetches only the two fixed `orientacion.sunat.gob.pe` HTTPS pages, refuses redirects, verifies TLS, applies time/response limits, extracts bounded plain text, and returns the canonical URL, UTC retrieval timestamp and SHA-256 of the response body. Tests use an injected transport and do not make external network calls.
+
+Important: this primitive is not yet connected to the chat endpoint and does not itself determine which legal rule applies to a taxpayer or period. It does not archive snapshots in persistent storage or validate the effective date. Before user-facing integration, add caching/retention policy, source-content/effective-period checks, conflict handling, prompt-injection isolation for retrieved HTML text, and end-to-end tests. If retrieval fails, callers must not present a rate as freshly verified.
+
+
