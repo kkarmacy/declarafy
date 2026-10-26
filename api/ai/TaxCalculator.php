@@ -31,6 +31,11 @@ final class DeclarafyTaxCalculator
         if ($latestUserText === null || $latestUserText === '') {
             return false;
         }
+        // This lightweight provenance check must fail closed for obvious negation
+        // or correction language; it cannot safely infer which rate the user intended.
+        if (preg_match('/\\b(?:no\\s+(?:uses|utilices|apliques|aplicar|apliques|aplicar|aplica)|en\\s+lugar\\s+de|en\\s+vez\\s+de|sino|correcci[oó]n|mejor\\s+(?:usa|utiliza|aplica))\\b/iu', $latestUserText) === 1) {
+            return false;
+        }
         preg_match_all('/(?<![\\d.])(\\d{1,3}(?:[.,]\\d+)?)\\s*(?:%|por\\s+ciento)/iu', $latestUserText, $matches);
         $explicitRates = [];
         foreach ($matches[1] ?? [] as $match) {
