@@ -1026,12 +1026,12 @@ switch ($action) {
         if ($agentStatus['enabled']) {
             $request['tools'] = [[
                 'name' => 'calculate_tax_amount',
-                'description' => 'Perform deterministic arithmetic using an amount and an explicitly supplied tax rate. Never invent or decide the legally applicable rate. If the user has not supplied a rate and no verified source in the conversation establishes it, ask a clarification instead of calling this tool.',
+                'description' => 'Perform deterministic arithmetic using an amount and a rate explicitly stated by the user in their latest message. Never invent or decide the legally applicable rate. If the latest user message does not clearly state the rate to apply, ask a clarification instead of calling this tool.',
                 'input_schema' => [
                     'type' => 'object',
                     'properties' => [
                         'amount' => ['type' => 'number', 'description' => 'Amount in currency units.'],
-                        'rate_percent' => ['type' => 'number', 'description' => 'Rate percentage explicitly supplied or verified in context.'],
+                        'rate_percent' => ['type' => 'number', 'description' => 'Rate percentage explicitly stated in the latest user message.'],
                         'tax_included' => ['type' => 'boolean', 'description' => 'True when amount already includes the tax.'],
                     ],
                     'required' => ['amount', 'rate_percent', 'tax_included'],
