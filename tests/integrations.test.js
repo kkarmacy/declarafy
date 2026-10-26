@@ -230,6 +230,20 @@ test('chat consumes the backend JSON contract instead of expecting an SSE stream
   assert.doesNotMatch(chat, /getReader\(|content_block_delta|line\.startsWith\('data: '\)/);
 });
 
+test('coordinator exposes only a bounded calculator tool and validates model tool input', () => {
+  const start = api.indexOf("case 'ai':");
+  const ai = api.slice(start, api.indexOf("default:", start));
+  assert.match(ai, /calculate_tax_amount/);
+  assert.match(ai, /'additionalProperties' => false/);
+  assert.match(ai, /unset\(\$followUp\['tools'\], \$followUp\['tool_choice'\]\)/);
+  assert.match(ai, /count\(\$toolCalls\) !== 1/);
+  assert.match(ai, /DeclarafyTaxCalculator::calculate/);
+  assert.match(ai, /'type' => 'tool_result'/);
+  assert.match(ai, /no verificó la aplicabilidad legal/i);
+  assert.match(ai, /DECLARAFY_AI_AGENTS_ENABLED/);
+  assert.match(ai, /\$releaseQuota\(\)/);
+});
+
 test('inline module handlers reference declared application functions and ids stay unique', () => {
   const scripts = ['app.js', 'config.js', 'utils.js', 'calculators.js', 'firebase-sync.js', 'server-api.js'].map(read).join('\n');
   const ignored = new Set(['if','for','while','switch','catch','confirm','setTimeout','parseInt','parseFloat','Number','String','Date','add','getElementById','open','preventDefault','remove','replace']);
