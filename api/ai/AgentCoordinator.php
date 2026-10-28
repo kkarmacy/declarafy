@@ -74,6 +74,23 @@ final class DeclarafyAgentCoordinator
         ];
     }
 
+    /** Extract only text blocks from a provider content array, then validate the final answer. */
+    public static function validateProviderContent(mixed $content): string
+    {
+        if (!is_array($content)) {
+            throw new UnexpectedValueException('La respuesta del proveedor no tiene contenido válido.');
+        }
+
+        $answer = '';
+        foreach ($content as $block) {
+            if (is_array($block) && ($block['type'] ?? '') === 'text' && is_string($block['text'] ?? null)) {
+                $answer .= $block['text'];
+            }
+        }
+
+        return self::validateAnswer($answer);
+    }
+
     /** Reject malformed or excessively long model output before display. */
     public static function validateAnswer(string $answer): string
     {
