@@ -12,6 +12,21 @@ assert.notEqual(start, -1, 'SUNAT allowlist must exist');
 assert.notEqual(end, -1, 'SUNAT allowlist must close');
 const allowlist = source.slice(start, end);
 
+
+const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+test('SUNAT authentication test is wired from the admin UI to the API action', () => {
+  assert.match(html, /id="sunatAuthAdminTools"/);
+  assert.match(html, /id="sunatAuthService"/);
+  assert.match(html, /id="sunatAuthTestButton"[^>]*onclick="testSunatAuthService\(\)"/);
+  assert.match(app, /async function testSunatAuthService\(\)/);
+  assert.match(app, /declarafyApi\('sunat_auth_test',\s*\{\s*body:\s*\{\s*service\s*\}\s*\}\)/);
+  for (const service of ['controlcpe', 'controlmsg', 'enviossp', 'programacion', 'documentossustentatorios', 'salida', 'autorizacionsalida', 'ingreso']) {
+    assert.match(html, new RegExp('<option value="' + service + '">'));
+  }
+});
+
 test('SUNAT digitalized documents leaves scope empty as shown in the official manual', () => {
   assert.match(
     allowlist,
