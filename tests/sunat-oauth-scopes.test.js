@@ -12,22 +12,22 @@ assert.notEqual(start, -1, 'SUNAT allowlist must exist');
 assert.notEqual(end, -1, 'SUNAT allowlist must close');
 const allowlist = source.slice(start, end);
 
-test('SUNAT digitalized documents uses the SUNAT API base URI as OAuth scope', () => {
+test('SUNAT digitalized documents leaves scope empty as shown in the official manual', () => {
   assert.match(
     allowlist,
-    /'documentossustentatorios'\s*=>\s*\['name'\s*=>\s*'Transmisión de documentos digitalizados',\s*'scope'\s*=>\s*'https:\/\/api\.sunat\.gob\.pe'\]/,
+    /'documentossustentatorios'\s*=>\s*\['name'\s*=>\s*'Transmisión de documentos digitalizados',\s*'scope'\s*=>\s*''\]/,
   );
 });
 
-test('all eight SUNAT authentication choices use a known API base scope', () => {
+test('all eight SUNAT authentication choices have explicit scope configuration', () => {
   const entries = [...allowlist.matchAll(/'([a-z]+)'\s*=>\s*\['name'\s*=>\s*'[^']+',\s*'scope'\s*=>\s*'([^']*)'\]/g)];
   assert.equal(entries.length, 8, 'expected eight explicitly listed SUNAT services');
   for (const entry of entries) {
     const service = entry[1];
     const scope = entry[2];
     assert.ok(
-      ['https://api-cpe.sunat.gob.pe', 'https://api.sunat.gob.pe'].includes(scope),
-      'SUNAT service ' + service + ' must use a known API base scope',
+      scope === '' || ['https://api-cpe.sunat.gob.pe', 'https://api.sunat.gob.pe'].includes(scope),
+      'SUNAT service ' + service + ' must use an explicitly approved scope format',
     );
   }
 });
