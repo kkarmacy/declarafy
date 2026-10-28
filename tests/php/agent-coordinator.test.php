@@ -25,6 +25,11 @@ check($docs['intent'] === 'document_review', 'document request is classified');
 $pdf = DeclarafyAgentCoordinator::plan('Revisa el PDF adjunto y resume el documento');
 check($pdf['intent'] === 'document_review', 'PDF review request is classified as document work');
 
+$pdfOnly = DeclarafyAgentCoordinator::plan('PDF');
+check($pdfOnly['intent'] === 'document_review', 'PDF file type is recognized without other document keywords');
+$xmlOnly = DeclarafyAgentCoordinator::plan('XML');
+check($xmlOnly['intent'] === 'document_review', 'XML file type is recognized without other document keywords');
+
 $docx = DeclarafyAgentCoordinator::plan('Analiza el documento DOCX');
 check($docx['intent'] === 'document_review', 'DOCX analysis request is classified as document work');
 
