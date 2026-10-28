@@ -811,15 +811,18 @@ switch ($action) {
 
         // Lista permitida: el navegador solo puede elegir un servicio conocido.
         // Esto prueba la obtención de token para ese scope; no confirma acceso a la API funcional.
+        // IMPORTANTE: SUNAT publica las rutas de estos servicios, pero no se ha encontrado
+        // documentación oficial que confirme individualmente el scope genérico de cada uno.
+        // Tratar https://api.sunat.gob.pe como provisional hasta validar con manuales/pruebas autorizadas.
         $sunatServices = [
             'controlcpe' => ['name' => 'MIGE Gestión Factoring', 'scope' => 'https://api-cpe.sunat.gob.pe'],
-            'controlmsg' => ['name' => 'Control de mensajes y alertas', 'scope' => '/v1/contribuyente/controlmsg'],
-            'enviossp' => ['name' => 'SSPP Receptor XML', 'scope' => '/v1/contribuyente/enviossp'],
-            'programacion' => ['name' => 'Consulta ACE', 'scope' => '/v1/controladuanero/programacion'],
+            'controlmsg' => ['name' => 'Control de mensajes y alertas', 'scope' => 'https://api.sunat.gob.pe'],
+            'enviossp' => ['name' => 'SSPP Receptor XML', 'scope' => 'https://api.sunat.gob.pe'],
+            'programacion' => ['name' => 'Consulta ACE', 'scope' => 'https://api.sunat.gob.pe'],
             'documentossustentatorios' => ['name' => 'Transmisión de documentos digitalizados', 'scope' => ''],
-            'salida' => ['name' => 'Control Aduanero Salida', 'scope' => '/v1/controladuanero/salida'],
-            'autorizacionsalida' => ['name' => 'Declaraciones asociadas a documentos de transporte', 'scope' => '/v1/controladuanero/autorizacionsalida'],
-            'ingreso' => ['name' => 'Control Aduanero Ingreso', 'scope' => '/v1/controladuanero/ingreso'],
+            'salida' => ['name' => 'Control Aduanero Salida', 'scope' => 'https://api.sunat.gob.pe'],
+            'autorizacionsalida' => ['name' => 'Declaraciones asociadas a documentos de transporte', 'scope' => 'https://api.sunat.gob.pe'],
+            'ingreso' => ['name' => 'Control Aduanero Ingreso', 'scope' => 'https://api.sunat.gob.pe'],
         ];
 
         $body = request_body();
