@@ -12,14 +12,14 @@ assert.notEqual(start, -1, 'SUNAT allowlist must exist');
 assert.notEqual(end, -1, 'SUNAT allowlist must close');
 const allowlist = source.slice(start, end);
 
-test('SUNAT digitalized documents OAuth scope is an absolute HTTPS URL', () => {
+test('SUNAT digitalized documents uses the SUNAT API base URI as OAuth scope', () => {
   assert.match(
     allowlist,
-    /'documentossustentatorios'\s*=>\s*\['name'\s*=>\s*'Transmisión de documentos digitalizados',\s*'scope'\s*=>\s*'https:\/\/api\.sunat\.gob\.pe\/v1\/controladuanero\/documentossustentatorios'\]/,
+    /'documentossustentatorios'\\s*=>\\s*\\['name'\\s*=>\\s*'Transmisión de documentos digitalizados',\\s*'scope'\\s*=>\\s*'https:\\/\\/api\\.sunat\\.gob\\.pe'\\]/,
   );
 });
 
-test('all eight SUNAT authentication choices have an explicit absolute HTTPS scope', () => {
+test('all eight SUNAT authentication choices use an absolute SUNAT API base scope', () => {
   const entries = [...allowlist.matchAll(/'([a-z]+)'\s*=>\s*\['name'\s*=>\s*'[^']+',\s*'scope'\s*=>\s*'([^']*)'\]/g)];
   assert.equal(entries.length, 8, 'expected eight explicitly listed SUNAT services');
   for (const [, service, scope] of entries) {
