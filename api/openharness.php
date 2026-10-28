@@ -45,6 +45,8 @@ if (!is_array($parsed)
     || isset($parsed['pass'])
     || isset($parsed['query'])
     || isset($parsed['fragment'])
+    || preg_match('/^[A-Za-z0-9.-]+$/', (string) ($parsed['host'] ?? '')) !== 1
+    || filter_var((string) ($parsed['host'] ?? ''), FILTER_VALIDATE_IP) !== false
     || strlen($workerToken) < 32) {
     oh_fail('openharness/not-configured', 'El servicio aislado no está configurado correctamente.', 503);
 }
@@ -76,7 +78,6 @@ if ($payload === false) oh_fail('openharness/encoding', 'No se pudo preparar la 
 $curl = curl_init(rtrim($workerUrl, '/') . '/v1/jobs');
 curl_setopt_array($curl, [
     CURLOPT_POST => true,
-    CURLOPT_RETURNTRANSFER => true,
     CURLOPT_CONNECTTIMEOUT => 5,
     CURLOPT_TIMEOUT => 30,
     CURLOPT_FOLLOWLOCATION => false,
