@@ -816,7 +816,7 @@ switch ($action) {
             'controlmsg' => ['name' => 'Control de mensajes y alertas', 'scope' => 'https://api.sunat.gob.pe'],
             'enviossp' => ['name' => 'SSPP Receptor XML', 'scope' => 'https://api.sunat.gob.pe'],
             'programacion' => ['name' => 'Consulta ACE', 'scope' => 'https://api.sunat.gob.pe'],
-            'documentossustentatorios' => ['name' => 'Transmisión de documentos digitalizados', 'scope' => 'https://api.sunat.gob.pe'],
+            'documentossustentatorios' => ['name' => 'Transmisión de documentos digitalizados', 'scope' => ''],
             'salida' => ['name' => 'Control Aduanero Salida', 'scope' => 'https://api.sunat.gob.pe'],
             'autorizacionsalida' => ['name' => 'Declaraciones asociadas a documentos de transporte', 'scope' => 'https://api.sunat.gob.pe'],
             'ingreso' => ['name' => 'Control Aduanero Ingreso', 'scope' => 'https://api.sunat.gob.pe'],
