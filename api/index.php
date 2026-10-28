@@ -813,13 +813,13 @@ switch ($action) {
         // Esto prueba la obtención de token para ese scope; no confirma acceso a la API funcional.
         $sunatServices = [
             'controlcpe' => ['name' => 'MIGE Gestión Factoring', 'scope' => 'https://api-cpe.sunat.gob.pe'],
-            'controlmsg' => ['name' => 'Control de mensajes y alertas', 'scope' => 'https://api.sunat.gob.pe/v1/contribuyente/controlmsg'],
-            'enviossp' => ['name' => 'SSPP Receptor XML', 'scope' => 'https://api.sunat.gob.pe/v1/contribuyente/enviossp'],
-            'programacion' => ['name' => 'Consulta ACE', 'scope' => 'https://api.sunat.gob.pe/v1/controladuanero/programacion'],
-            'documentossustentatorios' => ['name' => 'Transmisión de documentos digitalizados', 'scope' => 'https://api.sunat.gob.pe/v1/controladuanero/documentossustentatorios'],
-            'salida' => ['name' => 'Control Aduanero Salida', 'scope' => 'https://api.sunat.gob.pe/v1/controladuanero/salida'],
-            'autorizacionsalida' => ['name' => 'Declaraciones asociadas a documentos de transporte', 'scope' => 'https://api.sunat.gob.pe/v1/controladuanero/autorizacionsalida'],
-            'ingreso' => ['name' => 'Control Aduanero Ingreso', 'scope' => 'https://api.sunat.gob.pe/v1/controladuanero/ingreso'],
+            'controlmsg' => ['name' => 'Control de mensajes y alertas', 'scope' => 'https://api.sunat.gob.pe'],
+            'enviossp' => ['name' => 'SSPP Receptor XML', 'scope' => 'https://api.sunat.gob.pe'],
+            'programacion' => ['name' => 'Consulta ACE', 'scope' => 'https://api.sunat.gob.pe'],
+            'documentossustentatorios' => ['name' => 'Transmisión de documentos digitalizados', 'scope' => 'https://api.sunat.gob.pe'],
+            'salida' => ['name' => 'Control Aduanero Salida', 'scope' => 'https://api.sunat.gob.pe'],
+            'autorizacionsalida' => ['name' => 'Declaraciones asociadas a documentos de transporte', 'scope' => 'https://api.sunat.gob.pe'],
+            'ingreso' => ['name' => 'Control Aduanero Ingreso', 'scope' => 'https://api.sunat.gob.pe'],
         ];
 
         $body = request_body();
