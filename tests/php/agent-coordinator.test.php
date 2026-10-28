@@ -75,9 +75,29 @@ $atLimit = DeclarafyAgentCoordinator::plan(str_repeat('x', DeclarafyAgentCoordin
 check(count($atLimit['steps']) <= DeclarafyAgentCoordinator::MAX_STEPS, 'maximum-length input is accepted and bounded');
 
 check(DeclarafyAgentCoordinator::validateAnswer('  respuesta válida  ') === 'respuesta válida', 'answer is trimmed before display');
+check(
+    DeclarafyAgentCoordinator::validateProviderContent([
+        ['type' => 'thinking', 'thinking' => 'internal'],
+        ['type' => 'text', 'text' => 'respuesta '],
+        ['type' => 'text', 'text' => 'final'],
+    ]) === 'respuesta final',
+    'provider output includes only validated text blocks'
+);
 $thrown = false;
 try { DeclarafyAgentCoordinator::validateAnswer('   '); } catch (UnexpectedValueException $e) { $thrown = true; }
 check($thrown, 'empty answer is rejected');
+
+$thrown = false;
+try { DeclarafyAgentCoordinator::validateProviderContent([['type' => 'tool_use', 'id' => 'tool-1']]); } catch (UnexpectedValueException $e) { $thrown = true; }
+check($thrown, 'tool-only provider content cannot pass as a final answer');
+
+$thrown = false;
+try { DeclarafyAgentCoordinator::validateProviderContent(null); } catch (UnexpectedValueException $e) { $thrown = true; }
+check($thrown, 'malformed provider content is rejected');
+
+$thrown = false;
+try { DeclarafyAgentCoordinator::validateProviderContent([['type' => 'text', 'text' => str_repeat('x', 20001)]]); } catch (UnexpectedValueException $e) { $thrown = true; }
+check($thrown, 'oversized provider text is rejected');
 
 putenv('DECLARAFY_AI_AGENTS_ENABLED=true');
 check(DeclarafyAgentCoordinator::status()['enabled'] === true, 'feature flag can be explicitly enabled');
