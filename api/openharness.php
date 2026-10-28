@@ -35,6 +35,11 @@ if (empty($config['openharness_enabled'])
     oh_fail('openharness/disabled', 'El servicio de agentes todavía no está habilitado.', 503);
 }
 
+if (!function_exists('curl_init')) {
+    error_log('Declarafy OpenHarness bridge unavailable: PHP cURL extension is missing.');
+    oh_fail('openharness/unavailable', 'El servidor no tiene habilitada la extensión necesaria para conectar con los agentes.', 503);
+}
+
 $workerUrl = trim((string) ($config['openharness_url'] ?? ''));
 $workerToken = trim((string) ($config['openharness_token'] ?? ''));
 $parsed = $workerUrl !== '' ? parse_url($workerUrl) : false;
