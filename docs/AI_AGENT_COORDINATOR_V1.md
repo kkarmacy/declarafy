@@ -12,6 +12,7 @@
 - Authenticated, rate-limited endpoint: `GET api/index.php?action=sunat_source&id=igv_rate` or `id=igv_calculation`.
 - When coordinator mode is enabled, IGV-related questions trigger bounded retrieval of the registered `igv_rate` page. The retrieved text and provenance are added to provider context as **untrusted evidence**, not instructions. If retrieval fails, the prompt tells the model not to claim the rate or its effective period was verified.
 - Tests use an injected source transport and do not make live network requests.
+- Static regression tests verify that the AI, tax-calculation and SUNAT-source routes retain method checks, authentication, rate limits and safe failure handling.
 
 ## Compatibility
 
@@ -44,7 +45,7 @@ npm test
 ## Next steps
 
 1. Add explicit tests for prompt-injection-like text in retrieved source content and ensure it remains data, not instructions.
-2. Add endpoint-level tests for authentication, rate limiting, and source retrieval failures.
+2. Add dynamic endpoint-level tests for authentication, rate limiting, and source retrieval failures; current regression coverage checks these guards statically.
 3. Design caching/retention, effective-period checks and conflicting-source handling before relying on retrieved rates in user-facing answers.
 4. Run full CI and review the pull request.
 5. Merge and production deployment are separate steps and require explicit approval.
