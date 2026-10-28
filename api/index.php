@@ -1349,14 +1349,8 @@ switch ($action) {
         // Enforce the coordinator's answer bounds on the actual provider output, not just in unit tests.
         // Keep the provider payload shape unchanged; reject missing or oversized text before returning it.
         if ($status >= 200 && $status < 300 && $agentStatus['enabled']) {
-            $answerText = '';
-            foreach (is_array($payload['content'] ?? null) ? $payload['content'] : [] as $block) {
-                if (is_array($block) && ($block['type'] ?? '') === 'text' && is_string($block['text'] ?? null)) {
-                    $answerText .= $block['text'];
-                }
-            }
             try {
-                DeclarafyAgentCoordinator::validateAnswer($answerText);
+                DeclarafyAgentCoordinator::validateProviderContent($payload['content'] ?? null);
             } catch (UnexpectedValueException $error) {
                 $releaseQuota();
                 fail_request('ai/invalid-answer', 'La IA devolvió una respuesta vacía o demasiado extensa. Intenta de nuevo.', 502);
