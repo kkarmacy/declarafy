@@ -45,3 +45,28 @@ test('coordinator tool execution remains behind the feature flag and validates t
   assert.match(source, /DeclarafyAgentCoordinator::validateProviderContent\(\$payload\['content'\] \?\? null\)/);
   assert.match(source, /ai\/invalid-answer/);
 });
+
+test('coordinator-related API endpoints retain authentication and rate limits', () => {
+  const source = read('api/index.php');
+  const sourceRoute = source.match(/case 'sunat_source':[\\s\\S]*?\\n    case 'session':/);
+  assert.ok(sourceRoute, 'SUNAT source endpoint exists');
+  assert.match(sourceRoute[0], /require_method\\('GET'\\)/);
+  assert.match(sourceRoute[0], /require_user\\(\\)/);
+  assert.match(sourceRoute[0], /rate_limit\\(\\$pdo, 'sunat_source', 20, 3600\\)/);
+  assert.match(sourceRoute[0], /sunat\\/source-not-allowed/);
+  assert.match(sourceRoute[0], /sunat\\/source-unavailable/);
+
+  const calcRoute = source.match(/case 'tax_calculate':[\\s\\S]*?\\n    case 'ai_file_analyze':/);
+  assert.ok(calcRoute, 'tax calculation endpoint exists');
+  assert.match(calcRoute[0], /require_method\\('POST'\\)/);
+  assert.match(calcRoute[0], /require_user\\(\\)/);
+  assert.match(calcRoute[0], /rate_limit\\(\\$pdo, 'tax_calculate', 120, 3600\\)/);
+
+  const aiRoute = source.match(/case 'ai':[\\s\\S]*?\\n    default:/);
+  assert.ok(aiRoute, 'AI endpoint exists');
+  assert.match(aiRoute[0], /require_method\\('POST'\\)/);
+  assert.match(aiRoute[0], /require_user\\(\\)/);
+  assert.match(aiRoute[0], /rate_limit\\(\\$pdo, 'ai', 60, 3600\\)/);
+  assert.match(aiRoute[0], /DeclarafyAgentCoordinator::validateProviderContent/);
+  assert.match(aiRoute[0], /\\$releaseQuota\\(\\)/);
+});
