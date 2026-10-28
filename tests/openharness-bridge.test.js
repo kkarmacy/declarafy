@@ -50,3 +50,11 @@ test('OpenHarness bridge fails closed if PHP cURL is unavailable', () => {
   assert.match(bridge, /function_exists\('curl_init'\)/);
   assert.match(bridge, /PHP cURL extension is missing/);
 });
+test('OpenHarness worker contract documents isolation and bounded execution', () => {
+  const contract = fs.readFileSync(path.join(root, 'docs/openharness-worker-api-contract.md'), 'utf8');
+  assert.match(contract, /disposable container/);
+  assert.match(contract, /execution deadline/);
+  assert.match(contract, /token\/cost budget/);
+  assert.match(contract, /must not accept arbitrary command strings/);
+  assert.match(contract, /direct access to the Declarafy database/);
+});
