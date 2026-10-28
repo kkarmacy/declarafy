@@ -28,6 +28,7 @@ if ($method !== 'POST') {
 }
 require_mutation_security($config);
 $userId = require_user();
+rate_limit($pdo, 'openharness', 10, 3600);
 
 if (empty($config['openharness_enabled'])
     || !in_array(strtolower((string) $config['openharness_enabled']), ['1', 'true', 'yes', 'on'], true)) {
