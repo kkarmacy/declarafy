@@ -19,7 +19,15 @@ test('SUNAT digitalized documents leaves scope empty as shown in the official ma
   );
 });
 
-test('all eight SUNAT authentication choices have explicit scope configuration', () => {
+test('generic SUNAT scope is explicitly marked provisional pending service-by-service evidence', () => {
+  assert.match(
+    source,
+    /no se ha encontrado\\s*\\n\\s*\\/\\/ documentación oficial que confirme individualmente el scope genérico de cada uno\\./,
+  );
+  assert.match(source, /Tratar https:\/\/api\\.sunat\\.gob\\.pe como provisional/);
+});
+
+test('all eight SUNAT authentication choices have scope values in the configured allowlist', () => {
   const entries = [...allowlist.matchAll(/'([a-z]+)'\s*=>\s*\['name'\s*=>\s*'[^']+',\s*'scope'\s*=>\s*'([^']*)'\]/g)];
   assert.equal(entries.length, 8, 'expected eight explicitly listed SUNAT services');
   for (const entry of entries) {
