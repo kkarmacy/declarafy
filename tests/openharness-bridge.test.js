@@ -45,3 +45,8 @@ test('OpenHarness worker secrets are configured only server-side', () => {
   assert.match(bridge, /'Authorization: Bearer ' \./);
   assert.doesNotMatch(bridge, /openharness_token.*\$_(GET|POST|REQUEST)/);
 });
+
+test('OpenHarness bridge fails closed if PHP cURL is unavailable', () => {
+  assert.match(bridge, /function_exists\('curl_init'\)/);
+  assert.match(bridge, /PHP cURL extension is missing/);
+});
