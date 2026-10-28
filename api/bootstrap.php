@@ -17,6 +17,10 @@ $config = [
     'app_origin' => rtrim((string) env_value('DECLARAFY_APP_ORIGIN', $fileConfig['app_origin'] ?? 'https://declarafy.com'), '/'),
     'admin_email' => strtolower((string) env_value('DECLARAFY_ADMIN_EMAIL', $fileConfig['admin_email'] ?? 'christian@declarafy.com')),
     'anthropic_api_key' => (string) env_value('ANTHROPIC_API_KEY', $fileConfig['anthropic_api_key'] ?? ''),
+    // OpenHarness runs in a separate worker; keep disabled until that worker is deployed and tested.
+    'openharness_enabled' => strtolower((string) env_value('DECLARAFY_OPENHARNESS_ENABLED', $fileConfig['openharness_enabled'] ?? '0')),
+    'openharness_url' => rtrim((string) env_value('DECLARAFY_OPENHARNESS_URL', $fileConfig['openharness_url'] ?? ''), '/'),
+    'openharness_token' => (string) env_value('DECLARAFY_OPENHARNESS_TOKEN', $fileConfig['openharness_token'] ?? ''),
     'openai_api_key' => (string) env_value('OPENAI_API_KEY', $fileConfig['openai_api_key'] ?? ''),
     'deepseek_api_key' => (string) env_value('DEEPSEEK_API_KEY', $fileConfig['deepseek_api_key'] ?? ''),
     'sunat_api_url' => rtrim((string) env_value('DECLARAFY_SUNAT_API_URL', $fileConfig['sunat_api_url'] ?? ''), '/'),
