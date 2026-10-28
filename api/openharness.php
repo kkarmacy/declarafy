@@ -43,7 +43,9 @@ if (!is_array($parsed)
     || empty($parsed['host'])
     || isset($parsed['user'])
     || isset($parsed['pass'])
-    || $workerToken === '') {
+    || isset($parsed['query'])
+    || isset($parsed['fragment'])
+    || strlen($workerToken) < 32) {
     oh_fail('openharness/not-configured', 'El servicio aislado no está configurado correctamente.', 503);
 }
 
@@ -79,6 +81,7 @@ curl_setopt_array($curl, [
     CURLOPT_TIMEOUT => 30,
     CURLOPT_FOLLOWLOCATION => false,
     CURLOPT_MAXREDIRS => 0,
+    CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
     CURLOPT_HTTPHEADER => [
         'Content-Type: application/json',
         'Accept: application/json',
@@ -86,7 +89,14 @@ curl_setopt_array($curl, [
     ],
     CURLOPT_POSTFIELDS => $payload,
 ]);
+$responseBuffer = '';
+curl_setopt($curl, CURLOPT_WRITEFUNCTION, static function ($handle, string $chunk) use (&$responseBuffer): int {
+    if (strlen($responseBuffer) + strlen($chunk) > 65_536) return 0;
+    $responseBuffer .= $chunk;
+    return strlen($chunk);
+});
 $response = curl_exec($curl);
+if ($response !== false) $response = $responseBuffer;
 $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
 $error = curl_error($curl);
 curl_close($curl);
