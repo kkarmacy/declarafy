@@ -42,6 +42,6 @@ test('coordinator tool execution remains behind the feature flag and validates t
   assert.match(source, /\$inputKeys !== \['amount', 'rate_percent', 'tax_included'\]/);
   assert.match(source, /rateWasExplicitlyProvided/);
   assert.match(source, /Only one tool invocation is allowed per user turn/);
-  assert.match(source, /DeclarafyAgentCoordinator::validateAnswer\(\$answerText\)/);
+  assert.match(source, /DeclarafyAgentCoordinator::validateProviderContent\(\$payload\['content'\] \?\? null\)/);
   assert.match(source, /ai\/invalid-answer/);
 });
