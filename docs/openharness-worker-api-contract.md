@@ -1,6 +1,6 @@
 # OpenHarness worker API contract (v1)
 
-Status: design contract only. No worker endpoint is deployed by this repository yet.
+Status: ingress prototype implemented in the feature branch; execution remains disabled and nothing is deployed to production.
 
 ## Why a separate worker is mandatory
 
@@ -34,6 +34,15 @@ Allowed task names and exact input schemas:
 | `tax_data_analysis` | `{"data":[...]}` | JSON array with 1–500 items; total encoded input max 50,000 bytes |
 
 Reject unknown keys within each task input. The worker must independently repeat these validations; it must not trust the PHP bridge alone. It must reject arbitrary command strings, file paths, URLs, tool definitions, model/provider overrides, and extra keys. For document summarization, the client sends document text, not a server-side path. For data analysis, the client sends structured JSON rows, not a server path.
+
+## Query job status (prototype)
+
+```http
+GET /v1/jobs/{job_id}?user_ref=<opaque-internal-reference>
+Authorization: Bearer <service-token>
+```
+
+The prototype returns only `job_id`, `task`, `status`, and `created_at`. It requires service authentication and matches the supplied opaque `user_ref` against the stored owner. Unknown jobs and jobs owned by another user both return 404. It never returns the stored input or result. Since execution is disabled, newly accepted jobs remain `queued`; this endpoint is not evidence that an agent has run.
 
 ## Accepted response
 
