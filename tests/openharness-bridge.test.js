@@ -35,6 +35,19 @@ test('OpenHarness bridge only accepts predefined task types and bounded JSON inp
   assert.match(bridge, /request\/unknown-fields/);
 });
 
+test('Each task has an exact input schema and bounded content', () => {
+  assert.match(bridge, /\$task === 'tax_question'/);
+  assert.match(bridge, /\$inputKeys !== \['question'\]/);
+  assert.match(bridge, /strlen\(\$input\['question'\]\) > 8_000/);
+  assert.match(bridge, /\$task === 'document_summary'/);
+  assert.match(bridge, /\$inputKeys !== \['text'\]/);
+  assert.match(bridge, /strlen\(\$input\['text'\]\) > 40_000/);
+  assert.match(bridge, /\$task === 'tax_data_analysis'/);
+  assert.match(bridge, /\$inputKeys !== \['data'\]/);
+  assert.match(bridge, /count\(\$input\['data'\]\) > 500/);
+  assert.match(bridge, /openharness\/input-schema/);
+});
+
 test('OpenHarness bridge does not return arbitrary worker response fields', () => {
   assert.match(bridge, /'job_id'\s*=>\s*\$decoded\['job_id'\]/);
   assert.match(bridge, /'status'\s*=>\s*'queued'/);
@@ -54,6 +67,7 @@ test('OpenHarness bridge fails closed if PHP cURL is unavailable', () => {
   assert.match(bridge, /function_exists\('curl_init'\)/);
   assert.match(bridge, /PHP cURL extension is missing/);
 });
+
 test('OpenHarness worker contract documents isolation and bounded execution', () => {
   const contract = fs.readFileSync(path.join(root, 'docs/openharness-worker-api-contract.md'), 'utf8');
   assert.match(contract, /disposable container/);
