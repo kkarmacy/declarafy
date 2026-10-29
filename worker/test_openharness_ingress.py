@@ -40,6 +40,37 @@ class WorkerIngressTests(unittest.TestCase):
         self.assertEqual(response.status_code, 202)
         self.assertRegex(response.json()["job_id"], r"^[A-Za-z0-9_-]{16,128}$")
 
+    def test_status_is_owner_scoped_and_does_not_expose_payload(self):
+        created = client.post("/v1/jobs", json=self.request_body(), headers=AUTH)
+        job_id = created.json()["job_id"]
+
+        status = client.get(
+            f"/v1/jobs/{job_id}",
+            params={"user_ref": "test-user-1"},
+            headers=AUTH,
+        )
+        self.assertEqual(status.status_code, 200)
+        self.assertEqual(status.json()["status"], "queued")
+        self.assertEqual(status.json()["task"], "tax_question")
+        self.assertNotIn("input", status.json())
+        self.assertNotIn("payload_json", status.json())
+
+        other_user = client.get(
+            f"/v1/jobs/{job_id}",
+            params={"user_ref": "someone-else"},
+            headers=AUTH,
+        )
+        self.assertEqual(other_user.status_code, 404)
+
+    def test_status_requires_authentication(self):
+        created = client.post("/v1/jobs", json=self.request_body(), headers=AUTH)
+        job_id = created.json()["job_id"]
+        response = client.get(
+            f"/v1/jobs/{job_id}",
+            params={"user_ref": "test-user-1"},
+        )
+        self.assertEqual(response.status_code, 401)
+
     def test_idempotency_returns_same_job_for_same_request_id(self):
         body = self.request_body()
         first = client.post("/v1/jobs", json=body, headers=AUTH)
