@@ -59,7 +59,9 @@ if (!is_array($parsed)
 $raw = file_get_contents('php://input');
 if ($raw === false || strlen($raw) > 100_000) oh_fail('request/too-large', 'La solicitud supera el tamaño permitido.', 413);
 $body = json_decode($raw ?: '{}', true);
-if (!is_array($body)) oh_fail('request/invalid-json', 'Solicitud inválida.', 400);
+if (!is_array($body) || array_is_list($body)) oh_fail('request/invalid-json', 'Solicitud inválida.', 400);
+$unknownKeys = array_diff(array_keys($body), ['task', 'input']);
+if ($unknownKeys !== []) oh_fail('request/unknown-fields', 'La solicitud contiene campos no permitidos.', 400);
 
 $task = (string) ($body['task'] ?? 'tax_question');
 $allowedTasks = ['tax_question', 'document_summary', 'tax_data_analysis'];
@@ -71,7 +73,7 @@ $encodedInput = json_encode($input, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLAS
 if ($encodedInput === false || strlen($encodedInput) > 50_000) oh_fail('openharness/input-too-large', 'Los datos de la tarea superan el límite permitido.', 413);
 
 // Forward only validated task data. User identity is an internal numeric ID;
-// the worker must still authorize the signed service request independently.
+// the worker must still authenticate this service request independently.
 $payload = json_encode([
     'task' => $task,
     'input' => $input,
@@ -111,12 +113,15 @@ if ($response === false) {
     error_log('Declarafy OpenHarness bridge connection failed; user=' . $userId . '; error=' . preg_replace('/[^A-Za-z0-9 _.-]/', '', $error));
     oh_fail('openharness/unavailable', 'El servicio de agentes no está disponible. Intenta más tarde.', 502);
 }
-if ($status < 200 || $status >= 300) {
+if ($status !== 202) {
     error_log('Declarafy OpenHarness bridge rejected request; user=' . $userId . '; status=' . $status);
     oh_fail('openharness/rejected', 'El servicio de agentes no pudo aceptar la tarea.', $status === 429 ? 429 : 502);
 }
 $decoded = json_decode($response, true);
-if (!is_array($decoded) || !isset($decoded['job_id']) || !is_string($decoded['job_id']) || strlen($decoded['job_id']) > 128) {
+if (!is_array($decoded)
+    || array_keys($decoded) !== ['job_id']
+    || !is_string($decoded['job_id'] ?? null)
+    || preg_match('/^[A-Za-z0-9_-]{16,128}$/', $decoded['job_id']) !== 1) {
     error_log('Declarafy OpenHarness bridge returned invalid response; user=' . $userId);
     oh_fail('openharness/invalid-response', 'El servicio de agentes devolvió una respuesta inválida.', 502);
 }
