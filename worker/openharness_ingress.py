@@ -50,6 +50,15 @@ def db() -> sqlite3.Connection:
     return connection
 
 
+def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON key")
+        result[key] = value
+    return result
+
+
 def validate_task(task: Any, payload: Any) -> None:
     if task not in TASKS or not isinstance(payload, dict):
         raise HTTPException(400, "invalid task")
@@ -82,12 +91,19 @@ async def create_job(request: Request, authorization: str | None = Header(defaul
     if not supplied or not hmac.compare_digest(supplied, expected):
         raise HTTPException(401, "unauthorized")
 
-    raw = await request.body()
-    if len(raw) > MAX_BODY:
-        raise HTTPException(413, "request too large")
+    # Read incrementally so oversized bodies are rejected before buffering them
+    # entirely in memory. Content-Length is not trusted as the only limit.
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > MAX_BODY:
+            raise HTTPException(413, "request too large")
+        chunks.append(chunk)
+    raw = b"".join(chunks)
     try:
-        body = json.loads(raw)
-    except (json.JSONDecodeError, UnicodeDecodeError):
+        body = json.loads(raw, object_pairs_hook=reject_duplicate_keys)
+    except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
         raise HTTPException(400, "invalid JSON") from None
     if not isinstance(body, dict) or set(body) != {"task", "input", "request_id", "user_ref"}:
         raise HTTPException(400, "invalid request fields")
