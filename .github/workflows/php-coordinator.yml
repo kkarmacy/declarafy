@@ -1,0 +1,42 @@
+name: PHP coordinator tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  php-coordinator:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, fileinfo
+          coverage: none
+      - name: PHP syntax checks
+        run: |
+          php -l api/index.php
+          php -l api/ai/AgentCoordinator.php
+          php -l api/ai/TaxCalculator.php
+          php -l api/ai/SunatSourceRegistry.php
+          php -l api/ai/SafeTextFileParser.php
+          php -l tests/php/agent-coordinator.test.php
+          php -l tests/php/tax-calculator.test.php
+          php -l tests/php/sunat-source-registry.test.php
+          php -l tests/php/safe-text-file-parser.test.php
+      - name: Coordinator unit tests
+        run: php tests/php/agent-coordinator.test.php
+      - name: Tax calculator unit tests
+        run: php tests/php/tax-calculator.test.php
+      - name: SUNAT source registry tests
+        run: php tests/php/sunat-source-registry.test.php
+      - name: Safe text file parser tests
+        run: php tests/php/safe-text-file-parser.test.php

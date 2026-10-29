@@ -67,20 +67,23 @@ window.addEventListener('DOMContentLoaded', () => {
 
   renderChips = function() {
     const el = document.getElementById('chips');
-    if (!el) return;
-    el.replaceChildren();
-    attached.forEach((file, index) => {
-      const chip = document.createElement('div');
-      chip.className = 'chip';
-      chip.appendChild(document.createTextNode(`📎 ${file.name}`));
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.setAttribute('aria-label', 'Quitar archivo');
-      button.textContent = '×';
-      button.addEventListener('click', () => removeChip(index));
-      chip.appendChild(button);
-      el.appendChild(chip);
-    });
+    if (el) {
+      el.replaceChildren();
+      attached.forEach((file, index) => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.appendChild(document.createTextNode(`📎 ${file.name}`));
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.setAttribute('aria-label', 'Quitar archivo');
+        button.textContent = '×';
+        button.addEventListener('click', () => removeChip(index));
+        chip.appendChild(button);
+        el.appendChild(chip);
+      });
+    }
+    const analyzeButton = document.getElementById('analyzeFileBtn');
+    if (analyzeButton) analyzeButton.style.display = attached.length ? 'inline-flex' : 'none';
   };
 
   saveKey = function() {
