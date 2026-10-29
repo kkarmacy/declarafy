@@ -46,6 +46,23 @@ class WorkerIngressTests(unittest.TestCase):
         second = client.post("/v1/jobs", json=body, headers=AUTH)
         self.assertEqual(first.json()["job_id"], second.json()["job_id"])
 
+    def test_reused_request_id_with_different_payload_is_rejected(self):
+        body = self.request_body()
+        first = client.post("/v1/jobs", json=body, headers=AUTH)
+        self.assertEqual(first.status_code, 202)
+
+        conflicting = self.request_body(data={"question": "otra consulta"})
+        response = client.post("/v1/jobs", json=conflicting, headers=AUTH)
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()["detail"], "request id conflict")
+
+    def test_reused_request_id_across_users_is_rejected(self):
+        body = self.request_body()
+        self.assertEqual(client.post("/v1/jobs", json=body, headers=AUTH).status_code, 202)
+        conflicting = dict(body)
+        conflicting["user_ref"] = "different-user"
+        self.assertEqual(client.post("/v1/jobs", json=conflicting, headers=AUTH).status_code, 409)
+
     def test_unknown_fields_are_rejected(self):
         body = self.request_body()
         body["shell_command"] = "whoami"
