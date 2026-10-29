@@ -67,7 +67,7 @@ test('AI key stays server-side and requests have quota and time limits', () => {
 });
 
 test('service worker never caches API responses and refreshes old shells', () => {
-  assert.match(serviceWorker, /declarafy-v14-namecheap/);
+  assert.match(serviceWorker, /declarafy-v15-chat-recovery/);
   assert.match(serviceWorker, /endsWith\('\.css'\)/);
   assert.match(serviceWorker, /url\.pathname\.startsWith\('\/api\/'\)/);
   assert.match(serviceWorker, /e\.request\.mode === 'navigate'/);
@@ -101,8 +101,8 @@ test('canonical host, critical shell CSS and cache versions are deployment-safe'
   assert.doesNotMatch(html, /https:\/\/www\.declarafy\.com/);
   assert.match(html, /id="critical-shell-css"/);
   assert.match(html, /#tp-confirm-overlay:not\(\.show\)/);
-  assert.match(html, /\/app\.js\?v=20260915-1/);
-  assert.match(html, /\/sw\.js\?v=14/);
+  assert.match(html, /\\/app\.js\?v=20261025-2/);
+  assert.match(html, /\\/sw\.js\?v=15/);
   assert.match(version, /2026\.09\.15-1/);
   const rootHeaders = read('.htaccess');
   assert.match(rootHeaders, /RewriteCond %\{HTTP_HOST\} \^www\\\.declarafy\\\.com\$/);
