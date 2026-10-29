@@ -63,6 +63,20 @@ class WorkerIngressTests(unittest.TestCase):
         conflicting["user_ref"] = "different-user"
         self.assertEqual(client.post("/v1/jobs", json=conflicting, headers=AUTH).status_code, 409)
 
+    def test_duplicate_json_keys_are_rejected(self):
+        raw = (
+            '{"task":"tax_question","input":{"question":"one"},'
+            '"request_id":"' + ("c" * 32) + '","user_ref":"test-user-1",'
+            '"user_ref":"other-user"}'
+        )
+        response = client.post("/v1/jobs", content=raw, headers={**AUTH, "Content-Type": "application/json"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_oversized_raw_request_is_rejected(self):
+        raw = b'{"padding":"' + (b"x" * 100_000) + b'"}'
+        response = client.post("/v1/jobs", content=raw, headers={**AUTH, "Content-Type": "application/json"})
+        self.assertEqual(response.status_code, 413)
+
     def test_unknown_fields_are_rejected(self):
         body = self.request_body()
         body["shell_command"] = "whoami"
