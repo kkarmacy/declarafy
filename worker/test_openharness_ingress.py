@@ -131,6 +131,32 @@ class WorkerIngressTests(unittest.TestCase):
         body = self.request_body(data={"question": "x" * 9000})
         self.assertEqual(client.post("/v1/jobs", json=body, headers=AUTH).status_code, 400)
 
+    def test_queue_capacity_is_enforced(self):
+        import openharness_ingress
+
+        connection = openharness_ingress.db()
+        try:
+            for index in range(100):
+                connection.execute(
+                    "INSERT INTO jobs VALUES (?, ?, ?, ?, ?, 'queued', ?)",
+                    (
+                        f"seed-job-{index:04d}",
+                        f"{index:032x}",
+                        "seed-user",
+                        "tax_question",
+                        '{"question":"synthetic"}',
+                        1,
+                    ),
+                )
+            connection.commit()
+        finally:
+            connection.close()
+
+        body = self.request_body(request_id="f" * 32)
+        response = client.post("/v1/jobs", json=body, headers=AUTH)
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.json()["detail"], "queue full")
+
 
 if __name__ == "__main__":
     unittest.main()
