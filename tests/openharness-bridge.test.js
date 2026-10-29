@@ -55,6 +55,6 @@ test('OpenHarness worker contract documents isolation and bounded execution', ()
   assert.match(contract, /disposable container/);
   assert.match(contract, /execution deadline/);
   assert.match(contract, /token\/cost budget/);
-  assert.match(contract, /must not accept arbitrary command strings/);
+  assert.match(contract, /must reject arbitrary command strings/);
   assert.match(contract, /direct access to the Declarafy database/);
 });
