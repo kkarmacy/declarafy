@@ -100,8 +100,20 @@ async def create_job(request: Request, authorization: str | None = Header(defaul
 
     connection = db()
     try:
-        existing = connection.execute("SELECT job_id FROM jobs WHERE request_id=?", (request_id,)).fetchone()
+        existing = connection.execute(
+            "SELECT job_id, user_ref, task, payload_json FROM jobs WHERE request_id=?",
+            (request_id,),
+        ).fetchone()
         if existing:
+            # An idempotency key may only replay the same logical request.
+            # Otherwise a caller could accidentally receive another payload's receipt.
+            same_request = (
+                existing[1] == user_ref
+                and existing[2] == body["task"]
+                and existing[3] == json.dumps(body["input"], ensure_ascii=False)
+            )
+            if not same_request:
+                raise HTTPException(409, "request id conflict")
             return JSONResponse({"job_id": existing[0]}, status_code=202)
         if connection.execute("SELECT COUNT(*) FROM jobs WHERE status='queued'").fetchone()[0] >= 100:
             raise HTTPException(429, "queue full")
@@ -114,9 +126,19 @@ async def create_job(request: Request, authorization: str | None = Header(defaul
         # This is a durable receipt only; no agent execution occurs in this version.
         return JSONResponse({"job_id": job_id}, status_code=202)
     except sqlite3.IntegrityError:
-        row = connection.execute("SELECT job_id FROM jobs WHERE request_id=?", (request_id,)).fetchone()
+        row = connection.execute(
+            "SELECT job_id, user_ref, task, payload_json FROM jobs WHERE request_id=?",
+            (request_id,),
+        ).fetchone()
         if row:
-            return JSONResponse({"job_id": row[0]}, status_code=202)
+            same_request = (
+                row[1] == user_ref
+                and row[2] == body["task"]
+                and row[3] == json.dumps(body["input"], ensure_ascii=False)
+            )
+            if same_request:
+                return JSONResponse({"job_id": row[0]}, status_code=202)
+            raise HTTPException(409, "request id conflict")
         raise HTTPException(503, "queue unavailable") from None
     finally:
         connection.close()
