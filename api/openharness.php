@@ -68,7 +68,37 @@ $allowedTasks = ['tax_question', 'document_summary', 'tax_data_analysis'];
 if (!in_array($task, $allowedTasks, true)) oh_fail('openharness/task-not-allowed', 'Tipo de tarea no permitido.', 400);
 
 $input = $body['input'] ?? null;
-if (!is_array($input)) oh_fail('openharness/input', 'Los datos de la tarea deben ser un objeto.', 400);
+if (!is_array($input) || array_is_list($input)) {
+    oh_fail('openharness/input', 'Los datos de la tarea deben ser un objeto.', 400);
+}
+
+// Each task has a strict, independent input schema. This prevents the worker
+// from receiving arbitrary options, paths, URLs, tool names or provider overrides.
+$inputKeys = array_keys($input);
+if ($task === 'tax_question') {
+    if ($inputKeys !== ['question']
+        || !is_string($input['question'] ?? null)
+        || trim($input['question']) === ''
+        || strlen($input['question']) > 8_000) {
+        oh_fail('openharness/input-schema', 'La consulta tributaria no cumple el formato permitido.', 400);
+    }
+} elseif ($task === 'document_summary') {
+    if ($inputKeys !== ['text']
+        || !is_string($input['text'] ?? null)
+        || trim($input['text']) === ''
+        || strlen($input['text']) > 40_000) {
+        oh_fail('openharness/input-schema', 'El documento no cumple el formato permitido.', 400);
+    }
+} elseif ($task === 'tax_data_analysis') {
+    if ($inputKeys !== ['data']
+        || !is_array($input['data'] ?? null)
+        || array_is_list($input['data']) === false
+        || count($input['data']) < 1
+        || count($input['data']) > 500) {
+        oh_fail('openharness/input-schema', 'Los datos para analizar no cumplen el formato permitido.', 400);
+    }
+}
+
 $encodedInput = json_encode($input, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 if ($encodedInput === false || strlen($encodedInput) > 50_000) oh_fail('openharness/input-too-large', 'Los datos de la tarea superan el límite permitido.', 413);
 
