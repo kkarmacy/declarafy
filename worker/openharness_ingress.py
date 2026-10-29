@@ -164,3 +164,33 @@ async def create_job(request: Request, authorization: str | None = Header(defaul
 async def safe_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
     # Avoid leaking tracebacks, payloads, or credentials to clients.
     return JSONResponse({"detail": "internal error"}, status_code=500)
+
+
+@app.get("/v1/jobs/{job_id}")
+def get_job_status(
+    job_id: str,
+    user_ref: str,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Return minimal status for the authenticated owner; never return task payloads."""
+    expected = token()
+    supplied = authorization[7:] if authorization and authorization.startswith("Bearer ") else ""
+    if len(expected) < 32:
+        raise HTTPException(503, "worker not configured")
+    if not supplied or not hmac.compare_digest(supplied, expected):
+        raise HTTPException(401, "unauthorized")
+    if not JOB_ID_RE.fullmatch(job_id) or not user_ref or len(user_ref) > 128:
+        raise HTTPException(404, "job not found")
+
+    connection = db()
+    try:
+        row = connection.execute(
+            "SELECT task, status, created_at FROM jobs WHERE job_id=? AND user_ref=?",
+            (job_id, user_ref),
+        ).fetchone()
+        if row is None:
+            # Same response for unknown jobs and jobs belonging to another user.
+            raise HTTPException(404, "job not found")
+        return {"job_id": job_id, "task": row[0], "status": row[1], "created_at": row[2]}
+    finally:
+        connection.close()
