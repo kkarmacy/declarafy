@@ -60,7 +60,9 @@ def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 
 def validate_task(task: Any, payload: Any) -> None:
-    if task not in TASKS or not isinstance(payload, dict):
+    # Validate the type before set membership: JSON arrays/objects are unhashable
+    # and must return a controlled 400, never fall through to a 500 handler.
+    if not isinstance(task, str) or task not in TASKS or not isinstance(payload, dict):
         raise HTTPException(400, "invalid task")
     if task == "tax_question":
         valid = set(payload) == {"question"} and isinstance(payload.get("question"), str) and bool(payload["question"].strip()) and len(payload["question"].encode()) <= 8000
