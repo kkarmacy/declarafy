@@ -25,9 +25,15 @@ Request body (strict JSON object; reject unknown top-level keys):
 }
 ```
 
-Allowed task names: `tax_question`, `document_summary`, `tax_data_analysis`.
+Allowed task names and exact input schemas:
 
-The worker must validate a different schema per task. It must reject arbitrary command strings, file paths, URLs, tool definitions, model/provider overrides, and extra keys. File-based tasks must upload content into a newly created per-job workspace; never accept a server path from the client.
+| Task | Required input | Limits |
+|---|---|---|
+| `tax_question` | `{"question":"..."}` | Non-empty string, max 8,000 bytes |
+| `document_summary` | `{"text":"..."}` | Non-empty string, max 40,000 bytes |
+| `tax_data_analysis` | `{"data":[...]}` | JSON array with 1–500 items; total encoded input max 50,000 bytes |
+
+Reject unknown keys within each task input. The worker must independently repeat these validations; it must not trust the PHP bridge alone. It must reject arbitrary command strings, file paths, URLs, tool definitions, model/provider overrides, and extra keys. For document summarization, the client sends document text, not a server-side path. For data analysis, the client sends structured JSON rows, not a server path.
 
 ## Accepted response
 
