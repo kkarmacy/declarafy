@@ -31,11 +31,15 @@ test('OpenHarness bridge only accepts predefined task types and bounded JSON inp
   assert.match(bridge, /\['tax_question', 'document_summary', 'tax_data_analysis'\]/);
   assert.match(bridge, /strlen\(\$raw\) > 100_000/);
   assert.match(bridge, /strlen\(\$encodedInput\) > 50_000/);
+  assert.match(bridge, /array_diff\(array_keys\(\$body\), \['task', 'input'\]\)/);
+  assert.match(bridge, /request\/unknown-fields/);
 });
 
 test('OpenHarness bridge does not return arbitrary worker response fields', () => {
   assert.match(bridge, /'job_id'\s*=>\s*\$decoded\['job_id'\]/);
   assert.match(bridge, /'status'\s*=>\s*'queued'/);
+  assert.match(bridge, /\$status !== 202/);
+  assert.match(bridge, /\^\[A-Za-z0-9_-\]\{16,128\}\$/);
   assert.doesNotMatch(bridge, /echo\s+\$response/);
   assert.doesNotMatch(bridge, /print_r\(\$decoded/);
 });
