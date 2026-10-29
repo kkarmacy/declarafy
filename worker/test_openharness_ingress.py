@@ -117,6 +117,15 @@ class WorkerIngressTests(unittest.TestCase):
         body = self.request_body(data={"question": "hola", "path": "/etc/passwd"})
         self.assertEqual(client.post("/v1/jobs", json=body, headers=AUTH).status_code, 400)
 
+    def test_non_string_task_types_are_rejected_without_server_error(self):
+        for invalid_task in ([], {}, {"nested": "task"}):
+            with self.subTest(task=invalid_task):
+                body = self.request_body()
+                body["task"] = invalid_task
+                response = client.post("/v1/jobs", json=body, headers=AUTH)
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["detail"], "invalid task")
+
     def test_invalid_task_is_rejected(self):
         body = self.request_body(task="shell", data={"command": "whoami"})
         self.assertEqual(client.post("/v1/jobs", json=body, headers=AUTH).status_code, 400)
