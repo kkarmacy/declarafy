@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# Cancel stale browser runs when a newer commit arrives for the same PR/ref.
+concurrency:
+  group: browser-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   playwright:
     runs-on: ubuntu-latest
