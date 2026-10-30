@@ -38,7 +38,8 @@ Reject unknown keys within each task input. The worker must independently repeat
 ## Query job status (prototype)
 
 ```http
-GET /v1/jobs/{job_id}?user_ref=<opaque-internal-reference>
+GET /v1/jobs/{job_id}
+X-User-Ref: <opaque-internal-reference>
 Authorization: Bearer <service-token>
 ```
 
