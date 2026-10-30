@@ -464,6 +464,7 @@ class WorkerIngressTests(unittest.TestCase):
             rows = [
                 ("old-completed-0001", "a" * 32, "owner", "tax_question", "{}", "completed", cutoff - 1, cutoff - 1),
                 ("old-failed-000001", "b" * 32, "owner", "tax_question", "{}", "failed", cutoff - 1, cutoff - 1),
+                ("old-cancelled-0001", "f" * 32, "owner", "tax_question", "{}", "cancelled", cutoff - 1, cutoff - 1),
                 ("recent-completed1", "c" * 32, "owner", "tax_question", "{}", "completed", now, now),
                 ("old-queued-000001", "d" * 32, "owner", "tax_question", "{}", "queued", cutoff - 1, cutoff - 1),
                 ("old-running-00001", "e" * 32, "owner", "tax_question", "{}", "running", cutoff - 1, cutoff - 1),
@@ -476,7 +477,7 @@ class WorkerIngressTests(unittest.TestCase):
         finally:
             connection.close()
 
-        self.assertEqual(openharness_ingress.prune_terminal_jobs(now=now), 2)
+        self.assertEqual(openharness_ingress.prune_terminal_jobs(now=now), 3)
         connection = openharness_ingress.db()
         try:
             remaining = {row[0]: row[1] for row in connection.execute("SELECT job_id, status FROM jobs")}
