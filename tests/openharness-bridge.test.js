@@ -21,6 +21,13 @@ test('OpenHarness bridge requires same-origin mutation security and a logged-in 
   assert.match(bridge, /\$userId\s*=\s*require_user\(\)/);
 });
 
+test('OpenHarness bridge restricts HTTPS destinations to exact configured DNS hosts', () => {
+  assert.match(bootstrap, /DECLARAFY_OPENHARNESS_ALLOWED_HOSTS/);
+  assert.match(bootstrap, /'openharness_allowed_hosts'\s*=>\s*\$openharnessAllowedHosts/);
+  assert.match(bridge, /in_array\(strtolower\(\(string\) \(\$parsed\['host'\] \?\? ''\)\), \$config\['openharness_allowed_hosts'\] \?\? \[\], true\)/);
+  assert.match(bridge, /filter_var\(\(string\) \(\$parsed\['host'\] \?\? ''\), FILTER_VALIDATE_IP\) !== false/);
+});
+
 test('OpenHarness bridge uses HTTPS and does not follow redirects', () => {
   assert.match(bridge, /strtolower\(\(string\) \(\$parsed\['scheme'\] \?\? ''\)\) !== 'https'/);
   assert.match(bridge, /CURLOPT_FOLLOWLOCATION\s*=>\s*false/);
