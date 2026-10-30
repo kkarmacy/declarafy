@@ -170,7 +170,7 @@ async def safe_unexpected_error(request: Request, exc: Exception) -> JSONRespons
 @app.get("/v1/jobs/{job_id}")
 def get_job_status(
     job_id: str,
-    user_ref: str,
+    user_ref: str = Header(alias="X-User-Ref"),
     authorization: str | None = Header(default=None),
 ) -> dict[str, Any]:
     """Return minimal status for the authenticated owner; never return task payloads."""
