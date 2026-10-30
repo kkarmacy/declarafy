@@ -33,6 +33,8 @@ def migrate(apply: bool = False) -> tuple[int, Path | None]:
     active_key_id = os.environ.get("DECLARAFY_WORKER_ENCRYPTION_ACTIVE_KEY_ID", "")
     active_prefix = f"enc:v1:{active_key_id}:"
 
+    os.chmod(APP_DIR, 0o700)
+    os.chmod(DB_PATH, 0o600)
     connection = sqlite3.connect(DB_PATH, timeout=10)
     backup_path: Path | None = None
     try:
@@ -62,7 +64,7 @@ def migrate(apply: bool = False) -> tuple[int, Path | None]:
         if not apply or not updates:
             return len(updates), None
 
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         backup_path = APP_DIR / f"jobs.sqlite3.pre-encryption-{stamp}.bak"
         backup = sqlite3.connect(backup_path)
         try:
