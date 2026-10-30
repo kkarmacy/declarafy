@@ -63,6 +63,12 @@ def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
+def reject_nonfinite_constant(value: str) -> None:
+    # Python's json module accepts NaN/Infinity by default although they are not
+    # valid JSON numbers. Reject them before they can be persisted as task data.
+    raise ValueError("non-finite JSON number")
+
+
 def validate_task(task: Any, payload: Any) -> None:
     # Validate the type before set membership: JSON arrays/objects are unhashable
     # and must return a controlled 400, never fall through to a 500 handler.
@@ -114,7 +120,11 @@ async def create_job(request: Request, authorization: str | None = Header(defaul
         chunks.append(chunk)
     raw = b"".join(chunks)
     try:
-        body = json.loads(raw, object_pairs_hook=reject_duplicate_keys)
+        body = json.loads(
+            raw,
+            object_pairs_hook=reject_duplicate_keys,
+            parse_constant=reject_nonfinite_constant,
+        )
     except (json.JSONDecodeError, UnicodeDecodeError, ValueError, RecursionError):
         raise HTTPException(400, "invalid JSON") from None
     if not isinstance(body, dict) or set(body) != {"task", "input", "request_id", "user_ref"}:
