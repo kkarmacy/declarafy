@@ -33,6 +33,14 @@ def token() -> str:
     return os.environ.get("DECLARAFY_WORKER_TOKEN", "")
 
 
+def restrict_storage_permissions() -> None:
+    # SQLite creates WAL/SHM sidecars lazily. Restrict them whenever present,
+    # not only the main database file.
+    for path in (DB_PATH, Path(str(DB_PATH) + "-wal"), Path(str(DB_PATH) + "-shm")):
+        if path.exists():
+            os.chmod(path, 0o600)
+
+
 def db() -> sqlite3.Connection:
     APP_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
     # A pre-existing mounted volume may have permissive directory mode. Enforce
@@ -41,6 +49,7 @@ def db() -> sqlite3.Connection:
     connection = sqlite3.connect(DB_PATH, timeout=5)
     os.chmod(DB_PATH, 0o600)
     connection.execute("PRAGMA journal_mode=WAL")
+    restrict_storage_permissions()
     connection.execute("""CREATE TABLE IF NOT EXISTS jobs (
         job_id TEXT PRIMARY KEY,
         request_id TEXT NOT NULL UNIQUE,
@@ -193,6 +202,7 @@ async def create_job(request: Request, authorization: str | None = Header(defaul
             ),
         )
         connection.commit()
+        restrict_storage_permissions()
         # This is a durable receipt only; no agent execution occurs in this version.
         return JSONResponse({"job_id": job_id}, status_code=202)
     except sqlite3.IntegrityError:
