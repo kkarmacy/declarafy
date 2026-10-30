@@ -75,9 +75,19 @@ def validate_task(task: Any, payload: Any) -> None:
     if not isinstance(task, str) or task not in TASKS or not isinstance(payload, dict):
         raise HTTPException(400, "invalid task")
     if task == "tax_question":
-        valid = set(payload) == {"question"} and isinstance(payload.get("question"), str) and bool(payload["question"].strip()) and len(payload["question"].encode()) <= 8000
+        valid = set(payload) == {"question"} and isinstance(payload.get("question"), str) and bool(payload["question"].strip())
+        if valid:
+            try:
+                valid = len(payload["question"].encode("utf-8")) <= 8000
+            except UnicodeEncodeError:
+                valid = False
     elif task == "document_summary":
-        valid = set(payload) == {"text"} and isinstance(payload.get("text"), str) and bool(payload["text"].strip()) and len(payload["text"].encode()) <= 40000
+        valid = set(payload) == {"text"} and isinstance(payload.get("text"), str) and bool(payload["text"].strip())
+        if valid:
+            try:
+                valid = len(payload["text"].encode("utf-8")) <= 40000
+            except UnicodeEncodeError:
+                valid = False
     else:
         valid = set(payload) == {"data"} and isinstance(payload.get("data"), list) and 1 <= len(payload["data"]) <= 500
     if not valid:
@@ -134,6 +144,10 @@ async def create_job(request: Request, authorization: str | None = Header(defaul
         raise HTTPException(400, "invalid request id")
     if not isinstance(user_ref, str) or not user_ref or len(user_ref) > 128:
         raise HTTPException(400, "invalid user reference")
+    try:
+        user_ref.encode("utf-8")
+    except UnicodeEncodeError:
+        raise HTTPException(400, "invalid user reference") from None
     validate_task(body["task"], body["input"])
 
     connection = db()
