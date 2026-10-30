@@ -58,7 +58,13 @@ Run only during a maintenance window with the worker stopped and a protected cop
 ```bash
 docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml stop openharness-worker
 docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml run --rm --no-deps --entrypoint python openharness-worker /app/migrate_encryption.py
-docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml run --rm --no-deps --entrypoint python openharness-worker /app/migrate_encryption.py --apply
+sudo docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml run --rm --no-deps --entrypoint python openharness-worker /app/migrate_encryption.py --apply
+```
+
+After checking the migration count, backup file, and encrypted rows on the staging volume, restart the worker:
+
+```bash
+sudo docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml up -d
 ```
 
 The first command is read-only and reports how many rows need encryption or key rotation. The second creates a mode-0600 database backup and applies the migration transactionally. Preserve that backup under the approved retention policy; it may contain legacy plaintext. Keep every old key ID in the keyring until migration is verified and no retained ciphertext needs it. Start the worker only after checking the migrated database and backup.
