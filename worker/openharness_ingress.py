@@ -57,10 +57,138 @@ def db() -> sqlite3.Connection:
         task TEXT NOT NULL,
         payload_json TEXT NOT NULL,
         status TEXT NOT NULL,
-        created_at INTEGER NOT NULL
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL DEFAULT 0,
+        available_at INTEGER NOT NULL DEFAULT 0,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        max_attempts INTEGER NOT NULL DEFAULT 3,
+        lease_token_hash TEXT,
+        lease_until INTEGER,
+        error_code TEXT,
+        result_json TEXT
     )""")
+    # Forward-only migration for databases created by earlier prototype versions.
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(jobs)")}
+    migrations = {
+        "updated_at": "INTEGER NOT NULL DEFAULT 0",
+        "available_at": "INTEGER NOT NULL DEFAULT 0",
+        "attempts": "INTEGER NOT NULL DEFAULT 0",
+        "max_attempts": "INTEGER NOT NULL DEFAULT 3",
+        "lease_token_hash": "TEXT",
+        "lease_until": "INTEGER",
+        "error_code": "TEXT",
+        "result_json": "TEXT",
+    }
+    for name, definition in migrations.items():
+        if name not in columns:
+            connection.execute(f"ALTER TABLE jobs ADD COLUMN {name} {definition}")
+    connection.execute("UPDATE jobs SET updated_at=created_at WHERE updated_at=0")
+    connection.execute("UPDATE jobs SET available_at=created_at WHERE available_at=0")
+    connection.execute("CREATE INDEX IF NOT EXISTS jobs_queue_idx ON jobs(status, available_at, created_at)")
+    connection.execute("CREATE INDEX IF NOT EXISTS jobs_lease_idx ON jobs(status, lease_until)")
     connection.commit()
     return connection
+
+
+LEASE_SECONDS = 120
+MAX_RESULT_BYTES = 50_000
+
+
+def _service_authorized(authorization: str | None) -> bool:
+    expected = token()
+    supplied = authorization[7:] if authorization and authorization.startswith("Bearer ") else ""
+    return len(expected) >= 32 and bool(supplied) and hmac.compare_digest(supplied, expected)
+
+
+def claim_next_job(now: int | None = None) -> dict[str, Any] | None:
+    """Atomically recover expired leases and claim one eligible job."""
+    now = int(time.time()) if now is None else int(now)
+    connection = db()
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+        # Expired leases are retried, or moved to terminal failure at the attempt cap.
+        connection.execute(
+            """UPDATE jobs SET
+                 status=CASE WHEN attempts >= max_attempts THEN 'failed' ELSE 'queued' END,
+                 error_code=CASE WHEN attempts >= max_attempts THEN 'lease_expired' ELSE error_code END,
+                 lease_token_hash=NULL, lease_until=NULL, updated_at=?
+               WHERE status='running' AND lease_until IS NOT NULL AND lease_until <= ?""",
+            (now, now),
+        )
+        row = connection.execute(
+            """SELECT job_id, user_ref, task, payload_json, attempts, max_attempts
+               FROM jobs WHERE status='queued' AND available_at <= ?
+               ORDER BY created_at, job_id LIMIT 1""",
+            (now,),
+        ).fetchone()
+        if row is None:
+            connection.commit()
+            return None
+        job_id, user_ref, task, payload_json, attempts, max_attempts = row
+        lease_token = secrets.token_urlsafe(32)
+        connection.execute(
+            """UPDATE jobs SET status='running', attempts=attempts+1,
+               lease_token_hash=?, lease_until=?, updated_at=?, error_code=NULL
+               WHERE job_id=? AND status='queued'""",
+            (hmac.new(token().encode(), lease_token.encode(), "sha256").hexdigest(),
+             now + LEASE_SECONDS, now, job_id),
+        )
+        connection.commit()
+        restrict_storage_permissions()
+        return {"job_id": job_id, "user_ref": user_ref, "task": task,
+                "input": json.loads(payload_json), "attempt": attempts + 1,
+                "max_attempts": max_attempts, "lease_token": lease_token,
+                "lease_until": now + LEASE_SECONDS}
+    finally:
+        connection.close()
+
+
+def finish_job(job_id: str, lease_token: str, *, result: Any = None,
+               error_code: str | None = None, now: int | None = None) -> str:
+    """Complete/fail only the currently leased attempt; stale workers cannot overwrite."""
+    now = int(time.time()) if now is None else int(now)
+    if not JOB_ID_RE.fullmatch(job_id) or not isinstance(lease_token, str) or len(lease_token) < 32:
+        raise HTTPException(400, "invalid lease")
+    if (result is None) == (error_code is None):
+        raise HTTPException(400, "provide exactly one of result or error_code")
+    result_json = None
+    if result is not None:
+        try:
+            result_json = json.dumps(result, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+            if len(result_json.encode("utf-8")) > MAX_RESULT_BYTES:
+                raise ValueError("result too large")
+        except (TypeError, ValueError, UnicodeEncodeError, RecursionError):
+            raise HTTPException(400, "invalid result") from None
+    if error_code is not None and (not isinstance(error_code, str) or not re.fullmatch(r"[a-z0-9_]{1,64}", error_code)):
+        raise HTTPException(400, "invalid error code")
+    lease_hash = hmac.new(token().encode(), lease_token.encode(), "sha256").hexdigest()
+    connection = db()
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+        row = connection.execute(
+            "SELECT attempts, max_attempts, lease_until FROM jobs WHERE job_id=? AND status='running' AND lease_token_hash=?",
+            (job_id, lease_hash),
+        ).fetchone()
+        if row is None or row[2] is None or row[2] <= now:
+            connection.rollback()
+            raise HTTPException(409, "lease expired or superseded")
+        attempts, max_attempts, _ = row
+        if result_json is not None:
+            status, next_error, available_at = "completed", None, now
+        elif attempts < max_attempts:
+            status, next_error, available_at = "queued", error_code, now + min(300, 2 ** attempts * 5)
+        else:
+            status, next_error, available_at = "failed", error_code, now
+        connection.execute(
+            """UPDATE jobs SET status=?, result_json=?, error_code=?, available_at=?,
+               lease_token_hash=NULL, lease_until=NULL, updated_at=? WHERE job_id=?""",
+            (status, result_json, next_error, available_at, now, job_id),
+        )
+        connection.commit()
+        restrict_storage_permissions()
+        return status
+    finally:
+        connection.close()
 
 
 def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -213,6 +341,36 @@ async def create_job(request: Request, authorization: str | None = Header(defaul
         raise HTTPException(503, "queue temporarily unavailable") from None
     finally:
         connection.close()
+
+
+@app.post("/internal/worker/claim")
+def worker_claim(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    if not _service_authorized(authorization):
+        raise HTTPException(401, "unauthorized")
+    job = claim_next_job()
+    return {"job": job}
+
+
+@app.post("/internal/worker/{job_id}/complete")
+def worker_complete(job_id: str, body: dict[str, Any],
+                    authorization: str | None = Header(default=None)) -> dict[str, str]:
+    if not _service_authorized(authorization):
+        raise HTTPException(401, "unauthorized")
+    if set(body) != {"lease_token", "result"}:
+        raise HTTPException(400, "invalid completion fields")
+    status = finish_job(job_id, body["lease_token"], result=body["result"])
+    return {"status": status}
+
+
+@app.post("/internal/worker/{job_id}/fail")
+def worker_fail(job_id: str, body: dict[str, Any],
+                authorization: str | None = Header(default=None)) -> dict[str, str]:
+    if not _service_authorized(authorization):
+        raise HTTPException(401, "unauthorized")
+    if set(body) != {"lease_token", "error_code"}:
+        raise HTTPException(400, "invalid failure fields")
+    status = finish_job(job_id, body["lease_token"], error_code=body["error_code"])
+    return {"status": status}
 
 
 @app.exception_handler(Exception)
