@@ -49,7 +49,7 @@ class WorkerIngressTests(unittest.TestCase):
         connection = openharness_ingress.db()
         try:
             connection.execute(
-                "INSERT INTO jobs VALUES (?, ?, ?, ?, ?, 'queued', ?)",
+                "INSERT INTO jobs (job_id, request_id, user_ref, task, payload_json, status, created_at) VALUES (?, ?, ?, ?, ?, 'queued', ?)",
                 ("wal-permission-job", "a" * 32, "owner", "tax_question", '{"question":"x"}', 1),
             )
             connection.commit()
@@ -237,6 +237,64 @@ class WorkerIngressTests(unittest.TestCase):
     def test_oversized_input_is_rejected(self):
         body = self.request_body(data={"question": "x" * 9000})
         self.assertEqual(client.post("/v1/jobs", json=body, headers=AUTH).status_code, 400)
+
+
+    def test_claim_and_complete_job_lifecycle(self):
+        import openharness_ingress
+        job_id = client.post("/v1/jobs", json=self.request_body(), headers=AUTH).json()["job_id"]
+        claimed = openharness_ingress.claim_next_job(now=1000)
+        self.assertEqual(claimed["job_id"], job_id)
+        self.assertEqual(claimed["attempt"], 1)
+        self.assertIsNone(openharness_ingress.claim_next_job(now=1001))
+        self.assertEqual(openharness_ingress.finish_job(
+            job_id, claimed["lease_token"], result={"summary": "synthetic-ok"}, now=1002
+        ), "completed")
+        status = client.get(f"/v1/jobs/{job_id}", headers={**AUTH, "X-User-Ref": "test-user-1"})
+        self.assertEqual(status.json()["status"], "completed")
+
+    def test_failure_requeues_and_expired_lease_recovers(self):
+        import openharness_ingress
+        job_id = client.post("/v1/jobs", json=self.request_body(), headers=AUTH).json()["job_id"]
+        first = openharness_ingress.claim_next_job(now=2000)
+        self.assertEqual(openharness_ingress.finish_job(
+            job_id, first["lease_token"], error_code="synthetic_failure", now=2001
+        ), "queued")
+        self.assertIsNone(openharness_ingress.claim_next_job(now=2002))
+        second = openharness_ingress.claim_next_job(now=2010)
+        self.assertEqual(second["attempt"], 2)
+        recovered = openharness_ingress.claim_next_job(now=2010 + openharness_ingress.LEASE_SECONDS + 1)
+        self.assertEqual(recovered["job_id"], job_id)
+        with self.assertRaises(Exception) as stale:
+            openharness_ingress.finish_job(job_id, second["lease_token"], result={"bad": True},
+                                           now=2010 + openharness_ingress.LEASE_SECONDS + 2)
+        self.assertEqual(getattr(stale.exception, "status_code", None), 409)
+
+    def test_expired_job_fails_after_attempt_limit(self):
+        import openharness_ingress
+        job_id = client.post("/v1/jobs", json=self.request_body(), headers=AUTH).json()["job_id"]
+        for attempt in range(3):
+            claimed = openharness_ingress.claim_next_job(now=3000 + attempt * 1000)
+            self.assertEqual(claimed["job_id"], job_id)
+            if attempt < 2:
+                openharness_ingress.finish_job(job_id, claimed["lease_token"],
+                    error_code="synthetic_failure", now=3001 + attempt * 1000)
+                connection = openharness_ingress.db()
+                connection.execute("UPDATE jobs SET available_at=0 WHERE job_id=?", (job_id,))
+                connection.commit()
+                connection.close()
+        self.assertIsNone(openharness_ingress.claim_next_job(
+            now=5000 + openharness_ingress.LEASE_SECONDS + 1))
+        status = client.get(f"/v1/jobs/{job_id}", headers={**AUTH, "X-User-Ref": "test-user-1"})
+        self.assertEqual(status.json()["status"], "failed")
+
+    def test_invalid_and_oversized_results_are_rejected(self):
+        import openharness_ingress
+        job_id = client.post("/v1/jobs", json=self.request_body(), headers=AUTH).json()["job_id"]
+        claimed = openharness_ingress.claim_next_job(now=6000)
+        with self.assertRaises(Exception) as oversized:
+            openharness_ingress.finish_job(job_id, claimed["lease_token"],
+                result={"text": "x" * 60000}, now=6001)
+        self.assertEqual(getattr(oversized.exception, "status_code", None), 400)
 
     def test_queue_capacity_is_enforced(self):
         import openharness_ingress
