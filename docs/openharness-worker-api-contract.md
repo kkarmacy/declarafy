@@ -77,3 +77,16 @@ Return 400 for invalid schema, 401/403 for invalid service authentication, 413 f
 Do not set `DECLARAFY_OPENHARNESS_ENABLED=1` until a real worker implements this contract; authentication, queue, isolation, timeouts, output validation, and budget tests pass; a synthetic-data end-to-end test passes from Declarafy staging to worker and back; the OpenHarness permission/path traversal issues documented in `openharness-integration-plan.md` are resolved or mitigated with tests; and a reviewer confirms the exact tax workflows and allowed tools.
 
 The CLI's JSON output option does not itself make it a safe tax API. OpenHarness is a general-purpose coding agent; task-specific restrictions must be enforced outside the model.
+
+
+## Queue lifecycle and worker lease protocol (prototype)
+
+The worker now supports an authenticated internal pull protocol:
+
+- `POST /internal/worker/claim` atomically claims the oldest eligible queued job and returns its task envelope plus a random lease token. The endpoint is service-token protected and is intended only for the isolated worker process.
+- `POST /internal/worker/{job_id}/complete` accepts exactly `lease_token` and `result`. Results are bounded to 50,000 UTF-8 bytes and JSON non-finite values are rejected.
+- `POST /internal/worker/{job_id}/fail` accepts exactly `lease_token` and a sanitized error code. Failed attempts are requeued with bounded exponential backoff until the configured attempt cap (3), then become terminal `failed`.
+- A claim lease lasts 120 seconds. A later claim recovers expired `running` jobs: it requeues them if attempts remain, otherwise marks them `failed` with `lease_expired`. A stale lease token cannot complete or fail a newer attempt.
+- Owner-scoped `GET /v1/jobs/{job_id}` reports `queued`, `running`, `completed`, or `failed`, plus attempt count, update time, and sanitized error code. It does not expose payloads, lease tokens, or result bodies.
+
+The queue schema is migrated forward when the worker opens its SQLite database. The protocol is currently a tested lifecycle primitive, not a deployed always-on consumer: no OpenHarness execution is started automatically, no Declarafy PHP result-fetch route is wired yet, and results remain stored in the worker database. Do not enable live submissions or treat a completed synthetic result as tax advice. Retention/deletion, lease renewal, cancellation, encryption at rest, and the full PHP-to-worker-to-PHP result path remain separate release gates.
