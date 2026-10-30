@@ -106,6 +106,16 @@ class WorkerIngressTests(unittest.TestCase):
         response = client.post("/v1/jobs", content=raw, headers={**AUTH, "Content-Type": "application/json"})
         self.assertEqual(response.status_code, 413)
 
+    def test_excessively_nested_json_is_rejected_without_server_error(self):
+        raw = ("[" * 1200 + "]" * 1200).encode()
+        response = client.post(
+            "/v1/jobs",
+            content=raw,
+            headers={**AUTH, "Content-Type": "application/json"},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "invalid JSON")
+
     def test_unknown_fields_are_rejected(self):
         body = self.request_body()
         body["shell_command"] = "whoami"
