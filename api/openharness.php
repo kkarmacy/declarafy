@@ -75,6 +75,7 @@ if (!is_array($input) || array_is_list($input)) {
 // Each task has a strict, independent input schema. This prevents the worker
 // from receiving arbitrary options, paths, URLs, tool names or provider overrides.
 $inputKeys = array_keys($input);
+sort($inputKeys, SORT_STRING);
 if ($task === 'tax_question') {
     if ($inputKeys !== ['question']
         || !is_string($input['question'] ?? null)
