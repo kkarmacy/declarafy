@@ -80,6 +80,18 @@ class OpenHarnessRuntimeTests(unittest.TestCase):
         with self.assertRaises(Exception):
             _task_prompt("unknown_task", {"question": "Consulta"})
 
+    def test_runtime_rejects_extra_payload_keys(self):
+        with self.assertRaises(Exception):
+            _task_prompt("tax_question", {"question": "ok", "other": "unexpected"})
+
+    def test_runtime_rejects_oversized_document(self):
+        with self.assertRaises(Exception):
+            _task_prompt("document_summary", {"text": "x" * 40_001})
+
+    def test_runtime_rejects_non_finite_analysis_values(self):
+        with self.assertRaises(Exception):
+            _task_prompt("tax_data_analysis", {"data": [{"amount": float("nan")}]})
+
     def test_document_prompt_marks_document_as_untrusted(self):
         prompt = _task_prompt(
             "document_summary",
