@@ -89,7 +89,7 @@ test('OpenHarness completed results are fetched only through authenticated owner
   assert.match(bridge, /\/result'/);
   assert.match(bridge, /'X-User-Ref: ' \. \(string\) \$userId/);
   assert.match(bridge, /'result'\s*=>\s*\$resultData->result/);
-  assert.match(bridge, /Cache-Control', 'no-store/);
+  assert.match(bridge, /Cache-Control: no-store/);
   assert.doesNotMatch(bridge, /X-User-Ref.*\$_(GET|POST|REQUEST)/);
 });
 
