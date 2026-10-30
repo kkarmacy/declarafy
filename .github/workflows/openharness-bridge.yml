@@ -10,8 +10,6 @@ on:
       - 'tests/openharness-bridge.test.js'
       - 'scripts/verify-deployment-structure.js'
       - '.github/workflows/openharness-bridge.yml'
-  push:
-    branches: [feat/openharness-integration-spike]
 
 permissions:
   contents: read
