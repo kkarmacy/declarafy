@@ -22,13 +22,15 @@ function oh_fail(string $code, string $message, int $status): never {
 }
 
 $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
-if ($method !== 'POST') {
-    header('Allow: POST');
+if (!in_array($method, ['GET', 'POST'], true)) {
+    header('Allow: GET, POST');
     oh_fail('request/method', 'Método no permitido.', 405);
 }
-require_mutation_security($config);
+if ($method === 'POST') {
+    require_mutation_security($config);
+}
 $userId = require_user();
-rate_limit($pdo, 'openharness', 10, 3600);
+rate_limit($pdo, $method === 'GET' ? 'openharness-status' : 'openharness', $method === 'GET' ? 60 : 10, 3600);
 
 if (empty($config['openharness_enabled'])
     || !in_array(strtolower((string) $config['openharness_enabled']), ['1', 'true', 'yes', 'on'], true)) {
@@ -56,6 +58,65 @@ if (!is_array($parsed)
     || !in_array(strtolower((string) ($parsed['host'] ?? '')), $config['openharness_allowed_hosts'] ?? [], true)
     || strlen($workerToken) < 32) {
     oh_fail('openharness/not-configured', 'El servicio aislado no está configurado correctamente.', 503);
+}
+
+if ($method === 'GET') {
+    $jobId = trim((string) ($_GET['job_id'] ?? ''));
+    if (preg_match('/^[A-Za-z0-9_-]{16,128}$/', $jobId) !== 1) {
+        oh_fail('openharness/job-id', 'Identificador de tarea inválido.', 400);
+    }
+    $statusCurl = curl_init(rtrim($workerUrl, '/') . '/v1/jobs/' . rawurlencode($jobId));
+    curl_setopt_array($statusCurl, [
+        CURLOPT_HTTPGET => true,
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_TIMEOUT => 15,
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_MAXREDIRS => 0,
+        CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+        CURLOPT_HTTPHEADER => [
+            'Accept: application/json',
+            'Authorization: Bearer ' . $workerToken,
+            // Never trust a client-supplied owner reference; derive it from
+            // the authenticated Declarafy session.
+            'X-User-Ref: ' . (string) $userId,
+        ],
+        CURLOPT_RETURNTRANSFER => true,
+    ]);
+    $statusResponse = curl_exec($statusCurl);
+    $statusCode = (int) curl_getinfo($statusCurl, CURLINFO_HTTP_CODE);
+    $statusError = curl_error($statusCurl);
+    curl_close($statusCurl);
+    if ($statusResponse === false) {
+        error_log('Declarafy OpenHarness status lookup failed; user=' . $userId . '; error=' . preg_replace('/[^A-Za-z0-9 _.-]/', '', $statusError));
+        oh_fail('openharness/unavailable', 'No se pudo consultar el estado de la tarea.', 502);
+    }
+    if ($statusCode === 404) oh_fail('openharness/not-found', 'No se encontró la tarea.', 404);
+    if ($statusCode !== 200) oh_fail('openharness/status-error', 'No se pudo consultar el estado de la tarea.', 502);
+    $statusData = json_decode($statusResponse, true);
+    $allowedStatuses = ['queued', 'running', 'completed', 'failed'];
+    if (!is_array($statusData)
+        || ($statusData['job_id'] ?? null) !== $jobId
+        || !in_array($statusData['status'] ?? null, $allowedStatuses, true)
+        || !is_string($statusData['task'] ?? null)
+        || !is_int($statusData['created_at'] ?? null)
+        || !is_int($statusData['updated_at'] ?? null)
+        || !is_int($statusData['attempts'] ?? null)
+        || !(is_string($statusData['error_code'] ?? null) || ($statusData['error_code'] ?? null) === null)) {
+        oh_fail('openharness/invalid-status', 'El servicio devolvió un estado inválido.', 502);
+    }
+    http_response_code(200);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    echo json_encode(['ok' => true, 'data' => [
+        'job_id' => $jobId,
+        'task' => $statusData['task'],
+        'status' => $statusData['status'],
+        'created_at' => $statusData['created_at'],
+        'updated_at' => $statusData['updated_at'],
+        'attempts' => $statusData['attempts'],
+        'error_code' => $statusData['error_code'],
+    ]], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
 }
 
 $raw = file_get_contents('php://input');
