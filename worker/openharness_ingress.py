@@ -37,6 +37,12 @@ app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
 
 def token() -> str:
+    secret_file = os.environ.get("DECLARAFY_WORKER_TOKEN_FILE", "")
+    if secret_file:
+        try:
+            return Path(secret_file).read_text(encoding="utf-8").strip()
+        except OSError:
+            return ""
     return os.environ.get("DECLARAFY_WORKER_TOKEN", "")
 
 
