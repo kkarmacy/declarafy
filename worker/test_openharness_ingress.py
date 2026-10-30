@@ -252,6 +252,31 @@ class WorkerIngressTests(unittest.TestCase):
         status = client.get(f"/v1/jobs/{job_id}", headers={**AUTH, "X-User-Ref": "test-user-1"})
         self.assertEqual(status.json()["status"], "completed")
 
+
+    def test_internal_worker_http_claim_and_complete_requires_service_auth(self):
+        import openharness_ingress
+        job_id = client.post("/v1/jobs", json=self.request_body(), headers=AUTH).json()["job_id"]
+        denied = client.post("/internal/worker/claim")
+        self.assertEqual(denied.status_code, 401)
+        claimed_response = client.post("/internal/worker/claim", headers=AUTH)
+        self.assertEqual(claimed_response.status_code, 200)
+        claimed = claimed_response.json()["job"]
+        self.assertEqual(claimed["job_id"], job_id)
+        completed = client.post(
+            f"/internal/worker/{job_id}/complete",
+            json={"lease_token": claimed["lease_token"], "result": {"synthetic": True}},
+            headers=AUTH,
+        )
+        self.assertEqual(completed.status_code, 200)
+        self.assertEqual(completed.json()["status"], "completed")
+        status = client.get(
+            f"/v1/jobs/{job_id}",
+            headers={**AUTH, "X-User-Ref": "test-user-1"},
+        )
+        self.assertEqual(status.json()["attempts"], 1)
+        self.assertIsNone(status.json()["error_code"])
+        self.assertNotIn("result", status.json())
+
     def test_failure_requeues_and_expired_lease_recovers(self):
         import openharness_ingress
         job_id = client.post("/v1/jobs", json=self.request_body(), headers=AUTH).json()["job_id"]
