@@ -43,9 +43,11 @@ class EncryptionTests(unittest.TestCase):
 
     def test_tampering_fails_authentication(self):
         envelope = encrypt_field("job-123", "result_json", '{"x":1}')
-        replacement = "A" if envelope[-5] != "A" else "B"
+        index = len("enc:v1:key-a:") + 4
+        replacement = "A" if envelope[index] != "A" else "B"
+        tampered = envelope[:index] + replacement + envelope[index + 1:]
         with self.assertRaises(EncryptedDataError):
-            decrypt_field("job-123", "result_json", envelope[:-1] + replacement)
+            decrypt_field("job-123", "result_json", tampered)
 
     def test_missing_key_configuration_fails_closed(self):
         with patch.dict(os.environ, {
