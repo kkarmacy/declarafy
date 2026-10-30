@@ -93,7 +93,7 @@ if ($method === 'GET') {
     if ($statusCode === 404) oh_fail('openharness/not-found', 'No se encontró la tarea.', 404);
     if ($statusCode !== 200) oh_fail('openharness/status-error', 'No se pudo consultar el estado de la tarea.', 502);
     $statusData = json_decode($statusResponse, true);
-    $allowedStatuses = ['queued', 'running', 'completed', 'failed'];
+    $allowedStatuses = ['queued', 'running', 'completed', 'failed', 'cancelled'];
     if (!is_array($statusData)
         || ($statusData['job_id'] ?? null) !== $jobId
         || !in_array($statusData['status'] ?? null, $allowedStatuses, true)
@@ -123,6 +123,46 @@ $raw = file_get_contents('php://input');
 if ($raw === false || strlen($raw) > 100_000) oh_fail('request/too-large', 'La solicitud supera el tamaño permitido.', 413);
 $body = json_decode($raw ?: '{}', true);
 if (!is_array($body) || array_is_list($body)) oh_fail('request/invalid-json', 'Solicitud inválida.', 400);
+if (($body['action'] ?? null) === 'cancel') {
+    if (array_keys($body) !== ['action', 'job_id']
+        || !is_string($body['job_id'] ?? null)
+        || preg_match('/^[A-Za-z0-9_-]{16,128}$/', $body['job_id']) !== 1) {
+        oh_fail('openharness/cancel-request', 'Solicitud de cancelación inválida.', 400);
+    }
+    $cancelPayload = json_encode(['user_ref' => (string) $userId], JSON_UNESCAPED_UNICODE);
+    $cancelCurl = curl_init(rtrim($workerUrl, '/') . '/internal/jobs/' . rawurlencode($body['job_id']) . '/cancel');
+    curl_setopt_array($cancelCurl, [
+        CURLOPT_POST => true,
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_TIMEOUT => 15,
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_MAXREDIRS => 0,
+        CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json', 'Authorization: Bearer ' . $workerToken],
+        CURLOPT_POSTFIELDS => $cancelPayload,
+        CURLOPT_RETURNTRANSFER => true,
+    ]);
+    $cancelResponse = curl_exec($cancelCurl);
+    $cancelCode = (int) curl_getinfo($cancelCurl, CURLINFO_HTTP_CODE);
+    $cancelError = curl_error($cancelCurl);
+    curl_close($cancelCurl);
+    if ($cancelResponse === false) {
+        error_log('Declarafy OpenHarness cancellation failed; user=' . $userId . '; error=' . preg_replace('/[^A-Za-z0-9 _.-]/', '', $cancelError));
+        oh_fail('openharness/unavailable', 'No se pudo cancelar la tarea.', 502);
+    }
+    if ($cancelCode === 404) oh_fail('openharness/not-found', 'No se encontró la tarea.', 404);
+    if ($cancelCode === 409) oh_fail('openharness/not-cancellable', 'La tarea ya terminó y no puede cancelarse.', 409);
+    $cancelData = json_decode($cancelResponse, true);
+    if ($cancelCode !== 200 || !is_array($cancelData) || ($cancelData['status'] ?? null) !== 'cancelled') {
+        oh_fail('openharness/cancel-error', 'No se pudo cancelar la tarea.', 502);
+    }
+    http_response_code(200);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    echo json_encode(['ok' => true, 'data' => ['job_id' => $body['job_id'], 'status' => 'cancelled']], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 $unknownKeys = array_diff(array_keys($body), ['task', 'input']);
 if ($unknownKeys !== []) oh_fail('request/unknown-fields', 'La solicitud contiene campos no permitidos.', 400);
 
