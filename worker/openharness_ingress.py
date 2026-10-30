@@ -319,7 +319,7 @@ async def create_job(request: Request, authorization: str | None = Header(defaul
             raise HTTPException(429, "queue full")
         job_id = secrets.token_urlsafe(24)
         connection.execute(
-            "INSERT INTO jobs VALUES (?, ?, ?, ?, ?, 'queued', ?)",
+            "INSERT INTO jobs (job_id, request_id, user_ref, task, payload_json, status, created_at) VALUES (?, ?, ?, ?, ?, 'queued', ?)",
             (
                 job_id, request_id, user_ref, body["task"],
                 json.dumps(
