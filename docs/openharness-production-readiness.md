@@ -4,7 +4,7 @@ Status: engineering checklist for the isolated integration spike. This document 
 
 ## Current implementation boundary
 
-The current worker is an authenticated ingress and SQLite queue only. It validates bounded task envelopes and returns job receipts. It does not execute OpenHarness, retrieve results, or provide a complete tax-agent workflow. The PHP bridge is feature-flagged OFF by default.
+The current worker is an authenticated ingress and SQLite queue with a tested lease-based lifecycle. It supports atomic claim, running/completed/failed transitions, bounded retries, expired-lease recovery, and owner-scoped status metadata through PHP. It does not execute OpenHarness automatically or expose result bodies through PHP. The PHP bridge is feature-flagged OFF by default.
 
 ## Required storage protection before real tax data
 
@@ -46,7 +46,7 @@ A Dockerfile alone does not enforce runtime isolation. The deployment platform m
 - [ ] Workspace tests cover absolute paths, traversal, symlinks, and cross-job access.
 - [ ] Concurrency, queue, CPU/memory/time, output, and per-job spend limits are enforced and tested.
 - [ ] Secret scanning confirms credentials do not appear in logs, task storage, process arguments, artifacts, or responses.
-- [ ] PHP-to-worker-to-result end-to-end test passes in staging with synthetic data only.
+- [ ] PHP-to-worker-to-result end-to-end test passes in staging with synthetic data only. The current synthetic worker-level create/claim/complete/status path is tested, but the PHP-to-worker result-body path is not complete.
 - [ ] Security review signs off on the exact OpenHarness version and tool allow-list.
 - [ ] Feature flag remains OFF until every gate is checked and release approval is recorded.
 
@@ -73,8 +73,10 @@ This application-level check is not sufficient by itself to defeat DNS rebinding
 The bridge static checks verify HTTPS, reject direct IP literals, reject non-443 ports, and require exact membership in the configured hostname allow-list. CI passing proves those code-level checks only; it does not prove the production DNS resolver, routing, firewall, TLS certificate, or worker host configuration is safe.
 
 
-## Queue lifecycle limitation in this prototype
+## Queue lifecycle implemented; production gates remain
 
-The current ingress implementation inserts every accepted job with status `queued`. There is no consumer, worker-claim operation, transition to `running`/`completed`/`failed`, cancellation path, or TTL/expiry cleanup. Consequently, accepted jobs remain queued indefinitely and the hard limit of 100 queued jobs will eventually reject further submissions with HTTP 429. Restarting the service does not clear the durable SQLite queue. This is intentional for the ingress-only spike, but it is not suitable for production traffic.
+The worker now performs atomic claims under SQLite `BEGIN IMMEDIATE`, assigns a 120-second lease, and uses a lease token bound to the service secret so stale attempts cannot overwrite a newer attempt. Worker failures are retried with bounded backoff up to three attempts. Expired running leases are recovered on the next claim; jobs are requeued while attempts remain and become terminal `failed` after the cap. The owner-scoped status endpoint reports lifecycle state, attempt count, timestamps, and sanitized error code. The PHP bridge exposes this status lookup using the authenticated server-side user ID.
 
-Before any staging workflow that creates persistent jobs, implement and test a bounded queue consumer, atomic job claiming, explicit state transitions, retry/dead-letter policy, cancellation/deadlines, and retention cleanup (including SQLite WAL/SHM and backups). Until then, treat the endpoint as a non-production contract test only; do not use it for live user submissions.
+Synthetic tests cover submit → claim → complete → status, submit → fail/retry, expired lease recovery, stale lease rejection, attempt exhaustion, and authenticated internal worker endpoints. These tests validate the lifecycle primitive only; they do not prove a continuously running consumer, OpenHarness execution, or production hosting isolation.
+
+Still outstanding before production: retention/TTL and WAL/SHM/backup cleanup, cancellation and lease renewal, encrypted storage and managed key rotation, the full result retrieval/display pipeline, always-on worker orchestration, resource/cost controls, and staging network/runtime isolation. Do not enable live submissions. The feature flag remains OFF and the queue must only be exercised with synthetic data.
