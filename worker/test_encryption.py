@@ -128,5 +128,33 @@ class EncryptionTests(unittest.TestCase):
                     self.assertEqual(count, 0)
 
 
+    def test_migration_adds_result_column_for_older_queue_schema(self):
+        import migrate_encryption
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            database = root / "jobs.sqlite3"
+            with sqlite3.connect(database) as connection:
+                connection.execute("""CREATE TABLE jobs (
+                    job_id TEXT PRIMARY KEY, payload_json TEXT NOT NULL
+                )""")
+                connection.execute(
+                    "INSERT INTO jobs VALUES (?, ?)",
+                    ("legacy-schema-job-0001", '{"input":"synthetic"}'),
+                )
+            with patch.object(migrate_encryption, "DB_PATH", database), patch.object(migrate_encryption, "APP_DIR", root):
+                count, backup = migrate_encryption.migrate(apply=True)
+                self.assertEqual(count, 1)
+                self.assertTrue(backup.exists())
+                with sqlite3.connect(database) as connection:
+                    columns = {row[1] for row in connection.execute("PRAGMA table_info(jobs)")}
+                    payload, result = connection.execute(
+                        "SELECT payload_json, result_json FROM jobs WHERE job_id=?",
+                        ("legacy-schema-job-0001",),
+                    ).fetchone()
+                self.assertIn("result_json", columns)
+                self.assertIsNone(result)
+                self.assertEqual(decrypt_field("legacy-schema-job-0001", "payload_json", payload), '{"input":"synthetic"}')
+
+
 if __name__ == "__main__":
     unittest.main()
