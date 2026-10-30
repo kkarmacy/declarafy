@@ -406,5 +406,40 @@ class WorkerIngressTests(unittest.TestCase):
         self.assertEqual(response.json()["detail"], "queue full")
 
 
+    def test_retention_prunes_only_old_terminal_jobs(self):
+        import openharness_ingress
+
+        now = 2_000_000_000
+        cutoff = now - openharness_ingress.RETENTION_SECONDS
+        connection = openharness_ingress.db()
+        try:
+            rows = [
+                ("old-completed-0001", "a" * 32, "owner", "tax_question", "{}", "completed", cutoff - 1, cutoff - 1),
+                ("old-failed-000001", "b" * 32, "owner", "tax_question", "{}", "failed", cutoff - 1, cutoff - 1),
+                ("recent-completed1", "c" * 32, "owner", "tax_question", "{}", "completed", now, now),
+                ("old-queued-000001", "d" * 32, "owner", "tax_question", "{}", "queued", cutoff - 1, cutoff - 1),
+                ("old-running-00001", "e" * 32, "owner", "tax_question", "{}", "running", cutoff - 1, cutoff - 1),
+            ]
+            connection.executemany(
+                "INSERT INTO jobs (job_id, request_id, user_ref, task, payload_json, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                rows,
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        self.assertEqual(openharness_ingress.prune_terminal_jobs(now=now), 2)
+        connection = openharness_ingress.db()
+        try:
+            remaining = {row[0]: row[1] for row in connection.execute("SELECT job_id, status FROM jobs")}
+        finally:
+            connection.close()
+        self.assertEqual(remaining, {
+            "recent-completed1": "completed",
+            "old-queued-000001": "queued",
+            "old-running-00001": "running",
+        })
+
+
 if __name__ == "__main__":
     unittest.main()
