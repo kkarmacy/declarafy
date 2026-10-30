@@ -40,8 +40,9 @@ def token() -> str:
     secret_file = os.environ.get("DECLARAFY_WORKER_TOKEN_FILE", "")
     if secret_file:
         try:
-            return Path(secret_file).read_text(encoding="utf-8").strip()
-        except OSError:
+            secret = Path(secret_file).read_text(encoding="utf-8").strip()
+            return secret if len(secret) <= 4096 else ""
+        except (OSError, UnicodeDecodeError):
             return ""
     return os.environ.get("DECLARAFY_WORKER_TOKEN", "")
 
