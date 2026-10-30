@@ -101,6 +101,16 @@ LEASE_SECONDS = 120
 MAX_RESULT_BYTES = 50_000
 
 
+def verify_encryption_ready() -> None:
+    """Fail readiness closed unless the external keyring can encrypt and decrypt."""
+    try:
+        probe = encrypt_field("worker-readiness", "payload_json", "{}")
+        if decrypt_field("worker-readiness", "payload_json", probe) != "{}":
+            raise EncryptionConfigurationError("worker encryption self-check failed")
+    except EncryptionConfigurationError:
+        raise HTTPException(503, "worker encryption not configured") from None
+
+
 def _service_authorized(authorization: str | None) -> bool:
     expected = token()
     supplied = authorization[7:] if authorization and authorization.startswith("Bearer ") else ""
@@ -110,6 +120,7 @@ def _service_authorized(authorization: str | None) -> bool:
 def claim_next_job(now: int | None = None) -> dict[str, Any] | None:
     """Atomically recover expired leases and claim one eligible job."""
     now = int(time.time()) if now is None else int(now)
+    verify_encryption_ready()
     connection = db()
     try:
         connection.execute("BEGIN IMMEDIATE")
@@ -345,11 +356,7 @@ def health() -> dict[str, str]:
     # Never report secrets or database details.
     if len(token()) < 32:
         raise HTTPException(503, "worker not configured")
-    try:
-        probe = encrypt_field("health-check", "payload_json", "{}")
-        decrypt_field("health-check", "payload_json", probe)
-    except EncryptionConfigurationError:
-        raise HTTPException(503, "worker encryption not configured") from None
+    verify_encryption_ready()
     return {"status": "ok", "execution": "disabled", "storage_encryption": "ready"}
 
 
