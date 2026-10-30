@@ -26,6 +26,7 @@ test('OpenHarness bridge restricts HTTPS destinations to exact configured DNS ho
   assert.match(bootstrap, /'openharness_allowed_hosts'\s*=>\s*\$openharnessAllowedHosts/);
   assert.match(bridge, /in_array\(strtolower\(\(string\) \(\$parsed\['host'\] \?\? ''\)\), \$config\['openharness_allowed_hosts'\] \?\? \[\], true\)/);
   assert.match(bridge, /filter_var\(\(string\) \(\$parsed\['host'\] \?\? ''\), FILTER_VALIDATE_IP\) !== false/);
+  assert.match(bridge, /isset\(\$parsed\['port'\]\) && \(int\) \$parsed\['port'\] !== 443/);
 });
 
 test('OpenHarness bridge uses HTTPS and does not follow redirects', () => {
