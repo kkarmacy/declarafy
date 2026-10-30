@@ -101,7 +101,7 @@ if ($method === 'GET') {
         if ($resultCode === 409) oh_fail('openharness/result-not-ready', 'El resultado todavía no está disponible.', 409);
         $resultData = json_decode($resultResponse);
         if ($resultCode !== 200
-            || !$resultData instanceof stdClass
+            || !($resultData instanceof stdClass)
             || ($resultData->job_id ?? null) !== $jobId
             || ($resultData->status ?? null) !== 'completed'
             || !property_exists($resultData, 'result')) {
