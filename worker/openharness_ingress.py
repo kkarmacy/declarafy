@@ -398,12 +398,13 @@ def get_job_status(
     connection = db()
     try:
         row = connection.execute(
-            "SELECT task, status, created_at FROM jobs WHERE job_id=? AND user_ref=?",
+            "SELECT task, status, created_at, updated_at, attempts, error_code FROM jobs WHERE job_id=? AND user_ref=?",
             (job_id, user_ref),
         ).fetchone()
         if row is None:
             # Same response for unknown jobs and jobs belonging to another user.
             raise HTTPException(404, "job not found")
-        return {"job_id": job_id, "task": row[0], "status": row[1], "created_at": row[2]}
+        return {"job_id": job_id, "task": row[0], "status": row[1], "created_at": row[2],
+                "updated_at": row[3], "attempts": row[4], "error_code": row[5]}
     finally:
         connection.close()
