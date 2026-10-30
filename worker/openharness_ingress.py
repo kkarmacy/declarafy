@@ -526,6 +526,39 @@ def worker_fail(job_id: str, body: dict[str, Any],
     return {"status": status}
 
 
+@app.get("/internal/jobs/{job_id}/result")
+def worker_result(
+    job_id: str,
+    user_ref: str = Header(alias="X-User-Ref"),
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Return a completed result only to the authenticated service for its owner."""
+    if not _service_authorized(authorization):
+        raise HTTPException(401, "unauthorized")
+    if not JOB_ID_RE.fullmatch(job_id) or not user_ref or len(user_ref) > 128:
+        raise HTTPException(404, "job not found")
+    connection = db()
+    try:
+        row = connection.execute(
+            "SELECT status, result_json FROM jobs WHERE job_id=? AND user_ref=?",
+            (job_id, user_ref),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(404, "job not found")
+        if row[0] != "completed" or row[1] is None:
+            raise HTTPException(409, "result is not ready")
+        try:
+            plaintext = decrypt_field(job_id, "result_json", row[1])
+            if len(plaintext.encode("utf-8")) > MAX_RESULT_BYTES:
+                raise EncryptedDataError("stored result exceeds limit")
+            result = json.loads(plaintext)
+        except (EncryptedDataError, EncryptionConfigurationError, ValueError, UnicodeDecodeError):
+            raise HTTPException(503, "stored result unavailable") from None
+        return {"job_id": job_id, "status": "completed", "result": result}
+    finally:
+        connection.close()
+
+
 @app.exception_handler(Exception)
 async def safe_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
     # Avoid leaking tracebacks, payloads, or credentials to clients.
