@@ -33,19 +33,16 @@ def migrate(apply: bool = False) -> tuple[int, Path | None]:
     active_key_id = os.environ.get("DECLARAFY_WORKER_ENCRYPTION_ACTIVE_KEY_ID", "")
     active_prefix = f"enc:v1:{active_key_id}:"
 
-    os.chmod(APP_DIR, 0o700)
-    os.chmod(DB_PATH, 0o600)
     connection = sqlite3.connect(DB_PATH, timeout=10)
     backup_path: Path | None = None
     try:
         columns = {row[1] for row in connection.execute("PRAGMA table_info(jobs)")}
         if not columns:
             raise sqlite3.OperationalError("worker jobs table is missing")
-        if "result_json" not in columns:
-            connection.execute("ALTER TABLE jobs ADD COLUMN result_json TEXT")
-            connection.commit()
+        needs_result_column = "result_json" not in columns
+        result_expression = "NULL" if needs_result_column else "result_json"
         rows = connection.execute(
-            "SELECT job_id, payload_json, result_json FROM jobs ORDER BY job_id"
+            f"SELECT job_id, payload_json, {result_expression} FROM jobs ORDER BY job_id"
         ).fetchall()
         updates: list[tuple[str, str | None, str]] = []
         for job_id, payload, result in rows:
@@ -67,9 +64,11 @@ def migrate(apply: bool = False) -> tuple[int, Path | None]:
             if encrypted_payload != payload or encrypted_result != result:
                 updates.append((encrypted_payload, encrypted_result, job_id))
 
-        if not apply or not updates:
+        if not apply or (not updates and not needs_result_column):
             return len(updates), None
 
+        os.chmod(APP_DIR, 0o700)
+        os.chmod(DB_PATH, 0o600)
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         backup_path = APP_DIR / f"jobs.sqlite3.pre-encryption-{stamp}.bak"
         backup = sqlite3.connect(backup_path)
@@ -81,6 +80,8 @@ def migrate(apply: bool = False) -> tuple[int, Path | None]:
 
         connection.execute("PRAGMA secure_delete=ON")
         connection.execute("BEGIN IMMEDIATE")
+        if needs_result_column:
+            connection.execute("ALTER TABLE jobs ADD COLUMN result_json TEXT")
         for payload, result, job_id in updates:
             connection.execute(
                 "UPDATE jobs SET payload_json=?, result_json=? WHERE job_id=?",
