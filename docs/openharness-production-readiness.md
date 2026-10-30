@@ -80,3 +80,8 @@ The worker now performs atomic claims under SQLite `BEGIN IMMEDIATE`, assigns a 
 Synthetic tests cover submit → claim → complete → status, submit → fail/retry, expired lease recovery, stale lease rejection, attempt exhaustion, and authenticated internal worker endpoints. These tests validate the lifecycle primitive only; they do not prove a continuously running consumer, OpenHarness execution, or production hosting isolation.
 
 Still outstanding before production: retention/TTL and WAL/SHM/backup cleanup, cancellation and lease renewal, encrypted storage and managed key rotation, the full result retrieval/display pipeline, always-on worker orchestration, resource/cost controls, and staging network/runtime isolation. Do not enable live submissions. The feature flag remains OFF and the queue must only be exercised with synthetic data.
+
+
+## Retention cleanup (prototype)
+
+The worker exposes a callable `prune_terminal_jobs(now=None)` maintenance function with a fixed 30-day retention window. It deletes only `completed` and `failed` records whose `updated_at` is at or before the cutoff; queued and running work is never eligible. It enables SQLite secure-delete for the cleanup transaction and requests WAL truncation afterward. The function is not exposed over HTTP and must be invoked only by a trusted scheduled maintenance process. WAL truncation is best-effort when SQLite reports a busy checkpoint. This is not a claim of cryptographic erasure from filesystem snapshots, backups, storage media, or prior WAL copies; encryption-at-rest and backup retention controls remain mandatory before sensitive data use.
