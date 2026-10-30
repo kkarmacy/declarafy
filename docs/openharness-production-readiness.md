@@ -110,3 +110,12 @@ Legacy plaintext is rejected by normal queue reads and idempotency checks; the w
 Automated tests cover AES-GCM round trips, random nonces, tampering/authentication failure, job/column context binding, missing-key rejection, key rotation including actual record re-encryption, encrypted-at-rest queue inputs/results, legacy plaintext fail-closed behavior, and backed-up migration. These tests do not constitute a managed KMS, production key ceremony, backup restore drill, or independent security audit.
 
 The feature remains OFF and no live taxpayer data is authorized. Before any deployment, configure real keys through secret management, rehearse migration and restore on a disposable copy of the exact target volume, verify backup expiry and WAL/SHM handling, and complete the remaining runtime/network/result-pipeline gates.
+## Hardened Docker profile (deployment template)
+
+The repository includes worker/docker-compose.hardened.yml for a dedicated Linux Docker host. It runs the worker as the non-root image user, with a read-only root filesystem, no Linux capabilities, no-new-privileges, bounded CPU/memory/process/file descriptors, a small no-exec temporary filesystem, and a dedicated persistent queue volume. The worker is attached only to an internal Docker network; no host port is published.
+
+Supply protected host file paths through DECLARAFY_WORKER_TOKEN_FILE and DECLARAFY_WORKER_ENCRYPTION_KEYS_JSON_FILE, and supply the non-secret active key ID through DECLARAFY_WORKER_ENCRYPTION_ACTIVE_KEY_ID. The application reads the secret files at runtime. Protect those host files and confirm the container runtime makes the mounted secrets readable only to the worker process.
+
+This template intentionally does not publish the worker to the internet or grant it outbound model-provider access. A PHP bridge hosted outside this Docker network cannot reach it as-is. Before connecting Declarafy, design and review a private authenticated proxy or a separately controlled TLS ingress with explicit source allow-listing and egress policy. Do not solve connectivity by publishing port 8080 publicly or attaching an unrestricted network.
+
+The Compose profile is a deployment baseline, not proof that a particular hosting provider supports Docker, enforces the requested policies, or has been configured. The current Namecheap/cPanel website deployment is separate; this worker requires a suitable Linux Docker host and managed runtime secrets.
