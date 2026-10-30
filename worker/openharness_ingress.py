@@ -191,6 +191,36 @@ def finish_job(job_id: str, lease_token: str, *, result: Any = None,
         connection.close()
 
 
+RETENTION_SECONDS = 30 * 24 * 60 * 60
+
+
+def prune_terminal_jobs(now: int | None = None) -> int:
+    """Delete only terminal job records after the retention window.
+
+    Queued/running jobs are never eligible. Call from a trusted scheduled
+    maintenance process; this function is not exposed as a public endpoint.
+    """
+    now = int(time.time()) if now is None else int(now)
+    cutoff = now - RETENTION_SECONDS
+    connection = db()
+    try:
+        connection.execute("PRAGMA secure_delete=ON")
+        connection.execute("BEGIN IMMEDIATE")
+        cursor = connection.execute(
+            "DELETE FROM jobs WHERE status IN ('completed', 'failed') AND updated_at <= ?",
+            (cutoff,),
+        )
+        deleted = cursor.rowcount
+        connection.commit()
+        # Best-effort WAL truncation after the committed deletion. A busy
+        # checkpoint is harmless; the next maintenance run can retry it.
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        restrict_storage_permissions()
+        return deleted
+    finally:
+        connection.close()
+
+
 def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in pairs:
