@@ -8,10 +8,12 @@ The upstream OpenHarness package is a full agent harness, not a narrow tax-quest
 
 Do not call the general-purpose `oh` CLI from a PHP request, do not mount a Declarafy application directory into an agent, and do not expose the default tool registry to taxpayer prompts. A default installation could give an agent far more authority than a tax-advisory task requires.
 
-Upstream references reviewed:
-- `HKUDS/OpenHarness` package metadata and dependencies: https://github.com/HKUDS/OpenHarness/blob/main/pyproject.toml
-- Default tool registry: https://github.com/HKUDS/OpenHarness/blob/main/src/openharness/tools/__init__.py
-- Runtime assembly: https://github.com/HKUDS/OpenHarness/blob/main/src/openharness/ui/runtime.py
+Upstream references reviewed on 2026-10-30 (repository main resolved to commit `9b2efd795c6aa09f88b0c257d269a9e518da6ae7`; package metadata declares `openharness-ai` 0.1.9):
+- Package metadata and dependencies: https://github.com/HKUDS/OpenHarness/blob/9b2efd795c6aa09f88b0c257d269a9e518da6ae7/pyproject.toml
+- Default tool registry: https://github.com/HKUDS/OpenHarness/blob/9b2efd795c6aa09f88b0c257d269a9e518da6ae7/src/openharness/tools/__init__.py
+- Runtime assembly: https://github.com/HKUDS/OpenHarness/blob/9b2efd795c6aa09f88b0c257d269a9e518da6ae7/src/openharness/ui/runtime.py
+
+The upstream source review is not a dependency pin or a production approval. The integration must choose and independently review a released version/commit before adding it to the worker image.
 
 ## Required integration shape
 
