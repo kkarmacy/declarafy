@@ -115,7 +115,7 @@ class WorkerIngressTests(unittest.TestCase):
             headers={**AUTH, "Content-Type": "application/json"},
         )
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["detail"], "invalid JSON")
+        self.assertEqual(response.json()["detail"], "invalid task")
 
     def test_unknown_fields_are_rejected(self):
         body = self.request_body()
