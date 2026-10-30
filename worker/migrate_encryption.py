@@ -19,7 +19,8 @@ from encryption import (
     decrypt_field,
     encrypt_field,
 )
-from openharness_ingress import APP_DIR, DB_PATH
+APP_DIR = Path(os.environ.get("WORKER_DATA_DIR", "/var/lib/declarafy-worker"))
+DB_PATH = APP_DIR / "jobs.sqlite3"
 
 
 def migrate(apply: bool = False) -> tuple[int, Path | None]:
