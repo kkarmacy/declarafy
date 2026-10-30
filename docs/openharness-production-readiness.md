@@ -85,3 +85,8 @@ Still outstanding before production: retention/TTL and WAL/SHM/backup cleanup, c
 ## Retention cleanup (prototype)
 
 The worker exposes a callable `prune_terminal_jobs(now=None)` maintenance function with a fixed 30-day retention window. It deletes only `completed` and `failed` records whose `updated_at` is at or before the cutoff; queued and running work is never eligible. It enables SQLite secure-delete for the cleanup transaction and requests WAL truncation afterward. The function is not exposed over HTTP. A separate scheduled container can reuse the worker image with command `python /app/maintenance.py`; it must use the same persistent worker data volume and a single maintenance instance at a time. WAL truncation is best-effort when SQLite reports a busy checkpoint. This is not a claim of cryptographic erasure from filesystem snapshots, backups, storage media, or prior WAL copies; encryption-at-rest and backup retention controls remain mandatory before sensitive data use.
+
+
+## Lease renewal and cancellation
+
+The prototype now supports 120-second lease renewal for a currently valid token and owner-scoped cancellation through the authenticated PHP bridge. Cancellation atomically marks queued/running jobs as `cancelled` and clears the lease, so a stale worker cannot renew or commit a result. Repeated cancellation is idempotent; terminal jobs cannot be cancelled. This is state-level cooperative cancellation only: there is no OpenHarness process to terminate yet, and a future executor must implement process interruption and cleanup. The PHP route remains behind the feature flag and mutation-security/session checks.
