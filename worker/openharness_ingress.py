@@ -72,7 +72,13 @@ def validate_task(task: Any, payload: Any) -> None:
         valid = set(payload) == {"data"} and isinstance(payload.get("data"), list) and 1 <= len(payload["data"]) <= 500
     if not valid:
         raise HTTPException(400, "invalid task input")
-    if len(json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()) > MAX_INPUT:
+    try:
+        encoded_size = len(json.dumps(
+            payload, ensure_ascii=False, separators=(",", ":")
+        ).encode())
+    except (TypeError, ValueError, RecursionError):
+        raise HTTPException(400, "invalid task input") from None
+    if encoded_size > MAX_INPUT:
         raise HTTPException(413, "task input too large")
 
 
@@ -105,7 +111,7 @@ async def create_job(request: Request, authorization: str | None = Header(defaul
     raw = b"".join(chunks)
     try:
         body = json.loads(raw, object_pairs_hook=reject_duplicate_keys)
-    except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
+    except (json.JSONDecodeError, UnicodeDecodeError, ValueError, RecursionError):
         raise HTTPException(400, "invalid JSON") from None
     if not isinstance(body, dict) or set(body) != {"task", "input", "request_id", "user_ref"}:
         raise HTTPException(400, "invalid request fields")
