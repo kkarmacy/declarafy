@@ -78,7 +78,7 @@ The worker now performs atomic claims under SQLite `BEGIN IMMEDIATE`, assigns a 
 
 Synthetic tests cover submit → claim → complete → status, submit → fail/retry, expired lease recovery, stale lease rejection, attempt exhaustion, and authenticated internal worker endpoints. These tests validate the lifecycle primitive only; they do not prove a continuously running consumer, OpenHarness execution, or production hosting isolation.
 
-Still outstanding before production: managed key storage and operational key rotation/restore drills, verified WAL/SHM/backup cleanup, the full result retrieval/display pipeline, always-on worker orchestration, resource/cost controls, and staging network/runtime isolation. Cancellation and lease renewal exist as queue-state primitives, but real process interruption is not implemented. Do not enable live submissions. The feature flag remains OFF and the queue must only be exercised with synthetic data.
+Still outstanding before production: managed key storage and operational key rotation/restore drills, verified WAL/SHM/backup cleanup, the front-end polling/display workflow and end-to-end PHP-to-worker result verification, always-on worker orchestration, resource/cost controls, and staging network/runtime isolation. Cancellation and lease renewal exist as queue-state primitives, but real process interruption is not implemented. Do not enable live submissions. The feature flag remains OFF and the queue must only be exercised with synthetic data.
 
 
 ## Retention cleanup (prototype)
