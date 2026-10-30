@@ -21,8 +21,12 @@ from encryption import (
     encrypt_field,
 )
 
-DATA_DIR = Path(os.environ.get("WORKER_DATA_DIR", "/var/lib/declarafy-worker"))
-DB_PATH = DATA_DIR / "jobs.sqlite3"
+def _data_dir() -> Path:
+    return Path(os.environ.get("WORKER_DATA_DIR", "/var/lib/declarafy-worker"))
+
+
+def _db_path() -> Path:
+    return _data_dir() / "jobs.sqlite3"
 
 
 class PreflightFailure(RuntimeError):
@@ -71,20 +75,22 @@ def _check_keyring() -> None:
 
 
 def _check_storage() -> None:
+    data_dir = _data_dir()
+    db_path = _db_path()
     try:
-        info = DATA_DIR.lstat()
+        info = data_dir.lstat()
     except OSError:
         raise PreflightFailure("worker data directory: does not exist") from None
     if not stat.S_ISDIR(info.st_mode):
         raise PreflightFailure("worker data directory: must be a real directory")
     if info.st_mode & 0o077:
         raise PreflightFailure("worker data directory: permissions must be 0700 or stricter")
-    if DB_PATH.exists():
-        db_info = DB_PATH.lstat()
+    if db_path.exists():
+        db_info = db_path.lstat()
         if not stat.S_ISREG(db_info.st_mode) or db_info.st_mode & 0o077:
             raise PreflightFailure("worker database: must be a private regular file")
         try:
-            with sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True, timeout=3) as conn:
+            with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=3) as conn:
                 result = conn.execute("PRAGMA quick_check").fetchone()
                 if not result or result[0] != "ok":
                     raise PreflightFailure("worker database: SQLite quick_check failed")
