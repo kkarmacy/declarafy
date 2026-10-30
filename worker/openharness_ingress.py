@@ -249,7 +249,7 @@ RETENTION_SECONDS = 30 * 24 * 60 * 60
 
 
 def prune_terminal_jobs(now: int | None = None) -> int:
-    """Delete only terminal job records after the retention window.
+    """Delete terminal job records after the retention window.
 
     Queued/running jobs are never eligible. Call from a trusted scheduled
     maintenance process; this function is not exposed as a public endpoint.
@@ -261,7 +261,7 @@ def prune_terminal_jobs(now: int | None = None) -> int:
         connection.execute("PRAGMA secure_delete=ON")
         connection.execute("BEGIN IMMEDIATE")
         cursor = connection.execute(
-            "DELETE FROM jobs WHERE status IN ('completed', 'failed') AND updated_at <= ?",
+            "DELETE FROM jobs WHERE status IN ('completed', 'failed', 'cancelled') AND updated_at <= ?",
             (cutoff,),
         )
         deleted = cursor.rowcount
