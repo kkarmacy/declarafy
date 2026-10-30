@@ -519,5 +519,62 @@ class WorkerIngressTests(unittest.TestCase):
         })
 
 
+    def test_input_and_result_are_encrypted_at_rest_and_worker_receives_plaintext(self):
+        import openharness_ingress
+        from encryption import decrypt_field
+        job_id = client.post("/v1/jobs", json=self.request_body(), headers=AUTH).json()["job_id"]
+        connection = openharness_ingress.db()
+        try:
+            stored_payload = connection.execute(
+                "SELECT payload_json FROM jobs WHERE job_id=?", (job_id,)
+            ).fetchone()[0]
+        finally:
+            connection.close()
+        self.assertTrue(stored_payload.startswith("enc:v1:"))
+        self.assertNotIn("¿Cuál es la tasa", stored_payload)
+        claimed = openharness_ingress.claim_next_job()
+        self.assertEqual(claimed["input"], {"question": "¿Cuál es la tasa aplicable?"})
+        openharness_ingress.finish_job(job_id, claimed["lease_token"], result={"answer": "synthetic-only"})
+        connection = openharness_ingress.db()
+        try:
+            stored_result = connection.execute(
+                "SELECT result_json FROM jobs WHERE job_id=?", (job_id,)
+            ).fetchone()[0]
+        finally:
+            connection.close()
+        self.assertTrue(stored_result.startswith("enc:v1:"))
+        self.assertEqual(decrypt_field(job_id, "result_json", stored_result), '{"answer":"synthetic-only"}')
+
+    def test_legacy_plaintext_claim_fails_closed_without_consuming_job(self):
+        import openharness_ingress
+        connection = openharness_ingress.db()
+        connection.execute(
+            "INSERT INTO jobs (job_id, request_id, user_ref, task, payload_json, status, created_at, available_at) VALUES (?, ?, ?, ?, ?, 'queued', ?, ?)",
+            ("legacy-queue-job-0001", "f" * 32, "legacy-owner", "tax_question", '{"question":"legacy"}', 1, 1),
+        )
+        connection.commit()
+        connection.close()
+        with self.assertRaises(Exception) as failure:
+            openharness_ingress.claim_next_job(now=10)
+        self.assertEqual(getattr(failure.exception, "status_code", None), 503)
+        connection = openharness_ingress.db()
+        try:
+            status = connection.execute(
+                "SELECT status FROM jobs WHERE job_id=?", ("legacy-queue-job-0001",)
+            ).fetchone()[0]
+        finally:
+            connection.close()
+        self.assertEqual(status, "queued")
+
+    def test_worker_refuses_new_jobs_without_encryption_key(self):
+        with __import__("unittest").mock.patch.dict(os.environ, {
+            "DECLARAFY_WORKER_ENCRYPTION_KEYS_JSON": "",
+            "DECLARAFY_WORKER_ENCRYPTION_ACTIVE_KEY_ID": "",
+        }):
+            response = client.post("/v1/jobs", json=self.request_body(), headers=AUTH)
+            self.assertEqual(response.status_code, 503)
+            self.assertEqual(response.json()["detail"], "queue encryption unavailable")
+
+
 if __name__ == "__main__":
     unittest.main()
