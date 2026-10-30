@@ -28,7 +28,7 @@ sudo chown 10001:10001 /etc/declarafy-worker/worker-token /etc/declarafy-worker/
 sudo chmod 0400 /etc/declarafy-worker/worker-token /etc/declarafy-worker/encryption-keyring.json
 ```
 
-Create a protected Compose environment file containing only file paths and the non-secret active key ID:
+Create a protected Compose environment file containing only file paths and the non-secret active key ID, owned by the administrator who runs Compose:
 
 ```dotenv
 DECLARAFY_WORKER_TOKEN_FILE=/etc/declarafy-worker/worker-token
@@ -43,7 +43,7 @@ Protect that environment file (mode 0600). Verify the host's Compose secret-file
 From the repository root on the worker host:
 
 ```bash
-docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml config --quiet
+sudo docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml config --quiet
 docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml build
 docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml up -d
 docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml ps
