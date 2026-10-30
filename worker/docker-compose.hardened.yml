@@ -1,0 +1,61 @@
+# Hardened single-worker profile for a dedicated Linux Docker host.
+# No host port is published. Attach only an authenticated private proxy/bridge
+# to worker_private after reviewing the deployment network design.
+services:
+  openharness-worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    init: true
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 512m
+    cpus: 1.0
+    ulimits:
+      nofile:
+        soft: 1024
+        hard: 1024
+    environment:
+      WORKER_DATA_DIR: /var/lib/declarafy-worker
+      DECLARAFY_WORKER_TOKEN_FILE: /run/secrets/worker_token
+      DECLARAFY_WORKER_ENCRYPTION_KEYS_JSON_FILE: /run/secrets/worker_encryption_keyring
+      DECLARAFY_WORKER_ENCRYPTION_ACTIVE_KEY_ID: ${DECLARAFY_WORKER_ENCRYPTION_ACTIVE_KEY_ID:?Set active encryption key ID}
+    secrets:
+      - worker_token
+      - worker_encryption_keyring
+    volumes:
+      - worker_data:/var/lib/declarafy-worker
+    networks:
+      - worker_private
+    expose:
+      - "8080"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).read()"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+networks:
+  worker_private:
+    internal: true
+
+volumes:
+  worker_data:
+
+secrets:
+  worker_token:
+    file: ${DECLARAFY_WORKER_TOKEN_FILE:?Set path to protected worker token file}
+  worker_encryption_keyring:
+    file: ${DECLARAFY_WORKER_ENCRYPTION_KEYS_JSON_FILE:?Set path to protected encryption keyring file}
