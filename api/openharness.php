@@ -124,7 +124,7 @@ if ($raw === false || strlen($raw) > 100_000) oh_fail('request/too-large', 'La s
 $body = json_decode($raw ?: '{}', true);
 if (!is_array($body) || array_is_list($body)) oh_fail('request/invalid-json', 'Solicitud inválida.', 400);
 if (($body['action'] ?? null) === 'cancel') {
-    if (array_keys($body) !== ['action', 'job_id']
+    if (count($body) !== 2 || array_diff(array_keys($body), ['action', 'job_id']) !== []
         || !is_string($body['job_id'] ?? null)
         || preg_match('/^[A-Za-z0-9_-]{16,128}$/', $body['job_id']) !== 1) {
         oh_fail('openharness/cancel-request', 'Solicitud de cancelación inválida.', 400);
