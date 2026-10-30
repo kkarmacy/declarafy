@@ -104,9 +104,9 @@ These values must be injected by the deployment secret manager/runtime, never co
 Legacy plaintext is rejected by normal queue reads and idempotency checks; the worker does not silently fall back to plaintext. An explicit migration utility is included:
 
 - python /app/migrate_encryption.py performs a dry run and reports only the number of rows requiring encryption.
-- python /app/migrate_encryption.py --apply creates a mode-0600 SQLite backup, then encrypts legacy payload and result fields transactionally.
+- python /app/migrate_encryption.py --apply creates a mode-0600 SQLite backup, encrypts legacy plaintext fields, and re-encrypts ciphertext using a previous key ID with the currently active key, transactionally. Keep old keys configured until this operation has completed and been verified.
 - Run it only with the external keyring configured, on a stopped/maintenance-isolated worker using the correct persistent volume. Preserve and separately protect the backup under the approved backup-retention policy.
 
-Automated tests cover AES-GCM round trips, random nonces, tampering/authentication failure, job/column context binding, missing-key rejection, key rotation, encrypted-at-rest queue inputs/results, legacy plaintext fail-closed behavior, and backed-up migration. These tests do not constitute a managed KMS, production key ceremony, backup restore drill, or independent security audit.
+Automated tests cover AES-GCM round trips, random nonces, tampering/authentication failure, job/column context binding, missing-key rejection, key rotation including actual record re-encryption, encrypted-at-rest queue inputs/results, legacy plaintext fail-closed behavior, and backed-up migration. These tests do not constitute a managed KMS, production key ceremony, backup restore drill, or independent security audit.
 
 The feature remains OFF and no live taxpayer data is authorized. Before any deployment, configure real keys through secret management, rehearse migration and restore on a disposable copy of the exact target volume, verify backup expiry and WAL/SHM handling, and complete the remaining runtime/network/result-pipeline gates.
