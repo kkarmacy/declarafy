@@ -38,6 +38,12 @@ def migrate(apply: bool = False) -> tuple[int, Path | None]:
     connection = sqlite3.connect(DB_PATH, timeout=10)
     backup_path: Path | None = None
     try:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(jobs)")}
+        if not columns:
+            raise sqlite3.OperationalError("worker jobs table is missing")
+        if "result_json" not in columns:
+            connection.execute("ALTER TABLE jobs ADD COLUMN result_json TEXT")
+            connection.commit()
         rows = connection.execute(
             "SELECT job_id, payload_json, result_json FROM jobs ORDER BY job_id"
         ).fetchall()
