@@ -9,9 +9,8 @@ The current worker is an authenticated ingress and SQLite queue with a tested le
 ## Required storage protection before real tax data
 
 - Do not submit real taxpayer documents, RUC-linked records, credentials, or confidential client data to this prototype.
-- SQLite currently stores task input in plaintext in `payload_json`. Directory/file modes (0700/0600) reduce access by other local users but are not encryption at rest.
-- Before accepting sensitive data, encrypt each payload using authenticated encryption (for example, AES-256-GCM or an established envelope-encryption library). Never implement custom cryptography.
-- Keep encryption keys outside the database, image, repository, and task payloads; use a managed secret/KMS facility where available. Define rotation and recovery procedures.
+- The integration branch now encrypts new `payload_json` and `result_json` values with AES-256-GCM. Existing plaintext rows still require the explicit backup-first migration documented below; do not process them through the worker before migration.
+- Keep encryption keys outside the database, image, repository, and task payloads; inject them through a managed secret/KMS facility where available. Define rotation and recovery procedures.
 - Define retention by task class, automatic expiry, deletion of expired rows and associated SQLite WAL/SHM data, backup expiry, and a verified deletion process.
 - Do not log prompts, documents, tax rows, tokens, or provider responses. Logs should contain only opaque IDs, timestamps, status, and sanitized error categories.
 - Document data residency, authorized operators, incident response, and customer disclosure before production use.
@@ -79,7 +78,7 @@ The worker now performs atomic claims under SQLite `BEGIN IMMEDIATE`, assigns a 
 
 Synthetic tests cover submit → claim → complete → status, submit → fail/retry, expired lease recovery, stale lease rejection, attempt exhaustion, and authenticated internal worker endpoints. These tests validate the lifecycle primitive only; they do not prove a continuously running consumer, OpenHarness execution, or production hosting isolation.
 
-Still outstanding before production: verified WAL/SHM/backup cleanup, encrypted storage and managed key rotation, the full result retrieval/display pipeline, always-on worker orchestration, resource/cost controls, and staging network/runtime isolation. Cancellation and lease renewal exist as queue-state primitives, but real process interruption is not implemented. Do not enable live submissions. The feature flag remains OFF and the queue must only be exercised with synthetic data.
+Still outstanding before production: managed key storage and operational key rotation/restore drills, verified WAL/SHM/backup cleanup, the full result retrieval/display pipeline, always-on worker orchestration, resource/cost controls, and staging network/runtime isolation. Cancellation and lease renewal exist as queue-state primitives, but real process interruption is not implemented. Do not enable live submissions. The feature flag remains OFF and the queue must only be exercised with synthetic data.
 
 
 ## Retention cleanup (prototype)
