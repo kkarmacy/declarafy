@@ -589,5 +589,14 @@ class WorkerIngressTests(unittest.TestCase):
             self.assertEqual(claim.json()["detail"], "worker encryption not configured")
 
 
+    def test_service_token_can_be_loaded_from_mounted_secret_file(self):
+        import openharness_ingress
+        with tempfile.TemporaryDirectory() as directory:
+            secret = Path(directory) / "worker-token"
+            secret.write_text(os.environ["DECLARAFY_WORKER_TOKEN"], encoding="utf-8")
+            with patch.dict(os.environ, {"DECLARAFY_WORKER_TOKEN_FILE": str(secret)}):
+                self.assertEqual(openharness_ingress.token(), os.environ["DECLARAFY_WORKER_TOKEN"])
+
+
 if __name__ == "__main__":
     unittest.main()
