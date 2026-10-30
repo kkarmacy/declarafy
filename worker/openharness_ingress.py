@@ -140,7 +140,10 @@ async def create_job(request: Request, authorization: str | None = Header(defaul
             same_request = (
                 existing[1] == user_ref
                 and existing[2] == body["task"]
-                and existing[3] == json.dumps(body["input"], ensure_ascii=False)
+                and existing[3] == json.dumps(
+                    body["input"], ensure_ascii=False, sort_keys=True,
+                    separators=(",", ":"),
+                )
             )
             if not same_request:
                 connection.rollback()
@@ -156,7 +159,14 @@ async def create_job(request: Request, authorization: str | None = Header(defaul
         job_id = secrets.token_urlsafe(24)
         connection.execute(
             "INSERT INTO jobs VALUES (?, ?, ?, ?, ?, 'queued', ?)",
-            (job_id, request_id, user_ref, body["task"], json.dumps(body["input"], ensure_ascii=False), int(time.time())),
+            (
+                job_id, request_id, user_ref, body["task"],
+                json.dumps(
+                    body["input"], ensure_ascii=False, sort_keys=True,
+                    separators=(",", ":"),
+                ),
+                int(time.time()),
+            ),
         )
         connection.commit()
         # This is a durable receipt only; no agent execution occurs in this version.
