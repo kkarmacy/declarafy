@@ -31,6 +31,17 @@ class WorkerIngressTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["execution"], "disabled")
 
+    def test_database_storage_permissions_are_private(self):
+        import stat
+        import openharness_ingress
+
+        connection = openharness_ingress.db()
+        connection.close()
+        directory_mode = stat.S_IMODE(Path(_tmp.name).stat().st_mode)
+        database_mode = stat.S_IMODE((Path(_tmp.name) / "jobs.sqlite3").stat().st_mode)
+        self.assertEqual(directory_mode, 0o700)
+        self.assertEqual(database_mode, 0o600)
+
     def test_authentication_is_required(self):
         response = client.post("/v1/jobs", json=self.request_body())
         self.assertEqual(response.status_code, 401)
