@@ -82,6 +82,18 @@ test('OpenHarness status recovery is owner-scoped through the authenticated sess
   assert.doesNotMatch(bridge, /X-User-Ref.*\$_(GET|POST|REQUEST)/);
 });
 
+
+test('OpenHarness completed results are fetched only through authenticated owner-scoped bridge', () => {
+  assert.match(bridge, /\$_GET\['result'\] \?\? ''\) === '1'/);
+  assert.match(bridge, /\/internal\/jobs\//);
+  assert.match(bridge, /\/result'/);
+  assert.match(bridge, /'X-User-Ref: ' \. \(string\) \$userId/);
+  assert.match(bridge, /'result'\s*=>\s*\$resultData->result/);
+  assert.match(bridge, /Cache-Control', 'no-store/);
+  assert.doesNotMatch(bridge, /X-User-Ref.*\$_(GET|POST|REQUEST)/);
+});
+
+
 test('OpenHarness worker secrets are configured only server-side', () => {
   assert.match(bootstrap, /'openharness_token'\s*=>/);
   assert.match(bridge, /'Authorization: Bearer ' \./);
