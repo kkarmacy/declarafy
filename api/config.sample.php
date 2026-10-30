@@ -13,6 +13,8 @@ return [
     // OpenHarness must run in a separate isolated service. Keep disabled until ready.
     'openharness_enabled' => '0',
     'openharness_url' => '',
+    // Exact worker DNS hostname(s), comma-separated via environment or PHP array here.
+    'openharness_allowed_hosts' => [],
     'openharness_token' => '',
     'openai_api_key' => '',
     'deepseek_api_key' => '',
