@@ -90,3 +90,24 @@ The worker exposes a callable `prune_terminal_jobs(now=None)` maintenance functi
 ## Lease renewal and cancellation
 
 The prototype now supports 120-second lease renewal for a currently valid token and owner-scoped cancellation through the authenticated PHP bridge. Cancellation atomically marks queued/running jobs as `cancelled` and clears the lease, so a stale worker cannot renew or commit a result. Repeated cancellation is idempotent; terminal jobs cannot be cancelled. This is state-level cooperative cancellation only: there is no OpenHarness process to terminate yet, and a future executor must implement process interruption and cleanup. The PHP route remains behind the feature flag and mutation-security/session checks.
+
+## Authenticated encryption implementation in the integration spike
+
+The worker now includes a versioned AES-256-GCM field-encryption primitive. New queue inputs (payload_json) and completed outputs (result_json) are encrypted before SQLite persistence. Each ciphertext is authenticated with additional context binding it to the job ID and exact column name; each encryption uses a fresh 96-bit nonce. Ciphertext carries a format version and key ID so old keys can remain available during rotation while new writes use the configured active key.
+
+The worker requires both external environment settings before accepting or claiming work:
+
+- DECLARAFY_WORKER_ENCRYPTION_KEYS_JSON: JSON object mapping key IDs to base64-encoded 32-byte keys.
+- DECLARAFY_WORKER_ENCRYPTION_ACTIVE_KEY_ID: key ID used for new writes.
+
+These values must be injected by the deployment secret manager/runtime, never committed to Git, baked into the image, or stored in SQLite. Keep previous key IDs in the keyring until all ciphertext encrypted under them has expired or has been re-encrypted. Removing a key prematurely makes its records unreadable. The worker health check now reports unavailable if encryption is not configured.
+
+Legacy plaintext is rejected by normal queue reads and idempotency checks; the worker does not silently fall back to plaintext. An explicit migration utility is included:
+
+- python /app/migrate_encryption.py performs a dry run and reports only the number of rows requiring encryption.
+- python /app/migrate_encryption.py --apply creates a mode-0600 SQLite backup, then encrypts legacy payload and result fields transactionally.
+- Run it only with the external keyring configured, on a stopped/maintenance-isolated worker using the correct persistent volume. Preserve and separately protect the backup under the approved backup-retention policy.
+
+Automated tests cover AES-GCM round trips, random nonces, tampering/authentication failure, job/column context binding, missing-key rejection, key rotation, encrypted-at-rest queue inputs/results, legacy plaintext fail-closed behavior, and backed-up migration. These tests do not constitute a managed KMS, production key ceremony, backup restore drill, or independent security audit.
+
+The feature remains OFF and no live taxpayer data is authorized. Before any deployment, configure real keys through secret management, rehearse migration and restore on a disposable copy of the exact target volume, verify backup expiry and WAL/SHM handling, and complete the remaining runtime/network/result-pipeline gates.
