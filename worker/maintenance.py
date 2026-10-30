@@ -1,7 +1,7 @@
 """Run trusted OpenHarness queue maintenance from a scheduler.
 
 Example cron (inside the worker deployment):
-    python -m worker.maintenance
+    python /app/maintenance.py
 
 Run only in the worker environment with its configured WORKER_DATA_DIR.
 """
