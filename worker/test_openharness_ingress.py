@@ -406,6 +406,54 @@ class WorkerIngressTests(unittest.TestCase):
         self.assertEqual(response.json()["detail"], "queue full")
 
 
+    def test_live_worker_can_renew_lease_but_stale_worker_cannot(self):
+        import openharness_ingress
+        now = int(__import__('time').time()) + 100
+        job_id = client.post("/v1/jobs", json=self.request_body(), headers=AUTH).json()["job_id"]
+        claimed = openharness_ingress.claim_next_job(now=now)
+        renewed_until = openharness_ingress.renew_job_lease(job_id, claimed["lease_token"], now=now + 30)
+        self.assertEqual(renewed_until, now + 30 + openharness_ingress.LEASE_SECONDS)
+        with self.assertRaises(Exception) as expired:
+            openharness_ingress.renew_job_lease(job_id, claimed["lease_token"], now=renewed_until)
+        self.assertEqual(getattr(expired.exception, "status_code", None), 409)
+
+    def test_owner_can_cancel_queued_and_running_jobs_and_worker_is_fenced(self):
+        import openharness_ingress
+        queued_id = client.post("/v1/jobs", json=self.request_body(request_id="3" * 32), headers=AUTH).json()["job_id"]
+        self.assertEqual(openharness_ingress.cancel_job(queued_id, "test-user-1"), "cancelled")
+        self.assertIsNone(openharness_ingress.claim_next_job())
+        running_id = client.post("/v1/jobs", json=self.request_body(request_id="4" * 32), headers=AUTH).json()["job_id"]
+        claimed = openharness_ingress.claim_next_job()
+        self.assertEqual(claimed["job_id"], running_id)
+        self.assertEqual(openharness_ingress.cancel_job(running_id, "test-user-1"), "cancelled")
+        with self.assertRaises(Exception) as stale:
+            openharness_ingress.finish_job(running_id, claimed["lease_token"], result={"should_not_save": True})
+        self.assertEqual(getattr(stale.exception, "status_code", None), 409)
+        with self.assertRaises(Exception) as stale_renew:
+            openharness_ingress.renew_job_lease(running_id, claimed["lease_token"])
+        self.assertEqual(getattr(stale_renew.exception, "status_code", None), 409)
+        status = client.get(f"/v1/jobs/{running_id}", headers={**AUTH, "X-User-Ref": "test-user-1"})
+        self.assertEqual(status.json()["status"], "cancelled")
+
+    def test_cancellation_is_owner_scoped_and_terminal_jobs_are_not_cancellable(self):
+        import openharness_ingress
+        job_id = client.post("/v1/jobs", json=self.request_body(), headers=AUTH).json()["job_id"]
+        with self.assertRaises(Exception) as wrong_owner:
+            openharness_ingress.cancel_job(job_id, "other-user")
+        self.assertEqual(getattr(wrong_owner.exception, "status_code", None), 404)
+        claimed = openharness_ingress.claim_next_job()
+        openharness_ingress.finish_job(job_id, claimed["lease_token"], result={"synthetic": True})
+        with self.assertRaises(Exception) as terminal:
+            openharness_ingress.cancel_job(job_id, "test-user-1")
+        self.assertEqual(getattr(terminal.exception, "status_code", None), 409)
+
+    def test_internal_renew_and_cancel_endpoints_require_service_auth(self):
+        job_id = client.post("/v1/jobs", json=self.request_body(), headers=AUTH).json()["job_id"]
+        self.assertEqual(client.post(f"/internal/jobs/{job_id}/cancel", json={"user_ref": "test-user-1"}).status_code, 401)
+        response = client.post(f"/internal/jobs/{job_id}/cancel", json={"user_ref": "test-user-1"}, headers=AUTH)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "cancelled")
+
     def test_retention_prunes_only_old_terminal_jobs(self):
         import openharness_ingress
 
