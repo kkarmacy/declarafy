@@ -145,7 +145,12 @@ class WorkerIngressTests(unittest.TestCase):
 
         for body in invalid_bodies:
             with self.subTest(body=body):
-                response = client.post("/v1/jobs", json=body, headers=AUTH)
+                raw = json.dumps(body, ensure_ascii=True).encode("utf-8")
+                response = client.post(
+                    "/v1/jobs",
+                    content=raw,
+                    headers={**AUTH, "Content-Type": "application/json"},
+                )
                 self.assertEqual(response.status_code, 400)
 
     def test_non_finite_json_numbers_are_rejected(self):
