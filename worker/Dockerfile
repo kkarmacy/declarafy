@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir --requirement /app/requirements.txt \
     && mkdir -p /var/lib/declarafy-worker \
     && chown -R worker:worker /app /var/lib/declarafy-worker
 
-COPY --chown=worker:worker openharness_ingress.py /app/openharness_ingress.py
+COPY --chown=worker:worker openharness_ingress.py maintenance.py /app/
 USER 10001:10001
 EXPOSE 8080
 CMD ["uvicorn", "openharness_ingress:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]
