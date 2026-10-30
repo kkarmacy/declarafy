@@ -12,6 +12,7 @@ import json
 import os
 import re
 import secrets
+from pathlib import Path
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -33,7 +34,6 @@ def _keyring() -> tuple[str, dict[str, bytes]]:
     keyring_file = os.environ.get("DECLARAFY_WORKER_ENCRYPTION_KEYS_JSON_FILE", "")
     if not raw and keyring_file:
         try:
-            from pathlib import Path
             raw = Path(keyring_file).read_text(encoding="utf-8")
         except OSError:
             raise EncryptionConfigurationError("worker encryption keyring file is unavailable") from None
