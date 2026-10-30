@@ -107,7 +107,8 @@ class WorkerIngressTests(unittest.TestCase):
         self.assertEqual(response.status_code, 413)
 
     def test_excessively_nested_json_is_rejected_without_server_error(self):
-        raw = ("[" * 1200 + "]" * 1200).encode()
+        nested = "[" * 1200 + "0" + "]" * 1200
+        raw = ('{"task":' + nested + ',"input":{},"request_id":"' + ("d" * 32) + '","user_ref":"test-user-1"}').encode()
         response = client.post(
             "/v1/jobs",
             content=raw,
