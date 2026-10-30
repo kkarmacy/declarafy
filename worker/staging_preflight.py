@@ -89,12 +89,27 @@ def _check_storage() -> None:
         db_info = db_path.lstat()
         if not stat.S_ISREG(db_info.st_mode) or db_info.st_mode & 0o077:
             raise PreflightFailure("worker database: must be a private regular file")
+        for suffix in ("-wal", "-shm"):
+            sidecar = Path(str(db_path) + suffix)
+            if sidecar.exists():
+                sidecar_info = sidecar.lstat()
+                if not stat.S_ISREG(sidecar_info.st_mode) or sidecar_info.st_mode & 0o077:
+                    raise PreflightFailure(
+                        f"worker database: {suffix[1:]} sidecar permissions must be 0600 or stricter"
+                    )
         try:
             with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=3) as conn:
                 result = conn.execute("PRAGMA quick_check").fetchone()
                 if not result or result[0] != "ok":
                     raise PreflightFailure("worker database: SQLite quick_check failed")
+                tables = {row[0] for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                )}
+                if "jobs" not in tables:
+                    raise PreflightFailure("worker database: jobs table is missing")
                 columns = {row[1] for row in conn.execute("PRAGMA table_info(jobs)")}
+                if "payload_json" not in columns:
+                    raise PreflightFailure("worker database: encrypted payload column is missing")
                 if "payload_json" in columns:
                     plaintext = conn.execute(
                         "SELECT COUNT(*) FROM jobs WHERE payload_json NOT LIKE 'enc:v1:%' "
