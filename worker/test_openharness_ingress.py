@@ -417,6 +417,33 @@ class WorkerIngressTests(unittest.TestCase):
             openharness_ingress.renew_job_lease(job_id, claimed["lease_token"], now=renewed_until)
         self.assertEqual(getattr(expired.exception, "status_code", None), 409)
 
+    def test_status_never_exposes_payload_or_completed_result(self):
+        import openharness_ingress
+
+        body = self.request_body(request_id="9" * 32)
+        job_id = client.post("/v1/jobs", json=body, headers=AUTH).json()["job_id"]
+        claimed = openharness_ingress.claim_next_job()
+        self.assertEqual(claimed["job_id"], job_id)
+        openharness_ingress.finish_job(
+            job_id, claimed["lease_token"], result={"synthetic_result": "private"}
+        )
+
+        response = client.get(
+            f"/v1/jobs/{job_id}",
+            headers={**AUTH, "X-User-Ref": "test-user-1"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "completed")
+        self.assertNotIn("result", response.json())
+        self.assertNotIn("result_json", response.json())
+        self.assertNotIn("input", response.json())
+        self.assertNotIn("payload_json", response.json())
+        foreign = client.get(
+            f"/v1/jobs/{job_id}",
+            headers={**AUTH, "X-User-Ref": "another-user"},
+        )
+        self.assertEqual(foreign.status_code, 404)
+
     def test_owner_can_cancel_queued_and_running_jobs_and_worker_is_fenced(self):
         import openharness_ingress
         queued_id = client.post("/v1/jobs", json=self.request_body(request_id="3" * 32), headers=AUTH).json()["job_id"]
