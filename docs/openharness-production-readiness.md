@@ -53,3 +53,21 @@ A Dockerfile alone does not enforce runtime isolation. The deployment platform m
 ## Explicit no-go conditions
 
 Do not deploy or enable the integration while task payloads are plaintext, agent execution is not sandboxed, provider spend is unbounded, result retrieval is unimplemented, or staging acceptance is incomplete. The current prototype is not a production tax-advisory service.
+
+## PHP bridge destination configuration
+
+The bridge now requires an exact DNS-host allow-list in addition to HTTPS and port 443. Configure both values on the PHP server only, for example:
+
+```php
+'openharness_url' => 'https://worker.example.net',
+'openharness_allowed_hosts' => ['worker.example.net'],
+'openharness_enabled' => '0',
+```
+
+Alternatively, set `DECLARAFY_OPENHARNESS_ALLOWED_HOSTS=worker.example.net` in the server environment. Multiple exact hostnames may be comma-separated. Do not include schemes, ports, paths, wildcards, or user-controlled values in this allow-list. The hostname in `openharness_url` must match one entry exactly. Keep the feature flag OFF until the full release gate is approved.
+
+This application-level check is not sufficient by itself to defeat DNS rebinding or a compromised DNS resolver. The worker hosting environment must also enforce outbound network policy that blocks loopback, private, link-local, multicast, and other non-public/reserved address ranges, including IPv6, and permits only the approved worker destination. Prefer a controlled egress proxy or a platform that pins/validates resolved destinations at connection time. Do not assume that an exact hostname allow-list replaces network-layer egress controls.
+
+## Current bridge verification
+
+The bridge static checks verify HTTPS, reject direct IP literals, reject non-443 ports, and require exact membership in the configured hostname allow-list. CI passing proves those code-level checks only; it does not prove the production DNS resolver, routing, firewall, TLS certificate, or worker host configuration is safe.
