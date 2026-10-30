@@ -6,8 +6,6 @@ on:
     paths:
       - 'worker/**'
       - '.github/workflows/openharness-worker.yml'
-  push:
-    branches: [feat/openharness-integration-spike]
 
 permissions:
   contents: read
