@@ -162,5 +162,18 @@ class EncryptionTests(unittest.TestCase):
                 self.assertEqual(decrypt_field("legacy-schema-job-0001", "payload_json", payload), '{"input":"synthetic"}')
 
 
+    def test_keyring_can_be_loaded_from_mounted_secret_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            key_file = Path(directory) / "keyring.json"
+            key_file.write_text(json.dumps({"key-a": encoded_key(1)}), encoding="utf-8")
+            with patch.dict(os.environ, {
+                "DECLARAFY_WORKER_ENCRYPTION_KEYS_JSON": "",
+                "DECLARAFY_WORKER_ENCRYPTION_KEYS_JSON_FILE": str(key_file),
+                "DECLARAFY_WORKER_ENCRYPTION_ACTIVE_KEY_ID": "key-a",
+            }):
+                envelope = encrypt_field("job-file-001", "payload_json", '{"mounted":true}')
+                self.assertEqual(decrypt_field("job-file-001", "payload_json", envelope), '{"mounted":true}')
+
+
 if __name__ == "__main__":
     unittest.main()
