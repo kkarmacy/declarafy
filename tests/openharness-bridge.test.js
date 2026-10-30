@@ -101,3 +101,14 @@ test('OpenHarness worker contract documents isolation and bounded execution', ()
   assert.match(contract, /must reject arbitrary command strings/);
   assert.match(contract, /direct access to the Declarafy database/);
 });
+
+
+test('OpenHarness cancellation is exposed only through authenticated POST and server-side owner identity', () => {
+  assert.match(bridge, /\['GET', 'POST'\]/);
+  assert.match(bridge, /require_mutation_security\(\$config\)/);
+  assert.match(bridge, /\$body\['action'\] \?\? null\) === 'cancel'/);
+  assert.match(bridge, /\/internal\/jobs\//);
+  assert.match(bridge, /\['user_ref' => \(string\) \$userId\]/);
+  assert.match(bridge, /\['queued', 'running', 'completed', 'failed', 'cancelled'\]/);
+  assert.doesNotMatch(bridge, /'user_ref'\s*=>\s*\$_(GET|POST|REQUEST)/);
+});
