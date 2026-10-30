@@ -92,3 +92,11 @@ The worker now supports an authenticated internal pull protocol:
 The queue schema is migrated forward when the worker opens its SQLite database. The protocol is currently a tested lifecycle primitive, not a deployed always-on consumer: no OpenHarness execution is started automatically, no Declarafy PHP result-fetch route is wired yet, and results remain stored in the worker database. Do not enable live submissions or treat a completed synthetic result as tax advice. Retention/deletion, lease renewal, cancellation, encryption at rest, and the full PHP-to-worker-to-PHP result path remain separate release gates.
 
 The PHP bridge also exposes an authenticated, owner-scoped status lookup via `GET api/openharness.php?job_id=<job_id>`. It derives `X-User-Ref` from the server-side Declarafy session and never accepts an owner reference from the browser. This route returns lifecycle metadata only; it does not yet retrieve the stored result body.
+
+
+## Lease renewal and cancellation (prototype)
+
+- A live worker may call `POST /internal/worker/{job_id}/renew` with exactly `{"lease_token":"..."}`. Renewal extends the lease by 120 seconds from the server clock. Expired, cancelled, or superseded leases return 409.
+- The authenticated PHP bridge may submit `POST api/openharness.php` with `{"action":"cancel","job_id":"..."}`. The bridge derives the owner from the Declarafy session and forwards it to `POST /internal/jobs/{job_id}/cancel`; the browser cannot choose the owner reference.
+- Only `queued` and `running` jobs can be cancelled. Cancellation atomically sets `cancelled` and clears the lease token hash and expiry. A worker holding the previous token can neither renew nor complete/fail the cancelled job. Repeated cancellation is idempotent; terminal completed/failed jobs return 409; foreign/unknown jobs return 404.
+- Cancellation is cooperative: it fences off queue state and prevents stale results from being committed, but it does not yet terminate an already-running OS process. A future executor must poll cancellation or receive a separately isolated process-termination signal.
