@@ -30,6 +30,13 @@ class EncryptedDataError(RuntimeError):
 
 def _keyring() -> tuple[str, dict[str, bytes]]:
     raw = os.environ.get("DECLARAFY_WORKER_ENCRYPTION_KEYS_JSON", "")
+    keyring_file = os.environ.get("DECLARAFY_WORKER_ENCRYPTION_KEYS_JSON_FILE", "")
+    if not raw and keyring_file:
+        try:
+            from pathlib import Path
+            raw = Path(keyring_file).read_text(encoding="utf-8")
+        except OSError:
+            raise EncryptionConfigurationError("worker encryption keyring file is unavailable") from None
     active = os.environ.get("DECLARAFY_WORKER_ENCRYPTION_ACTIVE_KEY_ID", "")
     if not raw or not active:
         raise EncryptionConfigurationError("worker encryption keys are not configured")
