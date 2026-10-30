@@ -106,8 +106,26 @@ class EncryptionTests(unittest.TestCase):
                 self.assertTrue(result.startswith("enc:v1:"))
                 self.assertEqual(decrypt_field("job-migrate-0001", "payload_json", payload), '{"tax":"synthetic"}')
                 self.assertEqual(decrypt_field("job-migrate-0001", "result_json", result), '{"answer":"synthetic"}')
-                count, _ = migrate_encryption.migrate(apply=True)
-                self.assertEqual(count, 0)
+                with patch.dict(os.environ, {
+                    "DECLARAFY_WORKER_ENCRYPTION_KEYS_JSON": json.dumps({
+                        "key-a": encoded_key(1), "key-b": encoded_key(2)
+                    }),
+                    "DECLARAFY_WORKER_ENCRYPTION_ACTIVE_KEY_ID": "key-b",
+                }):
+                    count, rotated_backup = migrate_encryption.migrate(apply=True)
+                    self.assertEqual(count, 1)
+                    self.assertTrue(rotated_backup.exists())
+                    with sqlite3.connect(database) as connection:
+                        rotated_payload, rotated_result = connection.execute(
+                            "SELECT payload_json, result_json FROM jobs WHERE job_id=?",
+                            ("job-migrate-0001",),
+                        ).fetchone()
+                    self.assertTrue(rotated_payload.startswith("enc:v1:key-b:"))
+                    self.assertTrue(rotated_result.startswith("enc:v1:key-b:"))
+                    self.assertEqual(decrypt_field("job-migrate-0001", "payload_json", rotated_payload), '{"tax":"synthetic"}')
+                    self.assertEqual(decrypt_field("job-migrate-0001", "result_json", rotated_result), '{"answer":"synthetic"}')
+                    count, _ = migrate_encryption.migrate(apply=True)
+                    self.assertEqual(count, 0)
 
 
 if __name__ == "__main__":
