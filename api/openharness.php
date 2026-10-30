@@ -82,7 +82,14 @@ if ($method === 'GET') {
             ],
             CURLOPT_RETURNTRANSFER => true,
         ]);
+        $resultBuffer = '';
+        curl_setopt($resultCurl, CURLOPT_WRITEFUNCTION, static function ($handle, string $chunk) use (&$resultBuffer): int {
+            if (strlen($resultBuffer) + strlen($chunk) > 65_536) return 0;
+            $resultBuffer .= $chunk;
+            return strlen($chunk);
+        });
         $resultResponse = curl_exec($resultCurl);
+        if ($resultResponse !== false) $resultResponse = $resultBuffer;
         $resultCode = (int) curl_getinfo($resultCurl, CURLINFO_HTTP_CODE);
         $resultError = curl_error($resultCurl);
         curl_close($resultCurl);
