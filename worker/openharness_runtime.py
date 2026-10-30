@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import stat
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -67,9 +69,43 @@ def _read_provider_key() -> str:
     return value
 
 
+def _validate_runtime_input(task: str, payload: dict[str, Any]) -> None:
+    """Revalidate the task boundary even when called outside the HTTP ingress."""
+    if not isinstance(task, str) or task not in {
+        "tax_question", "document_summary", "tax_data_analysis"
+    } or not isinstance(payload, dict):
+        raise RuntimeExecutionError("invalid task envelope")
+    if task == "tax_question":
+        valid = set(payload) == {"question"} and isinstance(payload.get("question"), str)
+        value = payload.get("question", "")
+        limit = 8_000
+    elif task == "document_summary":
+        valid = set(payload) == {"text"} and isinstance(payload.get("text"), str)
+        value = payload.get("text", "")
+        limit = 40_000
+    else:
+        valid = set(payload) == {"data"} and isinstance(payload.get("data"), list)
+        value = payload.get("data", [])
+        limit = 10_000
+        valid = valid and 1 <= len(value) <= 500 if isinstance(value, list) else False
+    if not valid:
+        raise RuntimeExecutionError("invalid task input")
+    try:
+        if task != "tax_data_analysis":
+            size = len(value.encode("utf-8"))
+            valid = bool(value.strip()) and size <= limit
+        else:
+            size = len(json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8"))
+            valid = size <= limit
+    except (TypeError, ValueError, UnicodeEncodeError, RecursionError):
+        valid = False
+    if not valid:
+        raise RuntimeExecutionError("invalid or oversized task input")
+
+
 def _task_prompt(task: str, payload: dict[str, Any]) -> str:
-    """Build a bounded task prompt from the worker's already-validated schema."""
-    import json
+    """Build a bounded task prompt from a strictly validated schema."""
+    _validate_runtime_input(task, payload)
 
     if task == "tax_question":
         body = payload["question"]
@@ -176,8 +212,8 @@ async def run_openharness_task(task: str, payload: dict[str, Any]) -> dict[str, 
     if os.environ.get("OPENHARNESS_EXECUTION_ENABLED", "0") != "1":
         raise RuntimeDisabled("OpenHarness execution is disabled")
     model = os.environ.get("OPENHARNESS_MODEL", "").strip()
-    if not model:
-        raise RuntimeConfigurationError("model is not configured")
+    if not model or len(model) > 128 or not re.fullmatch(r"[A-Za-z0-9._:/-]+", model):
+        raise RuntimeConfigurationError("model is not configured or has an invalid identifier")
 
     api_key = _read_provider_key()
     base_url = os.environ.get("OPENHARNESS_ANTHROPIC_BASE_URL", "").strip() or None
