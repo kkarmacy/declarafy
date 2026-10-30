@@ -52,6 +52,7 @@ if (!is_array($parsed)
     || isset($parsed['fragment'])
     || preg_match('/^[A-Za-z0-9.-]+$/', (string) ($parsed['host'] ?? '')) !== 1
     || filter_var((string) ($parsed['host'] ?? ''), FILTER_VALIDATE_IP) !== false
+    || !in_array(strtolower((string) ($parsed['host'] ?? '')), $config['openharness_allowed_hosts'] ?? [], true)
     || strlen($workerToken) < 32) {
     oh_fail('openharness/not-configured', 'El servicio aislado no está configurado correctamente.', 503);
 }
