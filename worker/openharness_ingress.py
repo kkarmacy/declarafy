@@ -132,6 +132,11 @@ def claim_next_job(now: int | None = None) -> dict[str, Any] | None:
             connection.commit()
             return None
         job_id, user_ref, task, payload_json, attempts, max_attempts = row
+        try:
+            payload = json.loads(decrypt_field(job_id, "payload_json", payload_json))
+        except (EncryptedDataError, EncryptionConfigurationError):
+            connection.rollback()
+            raise HTTPException(503, "queued data encryption unavailable") from None
         lease_token = secrets.token_urlsafe(32)
         connection.execute(
             """UPDATE jobs SET status='running', attempts=attempts+1,
@@ -142,11 +147,6 @@ def claim_next_job(now: int | None = None) -> dict[str, Any] | None:
         )
         connection.commit()
         restrict_storage_permissions()
-        try:
-            payload = json.loads(decrypt_field(job_id, "payload_json", payload_json))
-        except (EncryptedDataError, EncryptionConfigurationError):
-            connection.rollback()
-            raise HTTPException(503, "queued data encryption unavailable") from None
         return {"job_id": job_id, "user_ref": user_ref, "task": task,
                 "input": payload, "attempt": attempts + 1,
                 "max_attempts": max_attempts, "lease_token": lease_token,
@@ -345,7 +345,12 @@ def health() -> dict[str, str]:
     # Never report secrets or database details.
     if len(token()) < 32:
         raise HTTPException(503, "worker not configured")
-    return {"status": "ok", "execution": "disabled"}
+    try:
+        probe = encrypt_field("health-check", "payload_json", "{}")
+        decrypt_field("health-check", "payload_json", probe)
+    except EncryptionConfigurationError:
+        raise HTTPException(503, "worker encryption not configured") from None
+    return {"status": "ok", "execution": "disabled", "storage_encryption": "ready"}
 
 
 @app.post("/v1/jobs")
@@ -399,10 +404,15 @@ async def create_job(request: Request, authorization: str | None = Header(defaul
             (request_id,),
         ).fetchone()
         if existing:
+            try:
+                existing_payload = decrypt_field(existing[0], "payload_json", existing[3])
+            except (EncryptedDataError, EncryptionConfigurationError):
+                connection.rollback()
+                raise HTTPException(503, "legacy queue data requires controlled migration") from None
             same_request = (
                 existing[1] == user_ref
                 and existing[2] == body["task"]
-                and decrypt_field(existing[0], "payload_json", existing[3]) == json.dumps(
+                and existing_payload == json.dumps(
                     body["input"], ensure_ascii=False, sort_keys=True,
                     separators=(",", ":"),
                 )
