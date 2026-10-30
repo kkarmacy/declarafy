@@ -1,7 +1,10 @@
 import base64
 import json
 import os
+import sqlite3
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from encryption import (
@@ -40,7 +43,7 @@ class EncryptionTests(unittest.TestCase):
 
     def test_tampering_fails_authentication(self):
         envelope = encrypt_field("job-123", "result_json", '{"x":1}')
-        replacement = "A" if envelope[-1] != "A" else "B"
+        replacement = "A" if envelope[-5] != "A" else "B"
         with self.assertRaises(EncryptedDataError):
             decrypt_field("job-123", "result_json", envelope[:-1] + replacement)
 
@@ -68,6 +71,41 @@ class EncryptionTests(unittest.TestCase):
     def test_legacy_plaintext_is_rejected_not_silently_read(self):
         with self.assertRaises(EncryptedDataError):
             decrypt_field("job-123", "payload_json", '{"legacy":"plaintext"}')
+
+
+    def test_legacy_migration_dry_run_and_backup_apply(self):
+        import migrate_encryption
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            database = root / "jobs.sqlite3"
+            with sqlite3.connect(database) as connection:
+                connection.execute("""CREATE TABLE jobs (
+                    job_id TEXT PRIMARY KEY, payload_json TEXT NOT NULL, result_json TEXT
+                )""")
+                connection.execute(
+                    "INSERT INTO jobs VALUES (?, ?, ?)",
+                    ("job-migrate-0001", '{"tax":"synthetic"}', '{"answer":"synthetic"}'),
+                )
+            with patch.object(migrate_encryption, "DB_PATH", database), patch.object(migrate_encryption, "APP_DIR", root):
+                count, backup = migrate_encryption.migrate(apply=False)
+                self.assertEqual(count, 1)
+                self.assertIsNone(backup)
+                count, backup = migrate_encryption.migrate(apply=True)
+                self.assertEqual(count, 1)
+                self.assertIsNotNone(backup)
+                self.assertTrue(backup.exists())
+                self.assertEqual(backup.stat().st_mode & 0o777, 0o600)
+                with sqlite3.connect(database) as connection:
+                    payload, result = connection.execute(
+                        "SELECT payload_json, result_json FROM jobs WHERE job_id=?",
+                        ("job-migrate-0001",),
+                    ).fetchone()
+                self.assertTrue(payload.startswith("enc:v1:"))
+                self.assertTrue(result.startswith("enc:v1:"))
+                self.assertEqual(decrypt_field("job-migrate-0001", "payload_json", payload), '{"tax":"synthetic"}')
+                self.assertEqual(decrypt_field("job-migrate-0001", "result_json", result), '{"answer":"synthetic"}')
+                count, _ = migrate_encryption.migrate(apply=True)
+                self.assertEqual(count, 0)
 
 
 if __name__ == "__main__":
