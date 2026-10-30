@@ -142,6 +142,12 @@ class EncryptionTests(unittest.TestCase):
                     ("legacy-schema-job-0001", '{"input":"synthetic"}'),
                 )
             with patch.object(migrate_encryption, "DB_PATH", database), patch.object(migrate_encryption, "APP_DIR", root):
+                count, dry_run_backup = migrate_encryption.migrate(apply=False)
+                self.assertEqual(count, 1)
+                self.assertIsNone(dry_run_backup)
+                with sqlite3.connect(database) as connection:
+                    before_columns = {row[1] for row in connection.execute("PRAGMA table_info(jobs)")}
+                self.assertNotIn("result_json", before_columns)
                 count, backup = migrate_encryption.migrate(apply=True)
                 self.assertEqual(count, 1)
                 self.assertTrue(backup.exists())
