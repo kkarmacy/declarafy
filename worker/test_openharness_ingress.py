@@ -598,5 +598,38 @@ class WorkerIngressTests(unittest.TestCase):
                 self.assertEqual(openharness_ingress.token(), os.environ["DECLARAFY_WORKER_TOKEN"])
 
 
+    def test_completed_result_is_internal_authenticated_and_owner_scoped(self):
+        import openharness_ingress
+        job_id = client.post("/v1/jobs", json=self.request_body(), headers=AUTH).json()["job_id"]
+        not_ready = client.get(
+            f"/internal/jobs/{job_id}/result",
+            headers={**AUTH, "X-User-Ref": "test-user-1"},
+        )
+        self.assertEqual(not_ready.status_code, 409)
+        claimed = openharness_ingress.claim_next_job()
+        openharness_ingress.finish_job(
+            job_id, claimed["lease_token"], result={"summary": "synthetic-only"}
+        )
+        unauthenticated = client.get(
+            f"/internal/jobs/{job_id}/result",
+            headers={"X-User-Ref": "test-user-1"},
+        )
+        self.assertEqual(unauthenticated.status_code, 401)
+        foreign = client.get(
+            f"/internal/jobs/{job_id}/result",
+            headers={**AUTH, "X-User-Ref": "another-user"},
+        )
+        self.assertEqual(foreign.status_code, 404)
+        owner = client.get(
+            f"/internal/jobs/{job_id}/result",
+            headers={**AUTH, "X-User-Ref": "test-user-1"},
+        )
+        self.assertEqual(owner.status_code, 200)
+        self.assertEqual(owner.json(), {
+            "job_id": job_id, "status": "completed",
+            "result": {"summary": "synthetic-only"},
+        })
+
+
 if __name__ == "__main__":
     unittest.main()
