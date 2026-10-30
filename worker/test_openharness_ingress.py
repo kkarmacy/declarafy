@@ -89,14 +89,16 @@ class WorkerIngressTests(unittest.TestCase):
     def test_idempotency_uses_canonical_json_object_key_order(self):
         request_id = "e" * 32
         first_body = self.request_body(
-            data={"question": "consulta", "metadata": {"b": 2, "a": 1}},
+            task="tax_data_analysis",
+            data={"data": [{"b": 2, "a": 1}]},
             request_id=request_id,
         )
         first = client.post("/v1/jobs", json=first_body, headers=AUTH)
         self.assertEqual(first.status_code, 202)
 
         reordered_body = self.request_body(
-            data={"metadata": {"a": 1, "b": 2}, "question": "consulta"},
+            task="tax_data_analysis",
+            data={"data": [{"a": 1, "b": 2}]},
             request_id=request_id,
         )
         second = client.post("/v1/jobs", json=reordered_body, headers=AUTH)
