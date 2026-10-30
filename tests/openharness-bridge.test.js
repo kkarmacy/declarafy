@@ -49,6 +49,12 @@ test('Each task has an exact input schema and bounded content', () => {
   assert.match(bridge, /openharness\/input-schema/);
 });
 
+test('OpenHarness bridge supports stable client idempotency keys for retries', () => {
+  assert.match(bridge, /HTTP_IDEMPOTENCY_KEY/);
+  assert.match(bridge, /\^\[0-9a-f\]\{32\}\$/);
+  assert.match(bridge, /\$requestId = \$idempotencyKey !== '' \? \$idempotencyKey : bin2hex\(random_bytes\(16\)\)/);
+});
+
 test('OpenHarness bridge does not return arbitrary worker response fields', () => {
   assert.match(bridge, /'job_id'\s*=>\s*\$decoded\['job_id'\]/);
   assert.match(bridge, /'status'\s*=>\s*'queued'/);
