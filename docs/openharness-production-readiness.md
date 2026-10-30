@@ -71,3 +71,10 @@ This application-level check is not sufficient by itself to defeat DNS rebinding
 ## Current bridge verification
 
 The bridge static checks verify HTTPS, reject direct IP literals, reject non-443 ports, and require exact membership in the configured hostname allow-list. CI passing proves those code-level checks only; it does not prove the production DNS resolver, routing, firewall, TLS certificate, or worker host configuration is safe.
+
+
+## Queue lifecycle limitation in this prototype
+
+The current ingress implementation inserts every accepted job with status `queued`. There is no consumer, worker-claim operation, transition to `running`/`completed`/`failed`, cancellation path, or TTL/expiry cleanup. Consequently, accepted jobs remain queued indefinitely and the hard limit of 100 queued jobs will eventually reject further submissions with HTTP 429. Restarting the service does not clear the durable SQLite queue. This is intentional for the ingress-only spike, but it is not suitable for production traffic.
+
+Before any staging workflow that creates persistent jobs, implement and test a bounded queue consumer, atomic job claiming, explicit state transitions, retry/dead-letter policy, cancellation/deadlines, and retention cleanup (including SQLite WAL/SHM and backups). Until then, treat the endpoint as a non-production contract test only; do not use it for live user submissions.
