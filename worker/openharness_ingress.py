@@ -191,6 +191,60 @@ def finish_job(job_id: str, lease_token: str, *, result: Any = None,
         connection.close()
 
 
+def renew_job_lease(job_id: str, lease_token: str, *, now: int | None = None) -> int:
+    """Extend a live lease; expired or superseded workers cannot renew."""
+    now = int(time.time()) if now is None else int(now)
+    if not JOB_ID_RE.fullmatch(job_id) or not isinstance(lease_token, str) or len(lease_token) < 32:
+        raise HTTPException(400, "invalid lease")
+    lease_hash = hmac.new(token().encode(), lease_token.encode(), "sha256").hexdigest()
+    new_until = now + LEASE_SECONDS
+    connection = db()
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+        cursor = connection.execute(
+            "UPDATE jobs SET lease_until=?, updated_at=? WHERE job_id=? AND status='running' AND lease_token_hash=? AND lease_until > ?",
+            (new_until, now, job_id, lease_hash, now),
+        )
+        if cursor.rowcount != 1:
+            connection.rollback()
+            raise HTTPException(409, "lease expired or superseded")
+        connection.commit()
+        return new_until
+    finally:
+        connection.close()
+
+
+def cancel_job(job_id: str, user_ref: str, *, now: int | None = None) -> str:
+    """Owner-scoped cancellation. Clearing the lease fences off the worker."""
+    now = int(time.time()) if now is None else int(now)
+    if not JOB_ID_RE.fullmatch(job_id) or not isinstance(user_ref, str) or not user_ref or len(user_ref) > 128:
+        raise HTTPException(404, "job not found")
+    connection = db()
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+        row = connection.execute(
+            "SELECT status FROM jobs WHERE job_id=? AND user_ref=?",
+            (job_id, user_ref),
+        ).fetchone()
+        if row is None:
+            connection.rollback()
+            raise HTTPException(404, "job not found")
+        if row[0] == "cancelled":
+            connection.commit()
+            return "cancelled"
+        if row[0] not in ("queued", "running"):
+            connection.rollback()
+            raise HTTPException(409, "job is already terminal")
+        connection.execute(
+            "UPDATE jobs SET status='cancelled', lease_token_hash=NULL, lease_until=NULL, updated_at=?, error_code='cancelled' WHERE job_id=? AND user_ref=?",
+            (now, job_id, user_ref),
+        )
+        connection.commit()
+        return "cancelled"
+    finally:
+        connection.close()
+
+
 RETENTION_SECONDS = 30 * 24 * 60 * 60
 
 
@@ -379,6 +433,28 @@ def worker_claim(authorization: str | None = Header(default=None)) -> dict[str, 
         raise HTTPException(401, "unauthorized")
     job = claim_next_job()
     return {"job": job}
+
+
+@app.post("/internal/worker/{job_id}/renew")
+def worker_renew(job_id: str, body: dict[str, Any],
+                 authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    if not _service_authorized(authorization):
+        raise HTTPException(401, "unauthorized")
+    if set(body) != {"lease_token"}:
+        raise HTTPException(400, "invalid renewal fields")
+    lease_until = renew_job_lease(job_id, body["lease_token"])
+    return {"status": "running", "lease_until": lease_until}
+
+
+@app.post("/internal/jobs/{job_id}/cancel")
+def worker_cancel(job_id: str, body: dict[str, Any],
+                  authorization: str | None = Header(default=None)) -> dict[str, str]:
+    if not _service_authorized(authorization):
+        raise HTTPException(401, "unauthorized")
+    if set(body) != {"user_ref"}:
+        raise HTTPException(400, "invalid cancellation fields")
+    status = cancel_job(job_id, body["user_ref"])
+    return {"status": status}
 
 
 @app.post("/internal/worker/{job_id}/complete")
