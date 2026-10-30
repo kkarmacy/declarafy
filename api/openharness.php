@@ -65,6 +65,52 @@ if ($method === 'GET') {
     if (preg_match('/^[A-Za-z0-9_-]{16,128}$/', $jobId) !== 1) {
         oh_fail('openharness/job-id', 'Identificador de tarea inválido.', 400);
     }
+    if (($_GET['result'] ?? '') === '1') {
+        $resultCurl = curl_init(rtrim($workerUrl, '/') . '/internal/jobs/' . rawurlencode($jobId) . '/result');
+        curl_setopt_array($resultCurl, [
+            CURLOPT_HTTPGET => true,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_MAXREDIRS => 0,
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+            CURLOPT_HTTPHEADER => [
+                'Accept: application/json',
+                'Authorization: Bearer ' . $workerToken,
+                // The owner is always taken from the authenticated PHP session.
+                'X-User-Ref: ' . (string) $userId,
+            ],
+            CURLOPT_RETURNTRANSFER => true,
+        ]);
+        $resultResponse = curl_exec($resultCurl);
+        $resultCode = (int) curl_getinfo($resultCurl, CURLINFO_HTTP_CODE);
+        $resultError = curl_error($resultCurl);
+        curl_close($resultCurl);
+        if ($resultResponse === false) {
+            error_log('Declarafy OpenHarness result lookup failed; user=' . $userId . '; error=' . preg_replace('/[^A-Za-z0-9 _.-]/', '', $resultError));
+            oh_fail('openharness/unavailable', 'No se pudo recuperar el resultado de la tarea.', 502);
+        }
+        if ($resultCode === 404) oh_fail('openharness/not-found', 'No se encontró la tarea.', 404);
+        if ($resultCode === 409) oh_fail('openharness/result-not-ready', 'El resultado todavía no está disponible.', 409);
+        $resultData = json_decode($resultResponse);
+        if ($resultCode !== 200
+            || !$resultData instanceof stdClass
+            || ($resultData->job_id ?? null) !== $jobId
+            || ($resultData->status ?? null) !== 'completed'
+            || !property_exists($resultData, 'result')) {
+            oh_fail('openharness/result-error', 'No se pudo recuperar el resultado de la tarea.', 502);
+        }
+        http_response_code(200);
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        echo json_encode(['ok' => true, 'data' => [
+            'job_id' => $jobId,
+            'status' => 'completed',
+            'result' => $resultData->result,
+        ]], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
     $statusCurl = curl_init(rtrim($workerUrl, '/') . '/v1/jobs/' . rawurlencode($jobId));
     curl_setopt_array($statusCurl, [
         CURLOPT_HTTPGET => true,
