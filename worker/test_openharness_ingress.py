@@ -42,6 +42,25 @@ class WorkerIngressTests(unittest.TestCase):
         self.assertEqual(directory_mode, 0o700)
         self.assertEqual(database_mode, 0o600)
 
+    def test_sqlite_wal_and_shm_permissions_are_private(self):
+        import stat
+        import openharness_ingress
+
+        connection = openharness_ingress.db()
+        try:
+            connection.execute(
+                "INSERT INTO jobs VALUES (?, ?, ?, ?, ?, 'queued', ?)",
+                ("wal-permission-job", "a" * 32, "owner", "tax_question", '{"question":"x"}', 1),
+            )
+            connection.commit()
+            openharness_ingress.restrict_storage_permissions()
+            for suffix in ("-wal", "-shm"):
+                sidecar = Path(str(Path(_tmp.name) / "jobs.sqlite3") + suffix)
+                self.assertTrue(sidecar.exists(), f"expected SQLite {suffix} sidecar")
+                self.assertEqual(stat.S_IMODE(sidecar.stat().st_mode), 0o600)
+        finally:
+            connection.close()
+
     def test_authentication_is_required(self):
         response = client.post("/v1/jobs", json=self.request_body())
         self.assertEqual(response.status_code, 401)
