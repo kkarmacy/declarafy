@@ -72,6 +72,28 @@ class StagingPreflightTests(unittest.TestCase):
         self.assertFalse(report["ready_for_synthetic_staging_checks"])
         self.assertIn("0700", report["checks"][2]["reason"])
 
+    def test_world_readable_wal_sidecar_fails(self):
+        database = self.data / "jobs.sqlite3"
+        with sqlite3.connect(database) as conn:
+            conn.execute("CREATE TABLE jobs (job_id TEXT, payload_json TEXT, result_json TEXT)")
+            conn.execute("INSERT INTO jobs VALUES ('job-1', 'enc:v1:stage-key:opaque', NULL)")
+        database.chmod(0o600)
+        wal = Path(str(database) + "-wal")
+        wal.write_bytes(b"synthetic wal")
+        wal.chmod(0o644)
+        report = run_preflight()
+        self.assertFalse(report["ready_for_synthetic_staging_checks"])
+        self.assertIn("sidecar permissions", report["checks"][2]["reason"])
+
+    def test_existing_database_without_jobs_table_fails(self):
+        database = self.data / "jobs.sqlite3"
+        with sqlite3.connect(database) as conn:
+            conn.execute("CREATE TABLE unrelated (value TEXT)")
+        database.chmod(0o600)
+        report = run_preflight()
+        self.assertFalse(report["ready_for_synthetic_staging_checks"])
+        self.assertIn("jobs table is missing", report["checks"][2]["reason"])
+
     def test_plaintext_legacy_queue_rows_fail(self):
         database = self.data / "jobs.sqlite3"
         with sqlite3.connect(database) as conn:
