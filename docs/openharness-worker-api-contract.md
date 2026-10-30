@@ -89,10 +89,14 @@ The worker now supports an authenticated internal pull protocol:
 - A claim lease lasts 120 seconds. A later claim recovers expired `running` jobs: it requeues them if attempts remain, otherwise marks them `failed` with `lease_expired`. A stale lease token cannot complete or fail a newer attempt.
 - Owner-scoped `GET /v1/jobs/{job_id}` reports `queued`, `running`, `completed`, or `failed`, plus attempt count, update time, and sanitized error code. It does not expose payloads, lease tokens, or result bodies.
 
-The queue schema is migrated forward when the worker opens its SQLite database. The protocol is currently a tested lifecycle primitive, not a deployed always-on consumer: no OpenHarness execution is started automatically, no Declarafy PHP result-fetch route is wired yet, and results remain stored in the worker database. Do not enable live submissions or treat a completed synthetic result as tax advice. Retention/deletion, lease renewal, cancellation, encryption at rest, and the full PHP-to-worker-to-PHP result path remain separate release gates.
+The queue schema is migrated forward when the worker opens its SQLite database. The protocol is currently a tested lifecycle primitive, not a deployed always-on consumer: no OpenHarness execution is started automatically, no Declarafy PHP result-fetch route is wired yet, and results remain stored in the worker database. Do not enable live submissions or treat a completed synthetic result as tax advice. Retention/deletion, lease renewal, cancellation, encryption at rest, and the full PHP-to-worker-to-PHP result path remain separate release gates. Terminal `completed`, `failed`, and `cancelled` records are eligible for deletion after 30 days; queued/running records are never pruned.
 
 The PHP bridge also exposes an authenticated, owner-scoped status lookup via `GET api/openharness.php?job_id=<job_id>`. It derives `X-User-Ref` from the server-side Declarafy session and never accepts an owner reference from the browser. This route returns lifecycle metadata only; it does not yet retrieve the stored result body.
 
+
+## Retention policy
+
+The trusted maintenance process deletes terminal `completed`, `failed`, and `cancelled` records after 30 days based on `updated_at`. Queued and running records are never deleted by retention. SQLite secure-delete and WAL truncation are best-effort storage hygiene, not cryptographic erasure or a guarantee about external backups/snapshots.
 
 ## Lease renewal and cancellation (prototype)
 
