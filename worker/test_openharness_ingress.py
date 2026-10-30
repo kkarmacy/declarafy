@@ -577,5 +577,17 @@ class WorkerIngressTests(unittest.TestCase):
             self.assertEqual(response.json()["detail"], "queue encryption unavailable")
 
 
+    def test_health_and_empty_worker_claim_fail_when_encryption_key_is_missing(self):
+        with patch.dict(os.environ, {
+            "DECLARAFY_WORKER_ENCRYPTION_KEYS_JSON": "",
+            "DECLARAFY_WORKER_ENCRYPTION_ACTIVE_KEY_ID": "",
+        }):
+            health = client.get("/health")
+            self.assertEqual(health.status_code, 503)
+            claim = client.post("/internal/worker/claim", headers=AUTH)
+            self.assertEqual(claim.status_code, 503)
+            self.assertEqual(claim.json()["detail"], "worker encryption not configured")
+
+
 if __name__ == "__main__":
     unittest.main()
