@@ -133,15 +133,15 @@ class WorkerIngressTests(unittest.TestCase):
 
     def test_lone_unicode_surrogates_are_rejected(self):
         invalid_bodies = [
-            self.request_body(data={"question": "\\ud800"}),
+            self.request_body(data={"question": "\ud800"}),
             self.request_body(
                 task="document_summary",
-                data={"text": "\\udfff"},
+                data={"text": "\udfff"},
                 request_id="8" * 32,
             ),
             self.request_body(request_id="7" * 32),
         ]
-        invalid_bodies[2]["user_ref"] = "\\ud800"
+        invalid_bodies[2]["user_ref"] = "\ud800"
 
         for body in invalid_bodies:
             with self.subTest(body=body):
