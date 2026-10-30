@@ -19,6 +19,13 @@ from typing import Any
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from encryption import (
+    EncryptedDataError,
+    EncryptionConfigurationError,
+    decrypt_field,
+    encrypt_field,
+)
+
 APP_DIR = Path(os.environ.get("WORKER_DATA_DIR", "/var/lib/declarafy-worker"))
 DB_PATH = APP_DIR / "jobs.sqlite3"
 MAX_BODY = 100_000
@@ -135,8 +142,13 @@ def claim_next_job(now: int | None = None) -> dict[str, Any] | None:
         )
         connection.commit()
         restrict_storage_permissions()
+        try:
+            payload = json.loads(decrypt_field(job_id, "payload_json", payload_json))
+        except (EncryptedDataError, EncryptionConfigurationError):
+            connection.rollback()
+            raise HTTPException(503, "queued data encryption unavailable") from None
         return {"job_id": job_id, "user_ref": user_ref, "task": task,
-                "input": json.loads(payload_json), "attempt": attempts + 1,
+                "input": payload, "attempt": attempts + 1,
                 "max_attempts": max_attempts, "lease_token": lease_token,
                 "lease_until": now + LEASE_SECONDS}
     finally:
@@ -154,13 +166,18 @@ def finish_job(job_id: str, lease_token: str, *, result: Any = None,
     result_json = None
     if result is not None:
         try:
-            result_json = json.dumps(result, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
-            if len(result_json.encode("utf-8")) > MAX_RESULT_BYTES:
+            result_plaintext = json.dumps(result, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+            if len(result_plaintext.encode("utf-8")) > MAX_RESULT_BYTES:
                 raise ValueError("result too large")
         except (TypeError, ValueError, UnicodeEncodeError, RecursionError):
             raise HTTPException(400, "invalid result") from None
     if error_code is not None and (not isinstance(error_code, str) or not re.fullmatch(r"[a-z0-9_]{1,64}", error_code)):
         raise HTTPException(400, "invalid error code")
+    if result is not None:
+        try:
+            result_json = encrypt_field(job_id, "result_json", result_plaintext)
+        except EncryptionConfigurationError:
+            raise HTTPException(503, "result encryption unavailable") from None
     lease_hash = hmac.new(token().encode(), lease_token.encode(), "sha256").hexdigest()
     connection = db()
     try:
@@ -385,7 +402,7 @@ async def create_job(request: Request, authorization: str | None = Header(defaul
             same_request = (
                 existing[1] == user_ref
                 and existing[2] == body["task"]
-                and existing[3] == json.dumps(
+                and decrypt_field(existing[0], "payload_json", existing[3]) == json.dumps(
                     body["input"], ensure_ascii=False, sort_keys=True,
                     separators=(",", ":"),
                 )
@@ -402,14 +419,21 @@ async def create_job(request: Request, authorization: str | None = Header(defaul
             connection.rollback()
             raise HTTPException(429, "queue full")
         job_id = secrets.token_urlsafe(24)
+        try:
+            encrypted_payload = encrypt_field(
+                job_id, "payload_json", json.dumps(
+                    body["input"], ensure_ascii=False, sort_keys=True,
+                    separators=(",", ":"),
+                )
+            )
+        except EncryptionConfigurationError:
+            connection.rollback()
+            raise HTTPException(503, "queue encryption unavailable") from None
         connection.execute(
             "INSERT INTO jobs (job_id, request_id, user_ref, task, payload_json, status, created_at) VALUES (?, ?, ?, ?, ?, 'queued', ?)",
             (
                 job_id, request_id, user_ref, body["task"],
-                json.dumps(
-                    body["input"], ensure_ascii=False, sort_keys=True,
-                    separators=(",", ":"),
-                ),
+                encrypted_payload,
                 int(time.time()),
             ),
         )
