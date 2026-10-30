@@ -72,6 +72,16 @@ test('OpenHarness bridge does not return arbitrary worker response fields', () =
   assert.doesNotMatch(bridge, /print_r\(\$decoded/);
 });
 
+test('OpenHarness status recovery is owner-scoped through the authenticated session', () => {
+  assert.match(bridge, /\['GET', 'POST'\]/);
+  assert.match(bridge, /\$method === 'GET'/);
+  assert.match(bridge, /\$\_GET\['job_id'\]/);
+  assert.match(bridge, /'X-User-Ref: ' \. \(string\) \$userId/);
+  assert.match(bridge, /openharness-status/);
+  assert.match(bridge, /\$statusData\['status'\]/);
+  assert.doesNotMatch(bridge, /X-User-Ref.*\$_(GET|POST|REQUEST)/);
+});
+
 test('OpenHarness worker secrets are configured only server-side', () => {
   assert.match(bootstrap, /'openharness_token'\s*=>/);
   assert.match(bridge, /'Authorization: Bearer ' \./);
