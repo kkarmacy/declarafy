@@ -4,7 +4,7 @@ Status: engineering checklist for the isolated integration spike. This document 
 
 ## Current implementation boundary
 
-The current worker is an authenticated ingress and SQLite queue with a tested lease-based lifecycle. It supports atomic claim, running/completed/failed transitions, bounded retries, expired-lease recovery, and owner-scoped status metadata through PHP. It does not execute OpenHarness automatically or expose result bodies through PHP. The PHP bridge is feature-flagged OFF by default.
+The current worker is an authenticated ingress and SQLite queue with a tested lease-based lifecycle. It supports atomic claim, running/completed/failed/cancelled transitions, bounded retries, expired-lease recovery, lease renewal, and owner-scoped status metadata through PHP. The worker has an internal authenticated owner-scoped completed-result endpoint, and the PHP bridge has a session-owner-checked result retrieval route. It does not execute OpenHarness automatically, and there is no end-user polling/display workflow. The PHP bridge is feature-flagged OFF by default.
 
 ## Required storage protection before real tax data
 
@@ -45,13 +45,13 @@ A Dockerfile alone does not enforce runtime isolation. The deployment platform m
 - [ ] Workspace tests cover absolute paths, traversal, symlinks, and cross-job access.
 - [ ] Concurrency, queue, CPU/memory/time, output, and per-job spend limits are enforced and tested.
 - [ ] Secret scanning confirms credentials do not appear in logs, task storage, process arguments, artifacts, or responses.
-- [ ] PHP-to-worker-to-result end-to-end test passes in staging with synthetic data only. The current synthetic worker-level create/claim/complete/status path is tested, but the PHP-to-worker result-body path is not complete.
+- [ ] PHP-to-worker-to-result end-to-end test passes in staging with synthetic data only. The worker result endpoint and PHP bridge route have code-level tests, but no live staging worker host or end-to-end network path has been exercised.
 - [ ] Security review signs off on the exact OpenHarness version and tool allow-list.
 - [ ] Feature flag remains OFF until every gate is checked and release approval is recorded.
 
 ## Explicit no-go conditions
 
-Do not deploy or enable the integration while task payloads are plaintext, agent execution is not sandboxed, provider spend is unbounded, result retrieval is unimplemented, or staging acceptance is incomplete. The current prototype is not a production tax-advisory service.
+Do not deploy or enable the integration while legacy plaintext queue rows have not been migrated, agent execution is not sandboxed, provider spend is unbounded, the end-user result workflow is incomplete, or staging acceptance is incomplete. The current prototype is not a production tax-advisory service.
 
 ## PHP bridge destination configuration
 
@@ -74,11 +74,11 @@ The bridge static checks verify HTTPS, reject direct IP literals, reject non-443
 
 ## Queue lifecycle implemented; production gates remain
 
-The worker now performs atomic claims under SQLite `BEGIN IMMEDIATE`, assigns a 120-second lease, and uses a lease token bound to the service secret so stale attempts cannot overwrite a newer attempt. Worker failures are retried with bounded backoff up to three attempts. Expired running leases are recovered on the next claim; jobs are requeued while attempts remain and become terminal `failed` after the cap. The owner-scoped status endpoint reports lifecycle state, attempt count, timestamps, and sanitized error code. The PHP bridge exposes this status lookup using the authenticated server-side user ID. A completed result remains stored internally and is not exposed by either status endpoint.
+The worker now performs atomic claims under SQLite `BEGIN IMMEDIATE`, assigns a 120-second lease, and uses a lease token bound to the service secret so stale attempts cannot overwrite a newer attempt. Worker failures are retried with bounded backoff up to three attempts. Expired running leases are recovered on the next claim; jobs are requeued while attempts remain and become terminal `failed` after the cap. The owner-scoped status endpoint reports lifecycle state, attempt count, timestamps, and sanitized error code. The PHP bridge exposes this status lookup using the authenticated server-side user ID. Completed results are returned only by a separate internal service-authenticated worker route after owner verification; the PHP result route derives the owner from the authenticated session and disables caching. Neither status endpoint exposes result bodies.
 
 Synthetic tests cover submit → claim → complete → status, submit → fail/retry, expired lease recovery, stale lease rejection, attempt exhaustion, and authenticated internal worker endpoints. These tests validate the lifecycle primitive only; they do not prove a continuously running consumer, OpenHarness execution, or production hosting isolation.
 
-Still outstanding before production: managed key storage and operational key rotation/restore drills, verified WAL/SHM/backup cleanup, the front-end polling/display workflow and end-to-end PHP-to-worker result verification, always-on worker orchestration, resource/cost controls, and staging network/runtime isolation. Cancellation and lease renewal exist as queue-state primitives, but real process interruption is not implemented. Do not enable live submissions. The feature flag remains OFF and the queue must only be exercised with synthetic data.
+Still outstanding before production: managed key storage and operational key rotation/restore drills, verified WAL/SHM/backup cleanup, the front-end polling/display workflow and end-to-end PHP-to-worker result verification on a real staging host, always-on worker orchestration, resource/cost controls, and staging network/runtime isolation. Cancellation and lease renewal exist as queue-state primitives, but real process interruption is not implemented. Do not enable live submissions. The feature flag remains OFF and the queue must only be exercised with synthetic data.
 
 
 ## Retention cleanup (prototype)
