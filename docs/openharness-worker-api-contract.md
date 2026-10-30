@@ -45,6 +45,12 @@ Authorization: Bearer <service-token>
 
 The prototype returns only `job_id`, `task`, `status`, and `created_at`. It requires service authentication and matches the supplied opaque `user_ref` against the stored owner. Unknown jobs and jobs owned by another user both return 404. It never returns the stored input or result. Since execution is disabled, newly accepted jobs remain `queued`; this endpoint is not evidence that an agent has run.
 
+## Idempotency and safe retries
+
+The PHP bridge accepts an optional `Idempotency-Key` HTTP header containing exactly 32 lowercase hexadecimal characters. A client must generate this key once per logical submission and reuse the same key when retrying that submission after a timeout or lost response. The bridge forwards it unchanged as `request_id`. If the header is omitted, the bridge generates a fresh request ID; retries without a client-supplied key are therefore **not** guaranteed to deduplicate.
+
+The worker must continue binding a request ID to the authenticated owner, task type, and canonical payload. Reusing the same key with a different owner, task, or payload must return 409 and must never create a second job. Clients must not reuse keys for distinct submissions. Keep the key until the client has received a definitive receipt or has reconciled the job status.
+
 ## Accepted response
 
 Return HTTP 202 only after a durable job record is created:
