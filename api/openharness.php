@@ -46,6 +46,7 @@ $parsed = $workerUrl !== '' ? parse_url($workerUrl) : false;
 if (!is_array($parsed)
     || strtolower((string) ($parsed['scheme'] ?? '')) !== 'https'
     || empty($parsed['host'])
+    || (isset($parsed['port']) && (int) $parsed['port'] !== 443)
     || isset($parsed['user'])
     || isset($parsed['pass'])
     || isset($parsed['query'])
