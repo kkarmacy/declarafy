@@ -39,7 +39,7 @@ A Dockerfile alone does not enforce runtime isolation. The deployment platform m
 
 ## Staging acceptance gates
 
-- [ ] Encryption-at-rest implementation and key rotation tests pass.
+- [x] AES-256-GCM field encryption and key rotation/re-encryption tests pass in the integration branch; managed key custody and production rotation/restore drills remain open.
 - [ ] Retention/expiry/deletion tests include SQLite WAL/SHM and backups.
 - [ ] Runtime policy proves read-only root, no host mounts, non-root, dropped capabilities, no-new-privileges, and restricted network egress.
 - [ ] Workspace tests cover absolute paths, traversal, symlinks, and cross-job access.
