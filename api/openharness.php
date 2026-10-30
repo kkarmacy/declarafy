@@ -105,10 +105,18 @@ if ($encodedInput === false || strlen($encodedInput) > 50_000) oh_fail('openharn
 
 // Forward only validated task data. User identity is an internal numeric ID;
 // the worker must still authenticate this service request independently.
+// Clients may provide a stable idempotency key and reuse it for retries of the
+// same logical submission. The worker binds the key to user, task and payload.
+$idempotencyKey = trim((string) ($_SERVER['HTTP_IDEMPOTENCY_KEY'] ?? ''));
+if ($idempotencyKey !== '' && preg_match('/^[0-9a-f]{32}$/', $idempotencyKey) !== 1) {
+    oh_fail('request/idempotency-key', 'La clave de idempotencia no tiene un formato válido.', 400);
+}
+$requestId = $idempotencyKey !== '' ? $idempotencyKey : bin2hex(random_bytes(16));
+
 $payload = json_encode([
     'task' => $task,
     'input' => $input,
-    'request_id' => bin2hex(random_bytes(16)),
+    'request_id' => $requestId,
     'user_ref' => (string) $userId,
 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 if ($payload === false) oh_fail('openharness/encoding', 'No se pudo preparar la tarea.', 400);
