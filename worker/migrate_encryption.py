@@ -30,6 +30,8 @@ def migrate(apply: bool = False) -> tuple[int, Path | None]:
     probe = encrypt_field("migration-probe", "payload_json", "{}")
     if decrypt_field("migration-probe", "payload_json", probe) != "{}":
         raise EncryptionConfigurationError("encryption self-check failed")
+    active_key_id = os.environ.get("DECLARAFY_WORKER_ENCRYPTION_ACTIVE_KEY_ID", "")
+    active_prefix = f"enc:v1:{active_key_id}:"
 
     connection = sqlite3.connect(DB_PATH, timeout=10)
     backup_path: Path | None = None
@@ -44,12 +46,16 @@ def migrate(apply: bool = False) -> tuple[int, Path | None]:
             if not payload.startswith("enc:v1:"):
                 encrypted_payload = encrypt_field(job_id, "payload_json", payload)
             else:
-                decrypt_field(job_id, "payload_json", payload)
+                plaintext_payload = decrypt_field(job_id, "payload_json", payload)
+                if not payload.startswith(active_prefix):
+                    encrypted_payload = encrypt_field(job_id, "payload_json", plaintext_payload)
             if result is not None:
                 if not result.startswith("enc:v1:"):
                     encrypted_result = encrypt_field(job_id, "result_json", result)
                 else:
-                    decrypt_field(job_id, "result_json", result)
+                    plaintext_result = decrypt_field(job_id, "result_json", result)
+                    if not result.startswith(active_prefix):
+                        encrypted_result = encrypt_field(job_id, "result_json", plaintext_result)
             if encrypted_payload != payload or encrypted_result != result:
                 updates.append((encrypted_payload, encrypted_result, job_id))
 
@@ -65,6 +71,7 @@ def migrate(apply: bool = False) -> tuple[int, Path | None]:
             backup.close()
         os.chmod(backup_path, stat.S_IRUSR | stat.S_IWUSR)
 
+        connection.execute("PRAGMA secure_delete=ON")
         connection.execute("BEGIN IMMEDIATE")
         for payload, result, job_id in updates:
             connection.execute(
@@ -72,6 +79,9 @@ def migrate(apply: bool = False) -> tuple[int, Path | None]:
                 (payload, result, job_id),
             )
         connection.commit()
+        # Best-effort cleanup of prior plaintext pages in the WAL after the
+        # committed rewrite. Backups remain separately protected/retained.
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         return len(updates), backup_path
     except Exception:
         connection.rollback()
