@@ -44,9 +44,9 @@ From the repository root on the worker host:
 
 ```bash
 sudo docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml config --quiet
-docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml build
-docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml up -d
-docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml ps
+sudo docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml build
+sudo docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml up -d
+sudo docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml ps
 ```
 
 The service has no published host port and no outbound network access. Do not publish port 8080 to make it reachable. Attach only a reviewed private proxy to the worker's internal network, and separately verify TLS, source allow-listing, DNS resolution, firewall policy, and egress restrictions. The PHP bridge cannot connect to the worker until this private ingress is designed and tested.
@@ -56,8 +56,8 @@ The service has no published host port and no outbound network access. Do not pu
 Run only during a maintenance window with the worker stopped and a protected copy of the volume available:
 
 ```bash
-docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml stop openharness-worker
-docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml run --rm --no-deps --entrypoint python openharness-worker /app/migrate_encryption.py
+sudo docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml stop openharness-worker
+sudo docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml run --rm --no-deps --entrypoint python openharness-worker /app/migrate_encryption.py
 sudo docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml run --rm --no-deps --entrypoint python openharness-worker /app/migrate_encryption.py --apply
 ```
 
@@ -67,7 +67,7 @@ After checking the migration count, backup file, and encrypted rows on the stagi
 sudo docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml up -d
 ```
 
-The first command is read-only and reports how many rows need encryption or key rotation. The second creates a mode-0600 database backup and applies the migration transactionally. Preserve that backup under the approved retention policy; it may contain legacy plaintext. Keep every old key ID in the keyring until migration is verified and no retained ciphertext needs it. Start the worker only after checking the migrated database and backup.
+The dry-run command is read-only and reports how many rows need encryption or key rotation. The command with `--apply` creates a mode-0600 database backup and applies the migration transactionally. Preserve that backup under the approved retention policy; it may contain legacy plaintext. Keep every old key ID in the keyring until migration is verified and no retained ciphertext needs it. Start the worker only after checking the migrated database and backup.
 
 ## PHP bridge configuration
 
