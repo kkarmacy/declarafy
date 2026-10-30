@@ -4,8 +4,8 @@
 services:
   openharness-worker:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: worker/Dockerfile
     init: true
     restart: unless-stopped
     read_only: true
