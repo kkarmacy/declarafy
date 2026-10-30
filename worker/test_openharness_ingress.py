@@ -10,6 +10,8 @@ from fastapi.testclient import TestClient
 _tmp = tempfile.TemporaryDirectory()
 os.environ["WORKER_DATA_DIR"] = _tmp.name
 os.environ["DECLARAFY_WORKER_TOKEN"] = "test-token-" + ("x" * 40)
+os.environ["DECLARAFY_WORKER_ENCRYPTION_KEYS_JSON"] = json.dumps({"test-key": __import__("base64").b64encode(b"t" * 32).decode()})
+os.environ["DECLARAFY_WORKER_ENCRYPTION_ACTIVE_KEY_ID"] = "test-key"
 
 from openharness_ingress import app  # noqa: E402
 
