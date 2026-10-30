@@ -51,6 +51,18 @@ sudo docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker
 
 The service has no published host port and no outbound network access. Do not publish port 8080 to make it reachable. Attach only a reviewed private proxy to the worker's internal network, and separately verify TLS, source allow-listing, DNS resolution, firewall policy, and egress restrictions. The PHP bridge cannot connect to the worker until this private ingress is designed and tested.
 
+## Run the read-only staging preflight
+
+After the worker container is running and its secret mounts are configured, run:
+
+```bash
+sudo docker compose --env-file /etc/declarafy-worker/worker.env -f worker/docker-compose.hardened.yml exec -T openharness-worker python /app/staging_preflight.py
+```
+
+The command checks that the service-token and encryption-keyring files are private regular files, the encryption keyring can perform an AES-GCM round trip, the worker data directory/database permissions are private, SQLite passes a read-only quick check, and no legacy plaintext queue rows remain. It prints only check names and sanitized failure reasons; it never prints secret material.
+
+A successful preflight means only that local worker configuration is suitable for synthetic staging checks. It does not validate private ingress, TLS, DNS, firewall/egress, OpenHarness execution, sandboxing, quotas, or production readiness. A failed preflight is a hard stop: correct the issue and rerun it before attempting PHP-to-worker tests.
+
 ## Migrate an existing queue
 
 Run only during a maintenance window with the worker stopped and a protected copy of the volume available:
