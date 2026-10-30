@@ -35,10 +35,10 @@ def _keyring() -> tuple[str, dict[str, bytes]]:
     if not raw and keyring_file:
         try:
             raw = Path(keyring_file).read_text(encoding="utf-8")
-        except OSError:
+        except (OSError, UnicodeDecodeError):
             raise EncryptionConfigurationError("worker encryption keyring file is unavailable") from None
     active = os.environ.get("DECLARAFY_WORKER_ENCRYPTION_ACTIVE_KEY_ID", "")
-    if not raw or not active:
+    if not raw or not active or len(raw.encode("utf-8")) > 16_384:
         raise EncryptionConfigurationError("worker encryption keys are not configured")
     try:
         encoded = json.loads(raw)
