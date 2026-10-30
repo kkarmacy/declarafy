@@ -2,6 +2,8 @@ import json
 import os
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+import sqlite3
 from pathlib import Path
 from fastapi.testclient import TestClient
 
@@ -320,6 +322,62 @@ class WorkerIngressTests(unittest.TestCase):
             openharness_ingress.finish_job(job_id, claimed["lease_token"],
                 result={"text": "x" * 60000}, now=int(__import__('time').time()) + 11)
         self.assertEqual(getattr(oversized.exception, "status_code", None), 400)
+
+
+    def test_concurrent_claims_never_return_the_same_job(self):
+        import openharness_ingress
+        first = client.post("/v1/jobs", json=self.request_body(request_id="1" * 32), headers=AUTH)
+        second = client.post("/v1/jobs", json=self.request_body(request_id="2" * 32), headers=AUTH)
+        self.assertEqual(first.status_code, 202)
+        self.assertEqual(second.status_code, 202)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            claimed = list(pool.map(lambda _: openharness_ingress.claim_next_job(), range(2)))
+        claimed_ids = [job["job_id"] for job in claimed if job is not None]
+        self.assertEqual(len(claimed_ids), 2)
+        self.assertEqual(len(set(claimed_ids)), 2)
+
+    def test_legacy_queue_schema_is_migrated_without_losing_queued_jobs(self):
+        import openharness_ingress
+        db_path = Path(_tmp.name) / "jobs.sqlite3"
+        with sqlite3.connect(db_path) as connection:
+            connection.execute("""CREATE TABLE jobs (
+                job_id TEXT PRIMARY KEY, request_id TEXT NOT NULL UNIQUE,
+                user_ref TEXT NOT NULL, task TEXT NOT NULL, payload_json TEXT NOT NULL,
+                status TEXT NOT NULL, created_at INTEGER NOT NULL
+            )""")
+            connection.execute(
+                "INSERT INTO jobs VALUES (?, ?, ?, ?, ?, ?, ?)",
+                ("legacy-job-0000001", "3" * 32, "legacy-owner", "tax_question",
+                 '{"question":"synthetic legacy"}', "queued", 123),
+            )
+        connection = openharness_ingress.db()
+        try:
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(jobs)")}
+            self.assertTrue({"updated_at", "available_at", "attempts", "max_attempts",
+                             "lease_token_hash", "lease_until", "error_code", "result_json"}.issubset(columns))
+            row = connection.execute(
+                "SELECT status, created_at, updated_at, available_at, attempts, max_attempts "
+                "FROM jobs WHERE job_id=?", ("legacy-job-0000001",)
+            ).fetchone()
+            self.assertEqual(row, ("queued", 123, 123, 123, 0, 3))
+        finally:
+            connection.close()
+
+    def test_internal_worker_fail_endpoint_retries_with_authenticated_service_token(self):
+        job_id = client.post("/v1/jobs", json=self.request_body(), headers=AUTH).json()["job_id"]
+        denied = client.post(
+            f"/internal/worker/{job_id}/fail",
+            json={"lease_token": "x" * 40, "error_code": "synthetic_failure"},
+        )
+        self.assertEqual(denied.status_code, 401)
+        claimed = client.post("/internal/worker/claim", headers=AUTH).json()["job"]
+        failed = client.post(
+            f"/internal/worker/{job_id}/fail",
+            json={"lease_token": claimed["lease_token"], "error_code": "synthetic_failure"},
+            headers=AUTH,
+        )
+        self.assertEqual(failed.status_code, 200)
+        self.assertEqual(failed.json()["status"], "queued")
 
     def test_queue_capacity_is_enforced(self):
         import openharness_ingress
