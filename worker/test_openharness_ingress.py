@@ -86,6 +86,23 @@ class WorkerIngressTests(unittest.TestCase):
         second = client.post("/v1/jobs", json=body, headers=AUTH)
         self.assertEqual(first.json()["job_id"], second.json()["job_id"])
 
+    def test_idempotency_uses_canonical_json_object_key_order(self):
+        request_id = "e" * 32
+        first_body = self.request_body(
+            data={"question": "consulta", "metadata": {"b": 2, "a": 1}},
+            request_id=request_id,
+        )
+        first = client.post("/v1/jobs", json=first_body, headers=AUTH)
+        self.assertEqual(first.status_code, 202)
+
+        reordered_body = self.request_body(
+            data={"metadata": {"a": 1, "b": 2}, "question": "consulta"},
+            request_id=request_id,
+        )
+        second = client.post("/v1/jobs", json=reordered_body, headers=AUTH)
+        self.assertEqual(second.status_code, 202)
+        self.assertEqual(first.json()["job_id"], second.json()["job_id"])
+
     def test_reused_request_id_with_different_payload_is_rejected(self):
         body = self.request_body()
         first = client.post("/v1/jobs", json=body, headers=AUTH)
