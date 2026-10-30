@@ -37,6 +37,7 @@ test('OpenHarness bridge only accepts predefined task types and bounded JSON inp
 
 test('Each task has an exact input schema and bounded content', () => {
   assert.match(bridge, /\$task === 'tax_question'/);
+  assert.match(bridge, /\$inputKeys = array_keys\(\$input\);\s*sort\(\$inputKeys, SORT_STRING\)/);
   assert.match(bridge, /\$inputKeys !== \['question'\]/);
   assert.match(bridge, /strlen\(\$input\['question'\]\) > 8_000/);
   assert.match(bridge, /\$task === 'document_summary'/);
