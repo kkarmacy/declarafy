@@ -8,6 +8,13 @@ function env_value(string $name, mixed $fallback = null): mixed {
 
 $localConfig = __DIR__ . '/config.local.php';
 $fileConfig = is_file($localConfig) ? require $localConfig : [];
+$openharnessAllowedHosts = env_value('DECLARAFY_OPENHARNESS_ALLOWED_HOSTS', $fileConfig['openharness_allowed_hosts'] ?? []);
+if (!is_array($openharnessAllowedHosts)) $openharnessAllowedHosts = explode(',', (string) $openharnessAllowedHosts);
+$openharnessAllowedHosts = array_values(array_unique(array_filter(
+    array_map(static fn($host) => strtolower(trim((string) $host)), $openharnessAllowedHosts),
+    static fn($host) => $host !== ''
+)));
+
 $config = [
     'db_host' => env_value('DECLARAFY_DB_HOST', $fileConfig['db_host'] ?? 'localhost'),
     'db_port' => (int) env_value('DECLARAFY_DB_PORT', $fileConfig['db_port'] ?? 3306),
@@ -20,6 +27,8 @@ $config = [
     // OpenHarness runs in a separate worker; keep disabled until that worker is deployed and tested.
     'openharness_enabled' => strtolower((string) env_value('DECLARAFY_OPENHARNESS_ENABLED', $fileConfig['openharness_enabled'] ?? '0')),
     'openharness_url' => rtrim((string) env_value('DECLARAFY_OPENHARNESS_URL', $fileConfig['openharness_url'] ?? ''), '/'),
+    // Exact DNS host allow-list; do not accept arbitrary HTTPS destinations.
+    'openharness_allowed_hosts' => $openharnessAllowedHosts,
     'openharness_token' => (string) env_value('DECLARAFY_OPENHARNESS_TOKEN', $fileConfig['openharness_token'] ?? ''),
     'openai_api_key' => (string) env_value('OPENAI_API_KEY', $fileConfig['openai_api_key'] ?? ''),
     'deepseek_api_key' => (string) env_value('DEEPSEEK_API_KEY', $fileConfig['deepseek_api_key'] ?? ''),
