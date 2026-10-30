@@ -46,8 +46,7 @@ class WorkerIngressTests(unittest.TestCase):
 
         status = client.get(
             f"/v1/jobs/{job_id}",
-            params={"user_ref": "test-user-1"},
-            headers=AUTH,
+            headers={**AUTH, "X-User-Ref": "test-user-1"},
         )
         self.assertEqual(status.status_code, 200)
         self.assertEqual(status.json()["status"], "queued")
@@ -57,8 +56,7 @@ class WorkerIngressTests(unittest.TestCase):
 
         other_user = client.get(
             f"/v1/jobs/{job_id}",
-            params={"user_ref": "someone-else"},
-            headers=AUTH,
+            headers={**AUTH, "X-User-Ref": "someone-else"},
         )
         self.assertEqual(other_user.status_code, 404)
 
@@ -67,7 +65,7 @@ class WorkerIngressTests(unittest.TestCase):
         job_id = created.json()["job_id"]
         response = client.get(
             f"/v1/jobs/{job_id}",
-            params={"user_ref": "test-user-1"},
+            headers={"X-User-Ref": "test-user-1"},
         )
         self.assertEqual(response.status_code, 401)
 
