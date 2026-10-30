@@ -5,6 +5,7 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 import sqlite3
 from pathlib import Path
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 _tmp = tempfile.TemporaryDirectory()
@@ -567,7 +568,7 @@ class WorkerIngressTests(unittest.TestCase):
         self.assertEqual(status, "queued")
 
     def test_worker_refuses_new_jobs_without_encryption_key(self):
-        with __import__("unittest").mock.patch.dict(os.environ, {
+        with patch.dict(os.environ, {
             "DECLARAFY_WORKER_ENCRYPTION_KEYS_JSON": "",
             "DECLARAFY_WORKER_ENCRYPTION_ACTIVE_KEY_ID": "",
         }):
