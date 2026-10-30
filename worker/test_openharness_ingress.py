@@ -131,6 +131,24 @@ class WorkerIngressTests(unittest.TestCase):
         response = client.post("/v1/jobs", content=raw, headers={**AUTH, "Content-Type": "application/json"})
         self.assertEqual(response.status_code, 400)
 
+    def test_non_finite_json_numbers_are_rejected(self):
+        for number in ("NaN", "Infinity", "-Infinity"):
+            with self.subTest(number=number):
+                raw = (
+                    '{"task":"tax_data_analysis","input":{"data":[{"amount":'
+                    + number
+                    + '}]},"request_id":"'
+                    + ("9" * 32)
+                    + '","user_ref":"test-user-1"}'
+                )
+                response = client.post(
+                    "/v1/jobs",
+                    content=raw,
+                    headers={**AUTH, "Content-Type": "application/json"},
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["detail"], "invalid JSON")
+
     def test_oversized_raw_request_is_rejected(self):
         raw = b'{"padding":"' + (b"x" * 100_000) + b'"}'
         response = client.post("/v1/jobs", content=raw, headers={**AUTH, "Content-Type": "application/json"})
