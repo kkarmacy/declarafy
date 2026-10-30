@@ -35,7 +35,11 @@ def token() -> str:
 
 def db() -> sqlite3.Connection:
     APP_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+    # A pre-existing mounted volume may have permissive directory mode. Enforce
+    # private permissions before opening the database, then restrict the DB file.
+    os.chmod(APP_DIR, 0o700)
     connection = sqlite3.connect(DB_PATH, timeout=5)
+    os.chmod(DB_PATH, 0o600)
     connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("""CREATE TABLE IF NOT EXISTS jobs (
         job_id TEXT PRIMARY KEY,
