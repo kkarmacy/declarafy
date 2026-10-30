@@ -104,3 +104,13 @@ The trusted maintenance process deletes terminal `completed`, `failed`, and `can
 - The authenticated PHP bridge may submit `POST api/openharness.php` with `{"action":"cancel","job_id":"..."}`. The bridge derives the owner from the Declarafy session and forwards it to `POST /internal/jobs/{job_id}/cancel`; the browser cannot choose the owner reference.
 - Only `queued` and `running` jobs can be cancelled. Cancellation atomically sets `cancelled` and clears the lease token hash and expiry. A worker holding the previous token can neither renew nor complete/fail the cancelled job. Repeated cancellation is idempotent; terminal completed/failed jobs return 409; foreign/unknown jobs return 404.
 - Cancellation is cooperative: it fences off queue state and prevents stale results from being committed, but it does not yet terminate an already-running OS process. A future executor must poll cancellation or receive a separately isolated process-termination signal.
+
+
+## Completed result retrieval
+
+- Internal worker route: `GET /internal/jobs/{job_id}/result`.
+- Requires the service Bearer token and `X-User-Ref`; the worker verifies both the job ID and owner reference.
+- Returns a result only when the job is `completed`; queued/running/failed/cancelled jobs return a not-ready conflict, and unknown/foreign jobs return the same 404.
+- The worker decrypts the stored result only after the owner check. It never exposes ciphertext or result data from the public status route.
+- The PHP bridge exposes owner-checked retrieval through the authenticated session using `GET /api/openharness.php?job_id=...&result=1`. It derives `X-User-Ref` from the server-side session, validates the worker response, caps response buffering at 64 KiB, and returns `Cache-Control: no-store`.
+- This is an API retrieval primitive only. The product UI still needs a reviewed presentation/polling workflow before end users can consume completed agent output.
