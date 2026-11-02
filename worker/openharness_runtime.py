@@ -216,8 +216,9 @@ async def run_openharness_task(task: str, payload: dict[str, Any]) -> dict[str, 
         raise RuntimeConfigurationError("model is not configured or has an invalid identifier")
 
     api_key = _read_provider_key()
-    base_url = os.environ.get("OPENHARNESS_ANTHROPIC_BASE_URL", "").strip() or None
-    api_client = AnthropicApiClient(api_key=api_key, base_url=base_url)
+    # Use the official Anthropic endpoint only; jobs and worker environment
+    # cannot redirect taxpayer content to an arbitrary compatible server.
+    api_client = AnthropicApiClient(api_key=api_key)
     prompt = _task_prompt(task, payload)
 
     with TemporaryDirectory(prefix="declarafy-oh-") as workspace:
