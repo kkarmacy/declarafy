@@ -52,6 +52,17 @@ class OpenHarnessRuntimeTests(unittest.TestCase):
         self.assertEqual(engine._max_tokens, MAX_COMPLETION_TOKENS)
         self.assertEqual(engine.tool_metadata["tools_allowlisted"], [])
 
+    def test_coordinator_environment_cannot_inject_worker_tool_context(self):
+        fake = FakeApiClient()
+        with tempfile.TemporaryDirectory() as workspace, patch.dict(
+            os.environ,
+            {"OPENHARNESS_MODEL": "test-model", "CLAUDE_CODE_COORDINATOR_MODE": "1"},
+        ):
+            engine = build_task_engine(
+                api_client=fake, task="tax_question", workspace=workspace
+            )
+        self.assertIsNone(engine._build_coordinator_context_message())
+
     def test_engine_executes_one_tool_free_turn_with_fake_provider(self):
         async def run():
             fake = FakeApiClient()
