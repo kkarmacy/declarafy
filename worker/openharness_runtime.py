@@ -37,6 +37,17 @@ MAX_RUNTIME_SECONDS = 45
 MAX_COMPLETION_TOKENS = 2048
 
 
+class RestrictedQueryEngine(QueryEngine):
+    """Query engine that never injects upstream coordinator worker context."""
+
+    def _build_coordinator_context_message(self):
+        # Upstream QueryEngine reads CLAUDE_CODE_COORDINATOR_MODE from the
+        # process environment and may inject instructions describing shell,
+        # filesystem, web, MCP, and worker-agent capabilities. Declarafy must
+        # not inherit that ambient coordinator mode, even if misconfigured.
+        return None
+
+
 class RuntimeDisabled(RuntimeError):
     """Raised while the explicit execution feature flag is off."""
 
@@ -152,7 +163,7 @@ def build_task_engine(
     if registry.list_tools():
         raise RuntimeExecutionError("tool registry must start empty")
 
-    return QueryEngine(
+    return RestrictedQueryEngine(
         api_client=api_client,
         tool_registry=registry,
         permission_checker=PermissionChecker(
@@ -215,30 +226,29 @@ async def run_openharness_task(task: str, payload: dict[str, Any]) -> dict[str, 
     if not model or len(model) > 128 or not re.fullmatch(r"[A-Za-z0-9._:/-]+", model):
         raise RuntimeConfigurationError("model is not configured or has an invalid identifier")
 
+    prompt = _task_prompt(task, payload)
     api_key = _read_provider_key()
     # Use the official Anthropic endpoint only; jobs and worker environment
     # cannot redirect taxpayer content to an arbitrary compatible server.
     api_client = AnthropicApiClient(api_key=api_key)
-    prompt = _task_prompt(task, payload)
-
-    with TemporaryDirectory(prefix="declarafy-oh-") as workspace:
-        engine = build_task_engine(api_client=api_client, task=task, workspace=workspace)
-        try:
+    try:
+        with TemporaryDirectory(prefix="declarafy-oh-") as workspace:
+            engine = build_task_engine(api_client=api_client, task=task, workspace=workspace)
             answer, input_tokens, output_tokens = await asyncio.wait_for(
                 _collect_answer(engine, prompt), timeout=MAX_RUNTIME_SECONDS
             )
-        except asyncio.TimeoutError:
-            raise RuntimeExecutionError("OpenHarness execution timed out") from None
-        finally:
-            # AnthropicApiClient 0.1.9 wraps AsyncAnthropic and does not
-            # expose its own close method; close the underlying HTTP client.
-            close = getattr(api_client, "close", None)
-            if not callable(close):
-                close = getattr(getattr(api_client, "_client", None), "aclose", None)
-            if callable(close):
-                result = close()
-                if hasattr(result, "__await__"):
-                    await result
+    except asyncio.TimeoutError:
+        raise RuntimeExecutionError("OpenHarness execution timed out") from None
+    finally:
+        # AnthropicApiClient 0.1.9 wraps AsyncAnthropic and does not
+        # expose its own close method; close the underlying HTTP client.
+        close = getattr(api_client, "close", None)
+        if not callable(close):
+            close = getattr(getattr(api_client, "_client", None), "aclose", None)
+        if callable(close):
+            result = close()
+            if hasattr(result, "__await__"):
+                await result
 
     if len(answer.encode("utf-8")) > MAX_OUTPUT_BYTES:
         raise RuntimeExecutionError("model output exceeded the configured limit")
