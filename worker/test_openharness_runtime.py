@@ -113,7 +113,7 @@ class OpenHarnessRuntimeTests(unittest.TestCase):
                 self.assertEqual(engine._tool_registry.list_tools(), [])
                 # The generator is stopped at ToolExecutionStarted, before the
                 # upstream query loop reaches _execute_tool_call.
-                self.assertEqual(len(engine.messages), 2)
+                self.assertEqual(engine.messages[-1].tool_uses[0].name, "bash")
 
         asyncio.run(run())
 
