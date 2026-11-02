@@ -230,7 +230,11 @@ async def run_openharness_task(task: str, payload: dict[str, Any]) -> dict[str, 
         except asyncio.TimeoutError:
             raise RuntimeExecutionError("OpenHarness execution timed out") from None
         finally:
+            # AnthropicApiClient 0.1.9 wraps AsyncAnthropic and does not
+            # expose its own close method; close the underlying HTTP client.
             close = getattr(api_client, "close", None)
+            if not callable(close):
+                close = getattr(getattr(api_client, "_client", None), "aclose", None)
             if callable(close):
                 result = close()
                 if hasattr(result, "__await__"):
