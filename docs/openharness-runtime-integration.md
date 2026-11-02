@@ -31,7 +31,7 @@ Supported task envelopes are limited to the worker's existing validated task typ
 The runtime refuses to execute unless `OPENHARNESS_EXECUTION_ENABLED=1` is explicitly present. The worker's existing API feature flag remains OFF. Provider configuration is server-side only:
 - `OPENHARNESS_ANTHROPIC_API_KEY_FILE`: path to a protected key file (never a literal key in Compose or Git).
 - `OPENHARNESS_MODEL`: approved model identifier.
-- `OPENHARNESS_ANTHROPIC_BASE_URL`: optional operator-controlled compatible endpoint; never supplied by a job.
+- Provider traffic uses the official Anthropic API endpoint only. Custom base URLs are intentionally unsupported so taxpayer content cannot be redirected to an arbitrary compatible endpoint.
 
 Do not set the execution flag on a real host yet. The current Compose worker network has no outbound provider access, and no executor daemon, live cancellation, spend budget, concurrency quota, egress proxy, or end-user result UI has been accepted.
 
