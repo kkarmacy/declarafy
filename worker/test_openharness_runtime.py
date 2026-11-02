@@ -15,6 +15,8 @@ from openharness_runtime import (
     RuntimeDisabled,
     RuntimeExecutionError,
     _collect_answer,
+    _read_provider_key,
+    RuntimeConfigurationError,
     _task_prompt,
     build_task_engine,
     run_openharness_task,
@@ -116,6 +118,33 @@ class OpenHarnessRuntimeTests(unittest.TestCase):
                 self.assertEqual(engine.messages[-1].tool_uses[0].name, "bash")
 
         asyncio.run(run())
+
+
+    def test_provider_key_requires_private_regular_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            secret = Path(directory) / "provider.key"
+            secret.write_text("synthetic-provider-key", encoding="utf-8")
+            secret.chmod(0o600)
+            with patch.dict(
+                os.environ, {"OPENHARNESS_ANTHROPIC_API_KEY_FILE": str(secret)}
+            ):
+                self.assertEqual(_read_provider_key(), "synthetic-provider-key")
+
+            secret.chmod(0o644)
+            with patch.dict(
+                os.environ, {"OPENHARNESS_ANTHROPIC_API_KEY_FILE": str(secret)}
+            ):
+                with self.assertRaises(RuntimeConfigurationError):
+                    _read_provider_key()
+
+            secret.chmod(0o600)
+            link = Path(directory) / "provider-link.key"
+            link.symlink_to(secret)
+            with patch.dict(
+                os.environ, {"OPENHARNESS_ANTHROPIC_API_KEY_FILE": str(link)}
+            ):
+                with self.assertRaises(RuntimeConfigurationError):
+                    _read_provider_key()
 
     def test_execution_is_disabled_without_explicit_flag(self):
         async def run():
