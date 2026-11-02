@@ -7,12 +7,14 @@ from unittest.mock import patch
 
 from openharness.api.client import ApiMessageCompleteEvent
 from openharness.api.usage import UsageSnapshot
-from openharness.engine.messages import ConversationMessage, TextBlock
+from openharness.engine.messages import ConversationMessage, TextBlock, ToolUseBlock
 
 from openharness_runtime import (
     MAX_COMPLETION_TOKENS,
     OPENHARNESS_RELEASE,
     RuntimeDisabled,
+    RuntimeExecutionError,
+    _collect_answer,
     _task_prompt,
     build_task_engine,
     run_openharness_task,
@@ -76,6 +78,43 @@ class OpenHarnessRuntimeTests(unittest.TestCase):
             self.assertEqual(len(fake.requests), 1)
             self.assertEqual(fake.requests[0].tools, [])
             self.assertTrue(any(getattr(event, "message", None) for event in events))
+        asyncio.run(run())
+
+
+    def test_model_tool_request_fails_before_any_tool_can_execute(self):
+        class ToolAttemptApiClient:
+            async def stream_message(self, request):
+                self.request = request
+                yield ApiMessageCompleteEvent(
+                    message=ConversationMessage(
+                        role="assistant",
+                        content=[
+                            TextBlock(text="Intento de herramienta."),
+                            ToolUseBlock(id="toolu_forbidden", name="bash", input={"command": "id"}),
+                        ],
+                    ),
+                    usage=UsageSnapshot(input_tokens=10, output_tokens=5),
+                    stop_reason="tool_use",
+                )
+
+        async def run():
+            fake = ToolAttemptApiClient()
+            with tempfile.TemporaryDirectory() as workspace, patch.dict(
+                os.environ, {"OPENHARNESS_MODEL": "test-model"}
+            ):
+                engine = build_task_engine(
+                    api_client=fake, task="tax_question", workspace=workspace
+                )
+                with self.assertRaisesRegex(
+                    RuntimeExecutionError, "forbidden tool invocation"
+                ):
+                    await _collect_answer(engine, "Consulta sintética")
+                self.assertEqual(fake.request.tools, [])
+                self.assertEqual(engine._tool_registry.list_tools(), [])
+                # The generator is stopped at ToolExecutionStarted, before the
+                # upstream query loop reaches _execute_tool_call.
+                self.assertEqual(len(engine.messages), 2)
+
         asyncio.run(run())
 
     def test_execution_is_disabled_without_explicit_flag(self):
