@@ -8,7 +8,7 @@ Status: integration spike; no production execution is authorized.
 - Upstream repository: https://github.com/HKUDS/OpenHarness
 - Upstream tag: `v0.1.9`
 - Tag target commit: `a0f8552c69d6d0b25d613af288823212a8b6b59a`
-- The upstream tag object is unsigned. The version pin is not a cryptographic provenance guarantee.
+- The upstream tag object is unsigned. The version pin is not a cryptographic provenance guarantee. The package metadata declares a broad dependency set (including MCP, OpenAI, terminal/UI, scheduling, and chat-platform libraries); these are installed even though Declarafy does not enable those integrations. A minimal fork/vendor or verified dependency reduction remains preferable before production.
 - Upstream `pyproject.toml` declares broad lower-bound dependencies. A complete transitive dependency lock and SBOM remain a release blocker; do not treat this direct pin as a reproducible supply-chain lock.
 
 ## Why Declarafy does not use the normal runtime builder
@@ -17,6 +17,7 @@ OpenHarness `build_runtime()` assembles default tools, plugin discovery, MCP con
 
 Instead, `worker/openharness_runtime.py` constructs the upstream `QueryEngine` directly with:
 - A newly constructed, empty `ToolRegistry`.
+- A `RestrictedQueryEngine` override that disables upstream coordinator-context injection, even if `CLAUDE_CODE_COORDINATOR_MODE` is accidentally set in the worker environment.
 - No plugin, skill, hook, MCP, or default runtime initialization.
 - Permission mode `PLAN`, explicit empty allow-list, and deny-all tool/command patterns.
 - One model turn, 2,048 completion tokens, 45-second wall-clock timeout, and 20 KB maximum output.
