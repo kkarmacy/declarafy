@@ -41,7 +41,7 @@ This branch does **not** accept proposal, replace proposal, register preliminari
 
 SUNAT's SIRE manuals state that API REST operations requiring a TUS resumable-upload client must be developed in Java. Those upload operations are therefore not falsely represented as implemented by this PHP read-only adapter. A separate Java/TUS component and hosting decision are required before implementing those workflows. Namecheap's official policy says Java is not supported on Shared/Reseller hosting and can be installed on VPS/Dedicated servers; do not incur a hosting upgrade until the current plan is confirmed.
 
-Downloaded ZIP archives are not yet automatically unpacked and mapped into the existing SUNAT import/dashboard data model; the user must extract the archive and use the supported import formats. This is a separate remaining integration task.
+Downloaded ZIP archives are now unpacked in the browser and compatible TXT/CSV/XML entries are sent to the existing import preview. The user must review and confirm before records are saved to the dashboard. The importer maps common SIRE column names, but files with unsupported layouts, missing headers or unsupported ZIP features still require manual extraction or a future format-specific mapping.
 
 This branch also does not deploy itself to Namecheap and does not perform a live call with taxpayer credentials. Those require an authorized SUNAT application, a taxpayer's SOL credentials and a controlled deployment/test environment.
 
