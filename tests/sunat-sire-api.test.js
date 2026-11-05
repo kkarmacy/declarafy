@@ -29,6 +29,8 @@ test('SIRE OAuth uses the official SIRE scope and SOL password grant', () => {
   assert.match(sire, /scope' => 'https:\/\/api-sire\.sunat\.gob\.pe/);
   assert.match(sire, /https:\/\/api-sire\.sunat\.gob\.pe/);
   assert.match(sire, /clientessol/);
+  assert.match(sire, /catch \(Throwable \$error\)/);
+  assert.match(sire, /Declarafy SIRE OAuth request failed/);
   assert.match(sire, /\$credentials\['ruc'\] \. ' ' \. \$credentials\['solUser'\]/);
 });
 
