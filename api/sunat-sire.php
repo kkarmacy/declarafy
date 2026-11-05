@@ -58,26 +58,28 @@ function sunat_sire_access_token(array $credentials): string {
     return $token;
 }
 
-function sunat_sire_get_json(string $path, string $token): array {
-    if ($path === '' || $path[0] !== '/' || str_contains($path, '://')) {
+function sunat_sire_request_json(string $path, string $token, string $method = 'GET'): array {
+    if ($path === '' || $path[0] !== '/' || str_contains($path, '://') || !in_array($method, ['GET', 'POST'], true)) {
         fail_request('sunat/sire-path', 'Solicitud SIRE no permitida.', 400);
     }
     $url = 'https://api-sire.sunat.gob.pe' . $path;
     $curl = curl_init($url);
-    curl_setopt_array($curl, [
+    $options = [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CONNECTTIMEOUT => 10,
         CURLOPT_TIMEOUT => 35,
         CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
-        CURLOPT_HTTPGET => true,
         CURLOPT_HTTPHEADER => [
             'Accept: application/json',
             'Content-Type: application/json',
             'Authorization: Bearer ' . $token,
         ],
-    ]);
+    ];
+    if ($method === 'POST') $options[CURLOPT_POST] = true;
+    else $options[CURLOPT_HTTPGET] = true;
+    curl_setopt_array($curl, $options);
     $raw = curl_exec($curl);
     $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
     $curlError = curl_error($curl);
@@ -97,6 +99,10 @@ function sunat_sire_get_json(string $path, string $token): array {
         fail_request('sunat/sire-rejected', 'SUNAT no pudo completar la consulta SIRE (HTTP ' . $status . ', código ' . ($code ?: 'remote_error') . ').', 502);
     }
     return $payload;
+}
+
+function sunat_sire_get_json(string $path, string $token): array {
+    return sunat_sire_request_json($path, $token, 'GET');
 }
 
 function sunat_sire_period(string $value): string {
@@ -124,6 +130,28 @@ function sunat_sire_proposal_path(array $book, string $period, string $fileType)
     return $path . '?' . http_build_query(['codTipoArchivo' => $fileType, 'codOrigenEnvio' => '2'], '', '&', PHP_QUERY_RFC3986);
 }
 
+function sunat_sire_summary_type(array $body): string {
+    $type = trim((string) ($body['summaryType'] ?? '1'));
+    if (!preg_match('/^[1-7]$/', $type)) fail_request('sunat/sire-summary-type', 'Tipo de resumen no válido.', 400);
+    return $type;
+}
+
+function sunat_sire_inconsistency_summary_path(array $book, string $period, string $summaryType): string {
+    $period = sunat_sire_period($period);
+    $summaryType = sunat_sire_summary_type(['summaryType' => $summaryType]);
+    return '/v1/contribuyente/migeigv/libros/rvierce/resumen/web/resumeninconsistencias/' . $period . '?' .
+        http_build_query(['codTipoResumen' => $summaryType, 'codLibro' => $book['code']], '', '&', PHP_QUERY_RFC3986);
+}
+
+function sunat_sire_summary_download_path(array $book, string $period, string $summaryType, string $fileType): string {
+    $period = sunat_sire_period($period);
+    $summaryType = sunat_sire_summary_type(['summaryType' => $summaryType]);
+    if (!in_array($fileType, ['0', '1'], true)) fail_request('sunat/sire-file-type', 'Formato de resumen no válido.', 400);
+    $path = '/v1/contribuyente/migeigv/libros/rvierce/resumen/web/resumencomprobantes/' .
+        $period . '/' . $summaryType . '/' . $fileType . '/exporta';
+    return $path . '?' . http_build_query(['codLibro' => $book['code']], '', '&', PHP_QUERY_RFC3986);
+}
+
 function sunat_sire_ticket_path(array $book, array $body): string {
     $from = sunat_sire_period((string) ($body['perIni'] ?? $body['period'] ?? ''));
     $to = sunat_sire_period((string) ($body['perFin'] ?? $body['period'] ?? ''));
@@ -141,28 +169,10 @@ function sunat_sire_ticket_path(array $book, array $body): string {
         http_build_query($params, '', '&', PHP_QUERY_RFC3986);
 }
 
-function sunat_sire_download_file(array $book, array $body, string $token): never {
-    $period = sunat_sire_period((string) ($body['perTributario'] ?? ''));
-    $ticket = trim((string) ($body['numTicket'] ?? ''));
-    $process = trim((string) ($body['codProceso'] ?? ''));
-    $filename = trim((string) ($body['nomArchivoReporte'] ?? ''));
-    $fileType = trim((string) ($body['codTipoArchivoReporte'] ?? 'null'));
-    if (!preg_match('/^\d{14}$/', $ticket)) fail_request('sunat/sire-ticket', 'Número de ticket no válido.', 400);
-    if (!preg_match('/^\d{1,2}$/', $process)) fail_request('sunat/sire-process', 'Código de proceso no válido.', 400);
-    if (!preg_match('/^[A-Za-z0-9_.\/-]{1,200}$/', $filename) || str_contains($filename, '..') || str_contains($filename, '//') || str_starts_with($filename, '/')) fail_request('sunat/sire-filename', 'Nombre o ruta de archivo no válida.', 400);
-    if (!($fileType === 'null' || preg_match('/^\d{1,3}$/', $fileType))) fail_request('sunat/sire-file-type', 'Código de archivo no válido.', 400);
-
-    $params = [
-        'nomArchivoReporte' => $filename,
-        'codTipoArchivoReporte' => $fileType,
-        'perTributario' => $period,
-        'codProceso' => $process,
-        'numTicket' => $ticket,
-        'codLibro' => $book['code'],
-    ];
-    $url = 'https://api-sire.sunat.gob.pe/v1/contribuyente/migeigv/libros/rvierce/gestionprocesosmasivos/web/masivo/archivoreporte?' .
-        http_build_query($params, '', '&', PHP_QUERY_RFC3986);
-
+function sunat_sire_stream_binary(string $path, string $token, string $downloadName): never {
+    if ($path === '' || $path[0] !== '/' || str_contains($path, '://')) fail_request('sunat/sire-path', 'Descarga SIRE no permitida.', 400);
+    if (!preg_match('/^[A-Za-z0-9_.-]{1,160}$/', $downloadName)) fail_request('sunat/sire-filename', 'Nombre de descarga no válido.', 400);
+    $url = 'https://api-sire.sunat.gob.pe' . $path;
     $tmp = tempnam(sys_get_temp_dir(), 'declarafy-sire-');
     if ($tmp === false) fail_request('sunat/sire-download', 'No se pudo preparar la descarga.', 500);
     $stream = fopen($tmp, 'wb');
@@ -177,7 +187,7 @@ function sunat_sire_download_file(array $book, array $body, string $token): neve
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_HTTPGET => true,
-        CURLOPT_HTTPHEADER => ['Accept: application/octet-stream, application/zip, application/json', 'Authorization: Bearer ' . $token],
+        CURLOPT_HTTPHEADER => ['Accept: application/octet-stream, application/zip, text/plain, text/csv, application/json', 'Authorization: Bearer ' . $token],
         CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use ($stream, &$bytes, $maxBytes): int {
             $length = strlen($chunk);
             if ($bytes + $length > $maxBytes) return 0;
@@ -206,8 +216,14 @@ function sunat_sire_download_file(array $book, array $body, string $token): neve
         fail_request('sunat/sire-download-failed', 'SUNAT no pudo entregar el archivo solicitado (HTTP ' . $status . ').', 502);
     }
 
-    $downloadName = 'Declarafy-SIRE-' . $book['key'] . '-' . $period . '-' . $ticket . '.zip';
-    header('Content-Type: ' . (str_contains(strtolower($contentType), 'zip') ? 'application/zip' : 'application/octet-stream'));
+    $extension = strtolower(pathinfo($downloadName, PATHINFO_EXTENSION));
+    $mime = match ($extension) {
+        'zip' => 'application/zip',
+        'csv' => 'text/csv; charset=utf-8',
+        'txt' => 'text/plain; charset=utf-8',
+        default => 'application/octet-stream',
+    };
+    header('Content-Type: ' . $mime);
     header('Content-Disposition: attachment; filename="' . $downloadName . '"');
     header('Content-Length: ' . (string) filesize($tmp));
     header('Cache-Control: no-store, private');
@@ -215,4 +231,37 @@ function sunat_sire_download_file(array $book, array $body, string $token): neve
     readfile($tmp);
     @unlink($tmp);
     exit;
+}
+
+function sunat_sire_download_file(array $book, array $body, string $token): never {
+    $period = sunat_sire_period((string) ($body['perTributario'] ?? ''));
+    $ticket = trim((string) ($body['numTicket'] ?? ''));
+    $process = trim((string) ($body['codProceso'] ?? ''));
+    $filename = trim((string) ($body['nomArchivoReporte'] ?? ''));
+    $fileType = trim((string) ($body['codTipoArchivoReporte'] ?? 'null'));
+    if (!preg_match('/^\d{14}$/', $ticket)) fail_request('sunat/sire-ticket', 'Número de ticket no válido.', 400);
+    if (!preg_match('/^\d{1,2}$/', $process)) fail_request('sunat/sire-process', 'Código de proceso no válido.', 400);
+    if (!preg_match('/^[A-Za-z0-9_.\/-]{1,200}$/', $filename) || str_contains($filename, '..') || str_contains($filename, '//') || str_starts_with($filename, '/')) fail_request('sunat/sire-filename', 'Nombre o ruta de archivo no válida.', 400);
+    if (!($fileType === 'null' || preg_match('/^\d{1,3}$/', $fileType))) fail_request('sunat/sire-file-type', 'Código de archivo no válido.', 400);
+
+    $params = [
+        'nomArchivoReporte' => $filename,
+        'codTipoArchivoReporte' => $fileType,
+        'perTributario' => $period,
+        'codProceso' => $process,
+        'numTicket' => $ticket,
+        'codLibro' => $book['code'],
+    ];
+    $path = '/v1/contribuyente/migeigv/libros/rvierce/gestionprocesosmasivos/web/masivo/archivoreporte?' .
+        http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+    sunat_sire_stream_binary($path, $token, 'Declarafy-SIRE-' . $book['key'] . '-' . $period . '-' . $ticket . '.zip');
+}
+
+function sunat_sire_download_summary(array $book, array $body, string $token): never {
+    $period = sunat_sire_period((string) ($body['period'] ?? ''));
+    $summaryType = sunat_sire_summary_type($body);
+    $fileType = trim((string) ($body['fileType'] ?? '0'));
+    $path = sunat_sire_summary_download_path($book, $period, $summaryType, $fileType);
+    $extension = $fileType === '1' ? 'csv' : 'txt';
+    sunat_sire_stream_binary($path, $token, 'Declarafy-SIRE-resumen-' . $book['key'] . '-' . $period . '-' . $summaryType . '.' . $extension);
 }
