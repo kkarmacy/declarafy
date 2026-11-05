@@ -9119,6 +9119,218 @@ async function testSunatAuthService() {
   }
 }
 
+
+let sunatSireLastArchive = null;
+
+function sunatSireMessage(message, isError = false) {
+  const box = document.getElementById('sunatSireResult');
+  if (!box) return;
+  box.textContent = message;
+  box.style.color = isError ? 'var(--red, #b42318)' : 'var(--muted)';
+}
+
+function sunatSireCredentials() {
+  const value = id => (document.getElementById(id)?.value || '').trim();
+  const credentials = {
+    ruc: value('sunatSireRuc').replace(/\D/g, ''),
+    clientId: value('sunatSireClientId'),
+    clientSecret: document.getElementById('sunatSireClientSecret')?.value || '',
+    solUser: value('sunatSireSolUser'),
+    solPassword: document.getElementById('sunatSireSolPassword')?.value || '',
+    book: value('sunatSireBook')
+  };
+  if (!/^\d{11}$/.test(credentials.ruc) || !credentials.clientId || !credentials.clientSecret || !credentials.solUser || !credentials.solPassword) {
+    throw new Error('Completa RUC, Client ID, Client Secret, usuario SOL y Clave SOL.');
+  }
+  return credentials;
+}
+
+function sunatSireCollectPeriods(value, output = new Set(), depth = 0) {
+  if (depth > 12 || value == null) return output;
+  if (Array.isArray(value)) {
+    value.forEach(item => sunatSireCollectPeriods(item, output, depth + 1));
+  } else if (typeof value === 'object') {
+    const period = String(value.perTributario || '');
+    if (/^\d{6}$/.test(period)) output.add(period);
+    Object.values(value).forEach(item => sunatSireCollectPeriods(item, output, depth + 1));
+  }
+  return output;
+}
+
+function sunatSireFindValue(value, keys, depth = 0) {
+  if (depth > 12 || value == null || typeof value !== 'object') return null;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = sunatSireFindValue(item, keys, depth + 1);
+      if (found !== null && found !== '') return found;
+    }
+    return null;
+  }
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(value, key) && value[key] != null && value[key] !== '') return value[key];
+  }
+  for (const item of Object.values(value)) {
+    const found = sunatSireFindValue(item, keys, depth + 1);
+    if (found !== null && found !== '') return found;
+  }
+  return null;
+}
+
+function sunatSireFindArchive(value, depth = 0) {
+  if (depth > 12 || value == null || typeof value !== 'object') return null;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = sunatSireFindArchive(item, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+  const archive = value.archivoReporte;
+  if (Array.isArray(archive) && archive.length) return archive[0];
+  if (archive && typeof archive === 'object') return archive;
+  for (const item of Object.values(value)) {
+    const found = sunatSireFindArchive(item, depth + 1);
+    if (found) return found;
+  }
+  return null;
+}
+
+async function sunatSireLoadPeriods() {
+  const button = document.getElementById('sunatSirePeriodsButton');
+  if (button) { button.disabled = true; button.textContent = 'Consultando…'; }
+  sunatSireMessage('Autenticando y consultando periodos disponibles en SUNAT…');
+  sunatSireLastArchive = null;
+  const downloadButton = document.getElementById('sunatSireDownloadButton');
+  if (downloadButton) downloadButton.hidden = true;
+  try {
+    const credentials = sunatSireCredentials();
+    const data = await declarafyApi('sunat_sire_periods', { body: credentials });
+    const periods = [...sunatSireCollectPeriods(data.periods)].sort().reverse();
+    const select = document.getElementById('sunatSirePeriod');
+    if (select) {
+      select.replaceChildren();
+      if (!periods.length) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'SUNAT no devolvió periodos disponibles';
+        select.appendChild(option);
+      } else {
+        periods.forEach(period => {
+          const option = document.createElement('option');
+          option.value = period;
+          option.textContent = period.slice(0, 4) + '-' + period.slice(4);
+          select.appendChild(option);
+        });
+      }
+    }
+    sunatSireMessage(periods.length
+      ? 'Conexión SIRE correcta. SUNAT devolvió ' + periods.length + ' periodos para ' + credentials.ruc + '.'
+      : 'La autenticación fue correcta, pero SUNAT no devolvió periodos para este libro o contribuyente.');
+  } catch (error) {
+    sunatSireMessage(error.message || 'No se pudo consultar SIRE.', true);
+  } finally {
+    if (button) { button.disabled = false; button.textContent = 'Consultar periodos'; }
+  }
+}
+
+async function sunatSireRequestProposal() {
+  const button = document.getElementById('sunatSireProposalButton');
+  if (button) { button.disabled = true; button.textContent = 'Solicitando…'; }
+  sunatSireMessage('Solicitando a SUNAT la propuesta del periodo seleccionado…');
+  sunatSireLastArchive = null;
+  const downloadButton = document.getElementById('sunatSireDownloadButton');
+  if (downloadButton) downloadButton.hidden = true;
+  try {
+    const credentials = sunatSireCredentials();
+    const period = document.getElementById('sunatSirePeriod')?.value || '';
+    if (!period) throw new Error('Primero consulta y selecciona un periodo tributario.');
+    const fileType = document.getElementById('sunatSireFileType')?.value || '0';
+    const data = await declarafyApi('sunat_sire_proposal', { body: { ...credentials, period, fileType } });
+    const ticket = String(sunatSireFindValue(data.proposal, ['numTicket']) || '');
+    if (ticket) {
+      const field = document.getElementById('sunatSireTicket');
+      if (field) field.value = ticket;
+      sunatSireMessage('Solicitud recibida por SUNAT. Ticket: ' + ticket + '. Consulta el estado para descargar el archivo cuando esté terminado.');
+    } else {
+      sunatSireMessage('SUNAT recibió la solicitud, pero no devolvió un número de ticket reconocible. Revisa la respuesta con soporte.');
+    }
+  } catch (error) {
+    sunatSireMessage(error.message || 'No se pudo solicitar la propuesta.', true);
+  } finally {
+    if (button) { button.disabled = false; button.textContent = 'Solicitar propuesta'; }
+  }
+}
+
+async function sunatSireCheckTicket() {
+  const button = document.getElementById('sunatSireStatusButton');
+  if (button) { button.disabled = true; button.textContent = 'Consultando…'; }
+  sunatSireMessage('Consultando el estado del ticket en SUNAT…');
+  sunatSireLastArchive = null;
+  const downloadButton = document.getElementById('sunatSireDownloadButton');
+  if (downloadButton) downloadButton.hidden = true;
+  try {
+    const credentials = sunatSireCredentials();
+    const period = document.getElementById('sunatSirePeriod')?.value || '';
+    if (!period) throw new Error('Selecciona el periodo del ticket.');
+    const ticket = (document.getElementById('sunatSireTicket')?.value || '').trim();
+    const body = { ...credentials, perIni: period, perFin: period, page: 1, perPage: 20 };
+    if (ticket) body.numTicket = ticket;
+    const data = await declarafyApi('sunat_sire_ticket_status', { body });
+    const recordTicket = String(sunatSireFindValue(data.tickets, ['numTicket']) || ticket);
+    const archive = sunatSireFindArchive(data.tickets);
+    const process = String(sunatSireFindValue(data.tickets, ['codProceso']) || '');
+    const archiveName = String(archive?.nomArchivoReporte || '');
+    const archiveType = archive?.codTipoArchivoReporte ?? archive?.codTipoAchivoReporte ?? 'null';
+    const statusText = String(sunatSireFindValue(data.tickets, ['desEstadoProceso', 'desEstadoEnvio']) || 'Estado recibido de SUNAT');
+    if (recordTicket && document.getElementById('sunatSireTicket')) document.getElementById('sunatSireTicket').value = recordTicket;
+    if (archiveName && process && recordTicket) {
+      sunatSireLastArchive = {
+        book: credentials.book, period: String(sunatSireFindValue(data.tickets, ['perTributario']) || period),
+        numTicket: recordTicket, codProceso: process,
+        nomArchivoReporte: archiveName, codTipoArchivoReporte: String(archiveType)
+      };
+      if (downloadButton) downloadButton.hidden = false;
+      sunatSireMessage(statusText + '. Archivo listo: ' + archiveName + '. Puedes descargarlo.');
+    } else {
+      sunatSireMessage(statusText + '. El archivo todavía no está disponible; vuelve a consultar cuando SUNAT marque el ticket como terminado.');
+    }
+  } catch (error) {
+    sunatSireMessage(error.message || 'No se pudo consultar el ticket.', true);
+  } finally {
+    if (button) { button.disabled = false; button.textContent = 'Consultar estado'; }
+  }
+}
+
+async function sunatSireDownloadProposal() {
+  const button = document.getElementById('sunatSireDownloadButton');
+  if (!sunatSireLastArchive) {
+    sunatSireMessage('Primero consulta el estado del ticket y espera a que SUNAT genere el archivo.', true);
+    return;
+  }
+  if (button) { button.disabled = true; button.textContent = 'Descargando…'; }
+  sunatSireMessage('Descargando el archivo ZIP desde SUNAT…');
+  try {
+    const credentials = sunatSireCredentials();
+    const blob = await declarafyDownloadApi('sunat_sire_download', {
+      body: { ...credentials, ...sunatSireLastArchive }
+    });
+    if (!blob || !blob.size) throw new Error('SUNAT devolvió un archivo vacío.');
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'Declarafy-SIRE-' + sunatSireLastArchive.book + '-' + sunatSireLastArchive.period + '-' + sunatSireLastArchive.numTicket + '.zip';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    sunatSireMessage('Descarga completada. El archivo ZIP fue enviado a las descargas de tu dispositivo.');
+  } catch (error) {
+    sunatSireMessage(error.message || 'No se pudo descargar el archivo.', true);
+  } finally {
+    if (button) { button.disabled = false; button.textContent = 'Descargar ZIP'; }
+  }
+}
+
 async function loadSunatStatus() {
   updateSunatAuthAdminTools();
   const targets = document.querySelectorAll('[data-sunat-status]');
