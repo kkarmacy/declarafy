@@ -1024,6 +1024,8 @@ switch ($action) {
     case 'sunat_sire_periods':
     case 'sunat_sire_proposal':
     case 'sunat_sire_ticket_status':
+    case 'sunat_sire_inconsistency_summary':
+    case 'sunat_sire_summary_download':
     case 'sunat_sire_download':
         require_method('POST');
         $sunatSireUserId = require_user();
@@ -1047,6 +1049,16 @@ switch ($action) {
         if ($action === 'sunat_sire_ticket_status') {
             $tickets = sunat_sire_get_json(sunat_sire_ticket_path($sunatSireBook, $sunatSireBody), $sunatSireToken);
             respond(['book' => $sunatSireBook['key'], 'tickets' => $tickets]);
+        }
+        if ($action === 'sunat_sire_inconsistency_summary') {
+            $period = sunat_sire_period((string) ($sunatSireBody['period'] ?? ''));
+            $summaryType = sunat_sire_summary_type($sunatSireBody, $sunatSireBook['key'] === 'rce' ? 6 : 4);
+            $method = $sunatSireBook['key'] === 'rce' ? 'POST' : 'GET';
+            $summary = sunat_sire_request_json(sunat_sire_inconsistency_summary_path($sunatSireBook, $period, $summaryType), $sunatSireToken, $method);
+            respond(['book' => $sunatSireBook['key'], 'period' => $period, 'summary_type' => $summaryType, 'summary' => $summary]);
+        }
+        if ($action === 'sunat_sire_summary_download') {
+            sunat_sire_download_summary($sunatSireBook, $sunatSireBody, $sunatSireToken);
         }
         sunat_sire_download_file($sunatSireBook, $sunatSireBody, $sunatSireToken);
 
