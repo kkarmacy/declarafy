@@ -9218,6 +9218,12 @@ function sunatSireSelectArchive() {
   if (button) button.disabled = !sunatSireLastArchive;
 }
 
+function sunatSireUpdateFileTypes() {
+  const book = document.getElementById('sunatSireBook')?.value || 'rvie';
+  const alternative = document.querySelector('#sunatSireFileType option[value="1"]');
+  if (alternative) alternative.textContent = book === 'rce' ? 'CSV' : 'XLS';
+}
+
 async function sunatSireLoadPeriods() {
   const button = document.getElementById('sunatSirePeriodsButton');
   if (button) { button.disabled = true; button.textContent = 'Consultando…'; }
