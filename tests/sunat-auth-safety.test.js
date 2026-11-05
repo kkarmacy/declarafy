@@ -14,6 +14,8 @@ const handler = source.slice(start, end);
 
 test('SUNAT OAuth test endpoint is POST-only and admin-only', () => {
   assert.match(handler, /require_method\('POST'\)/);
+  assert.match(handler, /CURLOPT_SSL_VERIFYPEER => true/);
+  assert.match(handler, /CURLOPT_SSL_VERIFYHOST => 2/);
   assert.match(handler, /require_user\(\)/);
   assert.match(handler, /if\s*\(!is_admin\(\$config,\s*\$sunatUser\)\)/);
 });
