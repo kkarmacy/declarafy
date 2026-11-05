@@ -64,7 +64,7 @@ test('only RVIE and RCE book codes and documented read-only SIRE routes are expo
   assert.match(sire, /registroslibros\\/descarga/);
   assert.match(sire, /solicitardescarga/);
   assert.match(sire, /'codProceso' => '23'/);
-  assert.match(sire, /\['01', '02'\]/);
+  assert.match(sire, /\['00', '01', '02'\]/);
   assert.match(sire, /function sunat_sire_request_json/);
   assert.match(sire, /if \(\$method === 'POST'\) \$options\[CURLOPT_POST\] = true/);
   assert.match(api, /\$sunatSireBook\['key'\] === 'rce' \? 'POST' : 'GET'/);
