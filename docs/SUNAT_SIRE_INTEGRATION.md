@@ -36,7 +36,7 @@ The download endpoint accepts only the SUNAT archive metadata returned by the ti
 
 This branch does **not** accept proposal, replace proposal, register preliminaries, upload documents, delete records or submit adjustments. These are taxpayer-impacting operations and must have a separate confirmation and audit workflow.
 
-SUNAT's SIRE manuals state that API REST operations requiring a TUS resumable-upload client must be developed in Java. Those upload operations are therefore not falsely represented as implemented by this PHP read-only adapter. A separate Java/TUS component and hosting decision are required before implementing those workflows.
+SUNAT's SIRE manuals state that API REST operations requiring a TUS resumable-upload client must be developed in Java. Those upload operations are therefore not falsely represented as implemented by this PHP read-only adapter. A separate Java/TUS component and hosting decision are required before implementing those workflows. Namecheap's official policy says Java is not supported on Shared/Reseller hosting and can be installed on VPS/Dedicated servers; do not incur a hosting upgrade until the current plan is confirmed.
 
 Downloaded ZIP archives are not yet automatically unpacked and mapped into the existing SUNAT import/dashboard data model; the user must extract the archive and use the supported import formats. This is a separate remaining integration task.
 
@@ -47,3 +47,4 @@ This branch also does not deploy itself to Namecheap and does not perform a live
 - RVIE API manual v32 (updated 30 September 2026; published on SUNAT SIRE manual page): https://cpe.sunat.gob.pe/sites/default/files/2026-10/Manual%20de%20servicios%20Web%20Api%20-%20SIRE_Ventas%20v32.pdf
 - RCE API manual v29: https://cpe.sunat.gob.pe/sites/default/files/2026-10/Manual%20de%20servicios%20Web%20Api%20-%20SIRE_Compras%20v29.pdf
 - SUNAT SIRE manuals landing page: https://cpe.sunat.gob.pe/node/148
+- Namecheap Java support policy: https://www.namecheap.com/support/knowledgebase/article.aspx/163/22/do-you-support-java/
