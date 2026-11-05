@@ -9416,7 +9416,7 @@ async function sunatSireDownloadProposal() {
     document.body.appendChild(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
 
     let previewMessage = 'El ZIP queda disponible en las descargas.';
     const importUI = window.DeclarafySunatImportUI;
@@ -9485,7 +9485,7 @@ async function sunatSireDownloadSummary() {
     document.body.appendChild(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
     sunatSireMessage('Resumen descargado correctamente.');
   } catch (error) {
     sunatSireMessage(error.message || 'No se pudo descargar el resumen.', true);
