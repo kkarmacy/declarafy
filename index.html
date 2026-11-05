@@ -1355,6 +1355,54 @@
       </div>
       <div id="sunatAuthTestResult" role="status" aria-live="polite" style="margin-top:12px;font-size:13px"></div>
     </div>
+    <div id="sunatSireTools" style="margin:18px 0;padding:16px;border:1px solid var(--border);border-radius:10px">
+      <strong>🔗 Conexión oficial SIRE — Compras y Ventas</strong>
+      <p style="font-size:13px;color:var(--muted);margin:6px 0 12px">Consulta periodos, solicita la propuesta RVIE/RCE, revisa el ticket y descarga el archivo generado. Las credenciales se envían únicamente al servidor por HTTPS para cada operación; Declarafy no las guarda.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
+        <label style="font-size:12px">RUC del contribuyente
+          <input id="sunatSireRuc" inputmode="numeric" maxlength="11" autocomplete="off" placeholder="RUC de 11 dígitos" style="display:block;width:100%;margin-top:5px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+        </label>
+        <label style="font-size:12px">Client ID SUNAT
+          <input id="sunatSireClientId" autocomplete="off" placeholder="Client ID de Credenciales API" style="display:block;width:100%;margin-top:5px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+        </label>
+        <label style="font-size:12px">Client Secret SUNAT
+          <input id="sunatSireClientSecret" type="password" autocomplete="new-password" placeholder="Client Secret" style="display:block;width:100%;margin-top:5px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+        </label>
+        <label style="font-size:12px">Usuario SOL (sin RUC)
+          <input id="sunatSireSolUser" autocomplete="off" placeholder="Usuario SOL" style="display:block;width:100%;margin-top:5px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+        </label>
+        <label style="font-size:12px">Clave SOL
+          <input id="sunatSireSolPassword" type="password" autocomplete="new-password" placeholder="Clave SOL" style="display:block;width:100%;margin-top:5px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+        </label>
+      </div>
+      <div style="margin:10px 0;padding:10px 12px;border-radius:8px;background:var(--surface,rgba(128,128,128,.08));font-size:12px;color:var(--muted)">
+        Antes de conectar: en SUNAT SOL registra la URI <strong>MIGE RCE y RVIE - SIRE</strong> en Credenciales de API SUNAT y configura el alcance indicado en el manual vigente. No reutilices credenciales de otra aplicación.
+        <a href="https://cpe.sunat.gob.pe/node/148" target="_blank" rel="noopener noreferrer">Ver manuales oficiales SIRE</a>.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
+        <select id="sunatSireBook" aria-label="Libro SIRE" style="flex:1;min-width:180px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+          <option value="rvie">Ventas — RVIE</option>
+          <option value="rce">Compras — RCE</option>
+        </select>
+        <button type="button" id="sunatSirePeriodsButton" onclick="sunatSireLoadPeriods()" style="padding:10px 14px;border:0;border-radius:8px;background:var(--primary);color:#fff;cursor:pointer">Consultar periodos</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
+        <select id="sunatSirePeriod" aria-label="Periodo tributario SIRE" style="flex:1;min-width:150px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+          <option value="">Primero consulta los periodos</option>
+        </select>
+        <select id="sunatSireFileType" aria-label="Formato de propuesta SIRE" style="flex:1;min-width:150px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+          <option value="0">TXT</option>
+          <option value="1">Formato alternativo (según libro)</option>
+        </select>
+        <button type="button" id="sunatSireProposalButton" onclick="sunatSireRequestProposal()" style="padding:10px 14px;border:0;border-radius:8px;background:var(--primary);color:#fff;cursor:pointer">Solicitar propuesta</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
+        <input id="sunatSireTicket" inputmode="numeric" maxlength="14" placeholder="Número de ticket SUNAT" aria-label="Número de ticket SUNAT" style="flex:1;min-width:180px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+        <button type="button" id="sunatSireStatusButton" onclick="sunatSireCheckTicket()" style="padding:10px 14px;border:0;border-radius:8px;background:var(--primary);color:#fff;cursor:pointer">Consultar estado</button>
+        <button type="button" id="sunatSireDownloadButton" onclick="sunatSireDownloadProposal()" hidden style="padding:10px 14px;border:0;border-radius:8px;background:var(--green,#16803c);color:#fff;cursor:pointer">Descargar ZIP</button>
+      </div>
+      <div id="sunatSireResult" role="status" aria-live="polite" style="margin-top:12px;font-size:13px;color:var(--muted)"></div>
+    </div>
     <div class="sunat-tabs">
       <button class="sunat-tab active" onclick="setSunatTab('ruc',this)">Estado RUC</button>
       <button class="sunat-tab" onclick="setSunatTab('deudas',this)">Deudas pendientes</button>
