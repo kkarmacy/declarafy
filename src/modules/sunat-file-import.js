@@ -62,7 +62,7 @@ async function parseZip(file){
 }
 async function handleFile(file){
  if(!file)throw Error('Selecciona un archivo.');
- pendingName=file.name;const ext=file.name.split('.').pop().toLowerCase();let rows=[];
+ pendingName=file.name;pending=[];const previewBox=document.getElementById('sunatImportPreview');if(previewBox){previewBox.style.display='none';previewBox.replaceChildren();}const ext=file.name.split('.').pop().toLowerCase();let rows=[];
  if(ext==='zip'){
   const entries=await parseZip(file);
   for(const entry of entries){
