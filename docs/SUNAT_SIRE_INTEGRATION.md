@@ -33,7 +33,7 @@ All routes require an authenticated Declarafy session, POST, same-origin request
 - `sunat_sire_summary_download` (TXT/CSV)
 - `sunat_sire_download` (ticket archive ZIP)
 
-The registered-period export generates a ticket for RVIE (process 23) or RCE (process 01 accepted / 02 replaced). The RCE v29 table specifies `codOrigen=2` for web-service origin, while its example shows `1`; Declarafy follows the table value and this must be confirmed in the authorized live test. The download endpoint accepts only SUNAT archive metadata returned by ticket status, validates parameters, uses a fixed SUNAT host, refuses redirects and limits each downloaded file to 100 MiB. Multi-part archives can be selected individually.
+The registered-period export generates a ticket for RVIE (process 23) or RCE (process 00 non-domiciled / 01 accepted / 02 replaced). The RCE v29 table specifies `codOrigen=2` for web-service origin, while its example shows `1`; Declarafy follows the table value and this must be confirmed in the authorized live test. The download endpoint accepts only SUNAT archive metadata returned by ticket status, validates parameters, uses a fixed SUNAT host, refuses redirects and limits each downloaded file to 100 MiB. Multi-part archives can be selected individually.
 
 ## Deliberate limitations
 
