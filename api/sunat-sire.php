@@ -173,7 +173,7 @@ function sunat_sire_registered_period_path(array $book, array $body): string {
             http_build_query($params, '', '&', PHP_QUERY_RFC3986);
     }
     $process = trim((string) ($body['registeredProcess'] ?? '01'));
-    if (!in_array($process, ['01', '02'], true)) fail_request('sunat/sire-process', 'Selecciona un proceso RCE válido.', 400);
+    if (!in_array($process, ['00', '01', '02'], true)) fail_request('sunat/sire-process', 'Selecciona un proceso RCE válido.', 400);
     $params = [
         'codTipoArchivo' => $fileType,
         'codProceso' => $process,
