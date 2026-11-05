@@ -9221,7 +9221,7 @@ function sunatSireSelectArchive() {
 function sunatSireUpdateFileTypes() {
   const book = document.getElementById('sunatSireBook')?.value || 'rvie';
   const alternative = document.querySelector('#sunatSireFileType option[value="1"]');
-  if (alternative) alternative.textContent = book === 'rce' ? 'CSV' : 'XLS';
+  if (alternative) { alternative.textContent = 'CSV'; alternative.hidden = book !== 'rce'; }
   document.querySelectorAll('#sunatSireInconsistencyType option[value="5"], #sunatSireInconsistencyType option[value="6"]').forEach(option => {
     option.hidden = book !== 'rce';
   });
