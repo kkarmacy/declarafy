@@ -149,7 +149,7 @@ function sunat_sire_download_file(array $book, array $body, string $token): neve
     $fileType = trim((string) ($body['codTipoArchivoReporte'] ?? 'null'));
     if (!preg_match('/^\d{14}$/', $ticket)) fail_request('sunat/sire-ticket', 'Número de ticket no válido.', 400);
     if (!preg_match('/^\d{1,2}$/', $process)) fail_request('sunat/sire-process', 'Código de proceso no válido.', 400);
-    if (!preg_match('/^[A-Za-z0-9_.-]{1,200}$/', $filename) || str_contains($filename, '..')) fail_request('sunat/sire-filename', 'Nombre de archivo no válido.', 400);
+    if (!preg_match('/^[A-Za-z0-9_.\/-]{1,200}$/', $filename) || str_contains($filename, '..') || str_contains($filename, '//') || str_starts_with($filename, '/')) fail_request('sunat/sire-filename', 'Nombre o ruta de archivo no válida.', 400);
     if (!($fileType === 'null' || preg_match('/^\d{1,3}$/', $fileType))) fail_request('sunat/sire-file-type', 'Código de archivo no válido.', 400);
 
     $params = [
