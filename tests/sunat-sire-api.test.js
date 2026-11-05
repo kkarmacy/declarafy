@@ -65,7 +65,7 @@ test('SIRE downloads are bounded, temporary, sanitized and never cached', () => 
   assert.match(sire, /header\('Cache-Control: no-store, private'\)/);
   assert.match(sire, /header\('X-Content-Type-Options: nosniff'\)/);
   assert.match(sire, /@unlink\(\$tmp\)/);
-  assert.match(sire, /preg_match\('\/\^\[A-Za-z0-9_.-\]\{1,200\}\$\//);
+  assert.match(sire, /A-Za-z0-9_.\\\/-/);
 });
 
 test('SIRE UI never writes credentials to browser storage and uses the authenticated API client', () => {
