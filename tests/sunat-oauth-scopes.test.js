@@ -42,6 +42,7 @@ test('generic SUNAT scope is explicitly marked provisional pending service-by-se
 test('all eight SUNAT authentication choices have scope values in the configured allowlist', () => {
   const entries = [...allowlist.matchAll(/'([a-z]+)'\s*=>\s*\['name'\s*=>\s*'[^']+',\s*'scope'\s*=>\s*'([^']*)'[^\]]*\]/g)];
   assert.equal(entries.length, 8, 'expected eight explicitly listed SUNAT services');
+  assert.doesNotMatch(allowlist, /'salida'|'autorizacionsalida'|'ingreso'/);
   for (const entry of entries) {
     const service = entry[1];
     const scope = entry[2];
