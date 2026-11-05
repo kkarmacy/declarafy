@@ -209,6 +209,8 @@ function sunat_validate_cpe(array $config, array $body): array {
     ];
 }
 
+require_once __DIR__ . '/sunat-sire.php';
+
 switch ($action) {
     case 'health':
         require_method('GET');
@@ -1013,6 +1015,36 @@ switch ($action) {
         if (!is_array($payload)) { $releaseQuota(); fail_request('ai/invalid-response', 'La IA devolvió una respuesta inválida.', 502); }
         if ($status < 200 || $status >= 300) $releaseQuota();
         raw_json_response($payload, $status >= 200 && $status < 600 ? $status : 502);
+
+
+    case 'sunat_sire_periods':
+    case 'sunat_sire_proposal':
+    case 'sunat_sire_ticket_status':
+    case 'sunat_sire_download':
+        require_method('POST');
+        rate_limit($pdo, 'sunat_sire', 12, 60);
+        $sunatSireUserId = require_user();
+        $sunatSireUser = user_row($pdo, $sunatSireUserId);
+        $sunatSireBody = request_body();
+        $sunatSireBook = sunat_sire_book($sunatSireBody);
+        $sunatSireCredentials = sunat_sire_credentials($sunatSireBody, $sunatSireUser);
+        $sunatSireToken = sunat_sire_access_token($sunatSireCredentials);
+
+        if ($action === 'sunat_sire_periods') {
+            $periods = sunat_sire_get_json(sunat_sire_periods_path($sunatSireBook), $sunatSireToken);
+            respond(['book' => $sunatSireBook['key'], 'book_name' => $sunatSireBook['label'], 'ruc' => $sunatSireCredentials['ruc'], 'periods' => $periods]);
+        }
+        if ($action === 'sunat_sire_proposal') {
+            $period = sunat_sire_period((string) ($sunatSireBody['period'] ?? ''));
+            $fileType = trim((string) ($sunatSireBody['fileType'] ?? '0'));
+            $proposal = sunat_sire_get_json(sunat_sire_proposal_path($sunatSireBook, $period, $fileType), $sunatSireToken);
+            respond(['book' => $sunatSireBook['key'], 'period' => $period, 'proposal' => $proposal]);
+        }
+        if ($action === 'sunat_sire_ticket_status') {
+            $tickets = sunat_sire_get_json(sunat_sire_ticket_path($sunatSireBook, $sunatSireBody), $sunatSireToken);
+            respond(['book' => $sunatSireBook['key'], 'tickets' => $tickets]);
+        }
+        sunat_sire_download_file($sunatSireBook, $sunatSireBody, $sunatSireToken);
 
     default:
         fail_request('request/not-found', 'Operación no encontrada.', 404);
