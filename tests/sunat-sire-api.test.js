@@ -19,7 +19,7 @@ test('SIRE endpoints are authenticated, POST-only, rate-limited and separated fr
   assert.match(route, /require_user\(\)/);
   assert.match(route, /rate_limit\(\$pdo, 'sunat_sire', 12, 60\)/);
   assert.match(api, /require_once __DIR__ \. '\/sunat-sire\.php'/);
-  for (const action of ['sunat_sire_periods', 'sunat_sire_proposal', 'sunat_sire_ticket_status', 'sunat_sire_download']) {
+  for (const action of ['sunat_sire_periods', 'sunat_sire_proposal', 'sunat_sire_ticket_status', 'sunat_sire_inconsistency_summary', 'sunat_sire_summary_download', 'sunat_sire_download']) {
     assert.match(api, new RegExp("case '" + action + "':"));
   }
 });
@@ -56,6 +56,10 @@ test('only RVIE and RCE book codes and documented read-only SIRE routes are expo
   assert.match(sire, /exportacioncomprobantepropuesta/);
   assert.match(sire, /consultaestadotickets/);
   assert.match(sire, /archivoreporte/);
+  assert.match(sire, /resumeninconsistencias/);
+  assert.match(sire, /resumencomprobantes/);
+  assert.match(sire, /function sunat_sire_request_json/);
+  assert.match(sire, /\$book\['key'\] === 'rce' \? 6 : 4/);
   assert.doesNotMatch(sire, /registrarpreliminar|aceptarpropuesta|reemplazarpropuesta|upload/);
 });
 
@@ -75,6 +79,8 @@ test('SIRE UI never writes credentials to browser storage and uses the authentic
   assert.match(app, /declarafyApi\('sunat_sire_proposal'/);
   assert.match(app, /declarafyApi\('sunat_sire_ticket_status'/);
   assert.match(app, /declarafyDownloadApi\('sunat_sire_download'/);
+  assert.match(app, /declarafyApi\('sunat_sire_inconsistency_summary'/);
+  assert.match(app, /declarafyDownloadApi\('sunat_sire_summary_download'/);
   assert.doesNotMatch(app.slice(app.indexOf('function sunatSireCredentials'), app.indexOf('async function sunatSireLoadPeriods')), /localStorage|sessionStorage/);
   assert.match(client, /async function declarafyDownloadApi/);
 });
@@ -90,4 +96,8 @@ test('SIRE UI offers both books and a ticket-to-download workflow', () => {
   assert.match(app, /function sunatSireFindTicketRecord/);
   assert.match(app, /function sunatSireSelectArchive/);
   assert.match(html, /id="sunatSireArchiveSelect"/);
+  assert.match(html, /id="sunatSireInconsistencyType"/);
+  assert.match(html, /id="sunatSireSummaryType"/);
+  assert.match(app, /function sunatSireQueryInconsistencies/);
+  assert.match(app, /function sunatSireDownloadSummary/);
 });
