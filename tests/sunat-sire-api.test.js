@@ -26,7 +26,7 @@ test('SIRE endpoints are authenticated, POST-only, rate-limited and separated fr
 
 test('SIRE OAuth uses the official SIRE scope and SOL password grant', () => {
   assert.match(sire, /grant_type' => 'password'/);
-  assert.match(sire, /scope' => 'https:\/\/api\.sunat\.gob\.pe/);
+  assert.match(sire, /scope' => 'https:\/\/api-sire\.sunat\.gob\.pe/);
   assert.match(sire, /https:\/\/api-sire\.sunat\.gob\.pe/);
   assert.match(sire, /clientessol/);
   assert.match(sire, /\$credentials\['ruc'\] \. \$credentials\['solUser'\]/);
