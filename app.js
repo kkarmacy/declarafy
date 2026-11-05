@@ -9222,6 +9222,11 @@ function sunatSireUpdateFileTypes() {
   const book = document.getElementById('sunatSireBook')?.value || 'rvie';
   const alternative = document.querySelector('#sunatSireFileType option[value="1"]');
   if (alternative) alternative.textContent = book === 'rce' ? 'CSV' : 'XLS';
+  document.querySelectorAll('#sunatSireInconsistencyType option[value="5"], #sunatSireInconsistencyType option[value="6"]').forEach(option => {
+    option.hidden = book !== 'rce';
+  });
+  const inconsistencyType = document.getElementById('sunatSireInconsistencyType');
+  if (inconsistencyType && book !== 'rce' && Number(inconsistencyType.value) > 4) inconsistencyType.value = '1';
 }
 
 async function sunatSireLoadPeriods() {
@@ -9383,6 +9388,59 @@ async function sunatSireDownloadProposal() {
     sunatSireMessage(error.message || 'No se pudo descargar el archivo.', true);
   } finally {
     if (button) { button.disabled = false; button.textContent = 'Descargar ZIP'; }
+  }
+}
+
+async function sunatSireQueryInconsistencies() {
+  const button = document.getElementById('sunatSireInconsistencyButton');
+  const output = document.getElementById('sunatSireSummaryResult');
+  if (button) { button.disabled = true; button.textContent = 'Consultando…'; }
+  if (output) output.textContent = 'Consultando resumen de inconsistencias en SUNAT…';
+  try {
+    const credentials = sunatSireCredentials();
+    const period = document.getElementById('sunatSirePeriod')?.value || '';
+    const summaryType = document.getElementById('sunatSireInconsistencyType')?.value || '1';
+    if (!period) throw new Error('Selecciona primero un periodo tributario.');
+    const data = await declarafyApi('sunat_sire_inconsistency_summary', {
+      body: { ...credentials, period, summaryType }
+    });
+    if (output) output.textContent = JSON.stringify(data.summary, null, 2);
+    sunatSireMessage('Resumen de inconsistencias recibido de SUNAT para ' + credentials.book.toUpperCase() + ' ' + period + '.');
+  } catch (error) {
+    if (output) output.textContent = '';
+    sunatSireMessage(error.message || 'No se pudo consultar el resumen de inconsistencias.', true);
+  } finally {
+    if (button) { button.disabled = false; button.textContent = 'Consultar inconsistencias'; }
+  }
+}
+
+async function sunatSireDownloadSummary() {
+  const button = document.getElementById('sunatSireSummaryDownloadButton');
+  if (button) { button.disabled = true; button.textContent = 'Descargando…'; }
+  try {
+    const credentials = sunatSireCredentials();
+    const period = document.getElementById('sunatSirePeriod')?.value || '';
+    const summaryType = document.getElementById('sunatSireSummaryType')?.value || '1';
+    const fileType = document.getElementById('sunatSireSummaryFileType')?.value || '0';
+    if (!period) throw new Error('Selecciona primero un periodo tributario.');
+    const blob = await declarafyDownloadApi('sunat_sire_summary_download', {
+      body: { ...credentials, period, summaryType, fileType }
+    });
+    if (!blob || !blob.size) throw new Error('SUNAT devolvió un resumen vacío.');
+    const extension = fileType === '1' ? 'csv' : 'txt';
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'Declarafy-SIRE-resumen-' + credentials.book + '-' + period + '-' + summaryType + '.' + extension;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    sunatSireMessage('Resumen descargado correctamente.');
+  } catch (error) {
+    sunatSireMessage(error.message || 'No se pudo descargar el resumen.', true);
+  } finally {
+    if (button) { button.disabled = false; button.textContent = 'Descargar resumen'; }
   }
 }
 
