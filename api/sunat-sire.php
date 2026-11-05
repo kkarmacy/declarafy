@@ -104,7 +104,8 @@ function sunat_sire_period(string $value): string {
     if (!preg_match('/^\d{6}$/', $period) || (int) substr($period, 4, 2) < 1 || (int) substr($period, 4, 2) > 12) {
         fail_request('sunat/sire-period', 'El periodo debe tener formato AAAAMM.', 400);
     }
-    if ($period > date('Ym')) fail_request('sunat/sire-period-future', 'El periodo no puede ser posterior al mes actual.', 400);
+    $currentPeriod = (new DateTimeImmutable('now', new DateTimeZone('America/Lima')))->format('Ym');
+    if ($period > $currentPeriod) fail_request('sunat/sire-period-future', 'El periodo no puede ser posterior al mes actual en Perú.', 400);
     return $period;
 }
 
