@@ -38,18 +38,23 @@ function sunat_sire_credentials(array $body, array $user): array {
 }
 
 function sunat_sire_access_token(array $credentials): string {
-    $result = remote_form(
-        'https://api-seguridad.sunat.gob.pe/v1/clientessol/' . rawurlencode($credentials['clientId']) . '/oauth2/token/',
-        [
-            'grant_type' => 'password',
-            'scope' => 'https://api-sire.sunat.gob.pe',
-            'client_id' => $credentials['clientId'],
-            'client_secret' => $credentials['clientSecret'],
-            'username' => $credentials['ruc'] . ' ' . $credentials['solUser'],
-            'password' => $credentials['solPassword'],
-        ],
-        25
-    );
+    try {
+        $result = remote_form(
+            'https://api-seguridad.sunat.gob.pe/v1/clientessol/' . rawurlencode($credentials['clientId']) . '/oauth2/token/',
+            [
+                'grant_type' => 'password',
+                'scope' => 'https://api-sire.sunat.gob.pe',
+                'client_id' => $credentials['clientId'],
+                'client_secret' => $credentials['clientSecret'],
+                'username' => $credentials['ruc'] . ' ' . $credentials['solUser'],
+                'password' => $credentials['solPassword'],
+            ],
+            25
+        );
+    } catch (Throwable $error) {
+        error_log('Declarafy SIRE OAuth request failed.');
+        fail_request('sunat/sire-auth-unavailable', 'No se pudo completar la autenticación con SUNAT. Inténtalo nuevamente.', 502);
+    }
     $token = (string) ($result['data']['access_token'] ?? '');
     if ($result['status'] < 200 || $result['status'] >= 300 || $token === '') {
         error_log('Declarafy SIRE OAuth rejected; HTTP ' . $result['status']);
