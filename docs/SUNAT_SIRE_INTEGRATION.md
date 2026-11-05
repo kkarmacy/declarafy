@@ -15,7 +15,7 @@ This branch adds a server-side, authenticated, read-only integration for the off
 
 1. In SUNAT Operaciones en Línea, open **Credenciales de API SUNAT**.
 2. Register/select the URI **MIGE RCE y RVIE - SIRE** for the application and select the Desktop scope described in the current SIRE manual. Keep the client ID and client secret issued by SUNAT.
-3. Confirm the application configuration and authorization scope with the current SUNAT SIRE manual. The v32 RVIE / v29 RCE manuals use the OAuth password grant and scope `https://api-sire.sunat.gob.pe`.
+3. Confirm the application configuration and authorization scope with the current SUNAT SIRE manual. The v32 RVIE / v29 RCE manuals use the OAuth password grant, scope `https://api-sire.sunat.gob.pe`, and `username` formatted as the 11-digit RUC, one space, then the SOL username.
 4. In Declarafy > Consultor SUNAT > Conexión oficial SIRE, enter the contributor RUC, API client credentials and SOL credentials.
 5. Select RVIE or RCE, load periods, request the proposal, poll the ticket and download the archive once SUNAT reports it is ready.
 
