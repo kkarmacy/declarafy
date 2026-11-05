@@ -811,8 +811,8 @@ switch ($action) {
 
         // Lista permitida: el navegador solo puede elegir un servicio conocido.
         // Esto prueba la obtención de token para ese scope; no confirma acceso a la API funcional.
-        // Scopes documentados: api-cpe (MIGE/GRE), api-sire (SIRE) y vacío (documentos digitalizados).
-        // api.sunat para SSPP/ACE permanece provisional hasta disponer de manuales específicos.
+        // api-cpe está documentado para GRE y se agrupa para MIGE/controlmsg; falta confirmar cada operación.
+        // api-sire y el scope vacío de documentos digitalizados están documentados; api.sunat para SSPP/ACE es provisional.
         $sunatServices = [
             'controlcpe' => ['name' => 'MIGE Gestión Factoring', 'scope' => 'https://api-cpe.sunat.gob.pe'],
             'emisioncpe' => ['name' => 'MIGE Ventas', 'scope' => 'https://api-cpe.sunat.gob.pe'],
