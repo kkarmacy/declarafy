@@ -9225,6 +9225,8 @@ function sunatSireUpdateFileTypes() {
   document.querySelectorAll('#sunatSireInconsistencyType option[value="5"], #sunatSireInconsistencyType option[value="6"]').forEach(option => {
     option.hidden = book !== 'rce';
   });
+  const registeredProcess = document.getElementById('sunatSireRegisteredProcess');
+  if (registeredProcess) registeredProcess.hidden = book !== 'rce';
   const inconsistencyType = document.getElementById('sunatSireInconsistencyType');
   if (inconsistencyType && book !== 'rce' && Number(inconsistencyType.value) > 4) inconsistencyType.value = '1';
 }
@@ -9298,6 +9300,37 @@ async function sunatSireRequestProposal() {
     sunatSireMessage(error.message || 'No se pudo solicitar la propuesta.', true);
   } finally {
     if (button) { button.disabled = false; button.textContent = 'Solicitar propuesta'; }
+  }
+}
+
+async function sunatSireRequestRegisteredPeriod() {
+  const button = document.getElementById('sunatSireRegisteredPeriodButton');
+  if (button) { button.disabled = true; button.textContent = 'Solicitando…'; }
+  sunatSireMessage('Solicitando a SUNAT la descarga del libro registrado…');
+  sunatSireLastArchive = null;
+  sunatSireAvailableArchives = [];
+  const archiveSelect = document.getElementById('sunatSireArchiveSelect');
+  const downloadButton = document.getElementById('sunatSireDownloadButton');
+  if (archiveSelect) { archiveSelect.hidden = true; archiveSelect.replaceChildren(); }
+  if (downloadButton) downloadButton.hidden = true;
+  try {
+    const credentials = sunatSireCredentials();
+    const period = document.getElementById('sunatSirePeriod')?.value || '';
+    if (!period) throw new Error('Selecciona primero un periodo tributario.');
+    const fileType = document.getElementById('sunatSireFileType')?.value || '0';
+    const registeredProcess = document.getElementById('sunatSireRegisteredProcess')?.value || '01';
+    const data = await declarafyApi('sunat_sire_registered_period', {
+      body: { ...credentials, period, fileType, registeredProcess }
+    });
+    const ticket = String(sunatSireFindValue(data.registered_export, ['numTicket']) || '');
+    if (!ticket) throw new Error('SUNAT no devolvió un número de ticket para la descarga del libro registrado.');
+    const field = document.getElementById('sunatSireTicket');
+    if (field) field.value = ticket;
+    sunatSireMessage('Solicitud recibida. Ticket: ' + ticket + '. Consulta el estado para descargar el archivo cuando esté listo.');
+  } catch (error) {
+    sunatSireMessage(error.message || 'No se pudo solicitar la descarga del libro registrado.', true);
+  } finally {
+    if (button) { button.disabled = false; button.textContent = 'Solicitar descarga del libro registrado'; }
   }
 }
 
