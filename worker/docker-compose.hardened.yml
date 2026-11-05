@@ -47,6 +47,42 @@ services:
       retries: 3
       start_period: 15s
 
+  # Opt-in only: never starts with the default Compose profile.
+  # Requires explicit environment flags AND a completed staging/security review.
+  openharness-runner:
+    profiles: ["openharness-execution"]
+    build:
+      context: ..
+      dockerfile: worker/Dockerfile
+    command: ["python", "/app/openharness_runner.py"]
+    init: true
+    restart: on-failure
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 512m
+    cpus: 1.0
+    environment:
+      DECLARAFY_WORKER_TOKEN_FILE: /run/secrets/worker_token
+      OPENHARNESS_ANTHROPIC_API_KEY_FILE: /run/secrets/openharness_provider_key
+      OPENHARNESS_WORKER_INTERNAL_URL: http://openharness-worker:8080
+      OPENHARNESS_RUNNER_ENABLED: ${OPENHARNESS_RUNNER_ENABLED:-0}
+      OPENHARNESS_EXECUTION_ENABLED: ${OPENHARNESS_EXECUTION_ENABLED:-0}
+      OPENHARNESS_MODEL: ${OPENHARNESS_MODEL:-}
+    secrets:
+      - worker_token
+      - openharness_provider_key
+    networks:
+      - worker_private
+    depends_on:
+      openharness-worker:
+        condition: service_healthy
+
 networks:
   worker_private:
     internal: true
@@ -59,3 +95,5 @@ secrets:
     file: ${DECLARAFY_WORKER_TOKEN_FILE:?Set path to protected worker token file}
   worker_encryption_keyring:
     file: ${DECLARAFY_WORKER_ENCRYPTION_KEYS_JSON_FILE:?Set path to protected encryption keyring file}
+  openharness_provider_key:
+    file: ${OPENHARNESS_ANTHROPIC_API_KEY_FILE:?Set path to protected provider key file}
