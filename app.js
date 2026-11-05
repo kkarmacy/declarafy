@@ -9121,6 +9121,7 @@ async function testSunatAuthService() {
 
 
 let sunatSireLastArchive = null;
+let sunatSireAvailableArchives = [];
 
 function sunatSireMessage(message, isError = false) {
   const box = document.getElementById('sunatSireResult');
@@ -9176,23 +9177,45 @@ function sunatSireFindValue(value, keys, depth = 0) {
   return null;
 }
 
-function sunatSireFindArchive(value, depth = 0) {
+function sunatSireFindTicketRecord(value, ticket = '', depth = 0) {
   if (depth > 12 || value == null || typeof value !== 'object') return null;
   if (Array.isArray(value)) {
     for (const item of value) {
-      const found = sunatSireFindArchive(item, depth + 1);
+      const found = sunatSireFindTicketRecord(item, ticket, depth + 1);
       if (found) return found;
     }
     return null;
   }
-  const archive = value.archivoReporte;
-  if (Array.isArray(archive) && archive.length) return archive[0];
-  if (archive && typeof archive === 'object') return archive;
+  const ownTicket = String(value.numTicket || value.detalleTicket?.numTicket || '');
+  if (ownTicket && (!ticket || ownTicket === ticket)) return value;
   for (const item of Object.values(value)) {
-    const found = sunatSireFindArchive(item, depth + 1);
+    const found = sunatSireFindTicketRecord(item, ticket, depth + 1);
     if (found) return found;
   }
   return null;
+}
+
+function sunatSireCollectArchives(value, output = [], depth = 0) {
+  if (depth > 12 || value == null || typeof value !== 'object') return output;
+  if (Array.isArray(value)) {
+    value.forEach(item => sunatSireCollectArchives(item, output, depth + 1));
+    return output;
+  }
+  const archive = value.archivoReporte;
+  if (Array.isArray(archive)) archive.forEach(item => { if (item && typeof item === 'object') output.push(item); });
+  else if (archive && typeof archive === 'object') output.push(archive);
+  for (const [key, item] of Object.entries(value)) {
+    if (key !== 'archivoReporte') sunatSireCollectArchives(item, output, depth + 1);
+  }
+  return output;
+}
+
+function sunatSireSelectArchive() {
+  const select = document.getElementById('sunatSireArchiveSelect');
+  const index = Number(select?.value ?? 0);
+  sunatSireLastArchive = Number.isInteger(index) ? (sunatSireAvailableArchives[index] || null) : null;
+  const button = document.getElementById('sunatSireDownloadButton');
+  if (button) button.disabled = !sunatSireLastArchive;
 }
 
 async function sunatSireLoadPeriods() {
@@ -9266,8 +9289,11 @@ async function sunatSireCheckTicket() {
   if (button) { button.disabled = true; button.textContent = 'Consultando…'; }
   sunatSireMessage('Consultando el estado del ticket en SUNAT…');
   sunatSireLastArchive = null;
+  sunatSireAvailableArchives = [];
   const downloadButton = document.getElementById('sunatSireDownloadButton');
+  const archiveSelect = document.getElementById('sunatSireArchiveSelect');
   if (downloadButton) downloadButton.hidden = true;
+  if (archiveSelect) { archiveSelect.hidden = true; archiveSelect.replaceChildren(); }
   try {
     const credentials = sunatSireCredentials();
     const period = document.getElementById('sunatSirePeriod')?.value || '';
@@ -9276,21 +9302,36 @@ async function sunatSireCheckTicket() {
     const body = { ...credentials, perIni: period, perFin: period, page: 1, perPage: 20 };
     if (ticket) body.numTicket = ticket;
     const data = await declarafyApi('sunat_sire_ticket_status', { body });
-    const recordTicket = String(sunatSireFindValue(data.tickets, ['numTicket']) || ticket);
-    const archive = sunatSireFindArchive(data.tickets);
-    const process = String(sunatSireFindValue(data.tickets, ['codProceso']) || '');
-    const archiveName = String(archive?.nomArchivoReporte || '');
-    const archiveType = archive?.codTipoArchivoReporte ?? archive?.codTipoAchivoReporte ?? 'null';
-    const statusText = String(sunatSireFindValue(data.tickets, ['desEstadoProceso', 'desEstadoEnvio']) || 'Estado recibido de SUNAT');
+    const record = sunatSireFindTicketRecord(data.tickets, ticket) || data.tickets;
+    const recordTicket = String(sunatSireFindValue(record, ['numTicket']) || ticket);
+    const process = String(sunatSireFindValue(record, ['codProceso']) || '');
+    const recordPeriod = String(sunatSireFindValue(record, ['perTributario']) || period);
+    const statusText = String(sunatSireFindValue(record, ['desEstadoProceso', 'desEstadoEnvio']) || 'Estado recibido de SUNAT');
     if (recordTicket && document.getElementById('sunatSireTicket')) document.getElementById('sunatSireTicket').value = recordTicket;
-    if (archiveName && process && recordTicket) {
-      sunatSireLastArchive = {
-        book: credentials.book, period: String(sunatSireFindValue(data.tickets, ['perTributario']) || period),
-        numTicket: recordTicket, codProceso: process,
-        nomArchivoReporte: archiveName, codTipoArchivoReporte: String(archiveType)
-      };
+
+    const archives = sunatSireCollectArchives(record).filter(item => String(item.nomArchivoReporte || '').trim());
+    if (process && recordTicket && archives.length) {
+      sunatSireAvailableArchives = archives.map(item => ({
+        book: credentials.book,
+        period: recordPeriod,
+        numTicket: recordTicket,
+        codProceso: process,
+        nomArchivoReporte: String(item.nomArchivoReporte),
+        codTipoArchivoReporte: String(item.codTipoArchivoReporte ?? item.codTipoAchivoReporte ?? 'null')
+      }));
+      if (archiveSelect) {
+        archiveSelect.replaceChildren();
+        sunatSireAvailableArchives.forEach((item, index) => {
+          const option = document.createElement('option');
+          option.value = String(index);
+          option.textContent = item.nomArchivoReporte;
+          archiveSelect.appendChild(option);
+        });
+        archiveSelect.hidden = false;
+      }
+      sunatSireSelectArchive();
       if (downloadButton) downloadButton.hidden = false;
-      sunatSireMessage(statusText + '. Archivo listo: ' + archiveName + '. Puedes descargarlo.');
+      sunatSireMessage(statusText + '. SUNAT generó ' + archives.length + ' archivo(s). Selecciona el archivo que deseas descargar.');
     } else {
       sunatSireMessage(statusText + '. El archivo todavía no está disponible; vuelve a consultar cuando SUNAT marque el ticket como terminado.');
     }
