@@ -86,4 +86,8 @@ test('SIRE UI offers both books and a ticket-to-download workflow', () => {
   assert.match(html, /sunatSireRequestProposal\(\)/);
   assert.match(html, /sunatSireCheckTicket\(\)/);
   assert.match(html, /sunatSireDownloadProposal\(\)/);
+  assert.match(app, /function sunatSireCollectArchives/);
+  assert.match(app, /function sunatSireFindTicketRecord/);
+  assert.match(app, /function sunatSireSelectArchive/);
+  assert.match(html, /id="sunatSireArchiveSelect"/);
 });
