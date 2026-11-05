@@ -9408,15 +9408,32 @@ async function sunatSireDownloadProposal() {
       body: { ...credentials, ...sunatSireLastArchive }
     });
     if (!blob || !blob.size) throw new Error('SUNAT devolvió un archivo vacío.');
+    const filename = 'Declarafy-SIRE-' + sunatSireLastArchive.book + '-' + sunatSireLastArchive.period + '-' + sunatSireLastArchive.numTicket + '.zip';
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'Declarafy-SIRE-' + sunatSireLastArchive.book + '-' + sunatSireLastArchive.period + '-' + sunatSireLastArchive.numTicket + '.zip';
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    sunatSireMessage('Descarga completada. El archivo ZIP fue enviado a las descargas de tu dispositivo.');
+
+    let previewMessage = 'El ZIP queda disponible en las descargas.';
+    const importUI = window.DeclarafySunatImportUI;
+    if (importUI && typeof importUI.handleFile === 'function' && typeof File === 'function') {
+      try {
+        const preview = await importUI.handleFile(new File([blob], filename, { type: 'application/zip' }));
+        previewMessage = ' Se preparó una vista previa de ' + preview.rows + ' registros. Revísala y confirma la importación antes de descargar otra parte.';
+      } catch (importError) {
+        const previewBox = document.getElementById('sunatImportPreview');
+        if (previewBox) {
+          previewBox.style.display = 'block';
+          previewBox.textContent = 'El ZIP se descargó, pero no pudo convertirse en una vista previa automática: ' + (importError.message || 'formato no reconocido') + '. Extrae el ZIP y usa el importador manual.';
+        }
+        previewMessage = ' No se pudo preparar la vista previa automática; el archivo se descargó correctamente.';
+      }
+    }
+    sunatSireMessage('Descarga completada.' + previewMessage);
   } catch (error) {
     sunatSireMessage(error.message || 'No se pudo descargar el archivo.', true);
   } finally {
