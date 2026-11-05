@@ -45,7 +45,7 @@ function sunat_sire_access_token(array $credentials): string {
             'scope' => 'https://api-sire.sunat.gob.pe',
             'client_id' => $credentials['clientId'],
             'client_secret' => $credentials['clientSecret'],
-            'username' => $credentials['ruc'] . $credentials['solUser'],
+            'username' => $credentials['ruc'] . ' ' . $credentials['solUser'],
             'password' => $credentials['solPassword'],
         ],
         25
