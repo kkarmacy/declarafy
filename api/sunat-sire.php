@@ -193,7 +193,7 @@ function sunat_sire_download_file(array $book, array $body, string $token): neve
     curl_close($curl);
     fclose($stream);
 
-    if ($ok === false || $status < 200 || $status >= 300 || $bytes === 0) {
+    if ($ok === false || $status < 200 || $status >= 300 || $bytes === 0 || str_contains(strtolower($contentType), 'json')) {
         $rawError = @file_get_contents($tmp, false, null, 0, 4096);
         @unlink($tmp);
         $errorPayload = is_string($rawError) ? json_decode($rawError, true) : null;
