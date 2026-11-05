@@ -35,8 +35,8 @@ test('SUNAT digitalized documents leaves scope empty as shown in the official ma
 });
 
 test('generic SUNAT scope is explicitly marked provisional pending service-by-service evidence', () => {
-  assert.match(source, /Scopes documentados: api-cpe \(MIGE\/GRE\), api-sire \(SIRE\) y vacío/);
-  assert.match(source, /api\.sunat para SSPP\/ACE permanece provisional/);
+  assert.match(source, /api-cpe está documentado para GRE y se agrupa para MIGE\/controlmsg/);
+  assert.match(source, /api\.sunat para SSPP\/ACE es provisional/);
 });
 
 test('all eight SUNAT authentication choices have scope values in the configured allowlist', () => {
