@@ -4,7 +4,7 @@ Status: engineering checklist for the isolated integration spike. This document 
 
 ## Current implementation boundary
 
-The current worker is an authenticated ingress and SQLite queue with a tested lease-based lifecycle. It supports atomic claim, running/completed/failed/cancelled transitions, bounded retries, expired-lease recovery, lease renewal, and owner-scoped status metadata through PHP. The worker has an internal authenticated owner-scoped completed-result endpoint, and the PHP bridge has a session-owner-checked result retrieval route. It does not execute OpenHarness automatically, and there is no end-user polling/display workflow. The PHP bridge is feature-flagged OFF by default.
+The current worker is an authenticated ingress and SQLite queue with a tested lease-based lifecycle. It supports atomic claim, running/completed/failed/cancelled transitions, bounded retries, expired-lease recovery, lease renewal, and owner-scoped status metadata through PHP. The worker has an internal authenticated owner-scoped completed-result endpoint, and the PHP bridge has a session-owner-checked result retrieval route. An opt-in single-job consumer now exists in worker/openharness_runner.py, packaged as a separate Compose service under the openharness-execution profile. It is not started by the default Compose profile and requires two independent flags (OPENHARNESS_RUNNER_ENABLED=1 and OPENHARNESS_EXECUTION_ENABLED=1). There is still no end-user polling/display workflow. The PHP bridge is feature-flagged OFF by default.
 
 ## Required storage protection before real tax data
 
@@ -119,3 +119,9 @@ Supply protected host file paths through DECLARAFY_WORKER_TOKEN_FILE and DECLARA
 This template intentionally does not publish the worker to the internet or grant it outbound model-provider access. A PHP bridge hosted outside this Docker network cannot reach it as-is. Before connecting Declarafy, design and review a private authenticated proxy or a separately controlled TLS ingress with explicit source allow-listing and egress policy. Do not solve connectivity by publishing port 8080 publicly or attaching an unrestricted network.
 
 The Compose profile is a deployment baseline, not proof that a particular hosting provider supports Docker, enforces the requested policies, or has been configured. The current Namecheap/cPanel website deployment is separate; this worker requires a suitable Linux Docker host and managed runtime secrets.
+
+## Opt-in queue consumer added (not production approval)
+
+The integration branch now includes a separate openharness-runner Compose service under the explicit openharness-execution profile. The default profile does not start it. Even when the profile is selected, the runner exits without claiming jobs unless both OPENHARNESS_RUNNER_ENABLED=1 and OPENHARNESS_EXECUTION_ENABLED=1 are explicitly set. The runner claims one job at a time, invokes the restricted one-turn/no-tool runtime, and posts only a bounded result or a sanitized error code to the internal queue API. It does not log task content or provider responses. The provider key is mounted as a secret only into the opt-in runner container.
+
+The runner's 45-second runtime limit is below the current 120-second lease; it does not yet implement active lease renewal, OS-level process interruption, provider spend/token quotas, per-user budgets, or concurrency controls beyond a single runner instance. The worker runtime still needs independent sandbox/network-egress review and staging verification. The runner and its activation gates require CI validation before any staging exercise. Do not set either flag or start the execution profile until the remaining controls and explicit release approval are complete.
