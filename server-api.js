@@ -59,6 +59,33 @@ async function declarafyApi(action, options = {}) {
   return payload.data;
 }
 
+
+async function declarafyDownloadApi(action, options = {}) {
+  const headers = {
+    'Accept': 'application/octet-stream, application/zip, application/json',
+    'Content-Type': 'application/json',
+    'X-Requested-With': 'DeclarafyWeb'
+  };
+  if (!declarafyCsrfToken) await declarafyLoadSession();
+  headers['X-CSRF-Token'] = declarafyCsrfToken;
+  const response = await declarafyFetch(`${DECLARAFY_API_ENDPOINT}?action=${encodeURIComponent(action)}`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers,
+    body: JSON.stringify(options.body || {})
+  }, 150000);
+  if (!response.ok) {
+    const raw = await response.text();
+    let payload = {};
+    try { payload = raw ? JSON.parse(raw) : {}; } catch (_) {}
+    if (payload.csrfToken) declarafyCsrfToken = payload.csrfToken;
+    const error = new Error(payload.message || `La descarga no pudo completarse (${response.status}).`);
+    error.code = payload.code || 'server/download-error';
+    throw error;
+  }
+  return response.blob();
+}
+
 async function declarafyLoadSession() {
   const response = await declarafyFetch(`${DECLARAFY_API_ENDPOINT}?action=session`, {
     credentials: 'same-origin',
