@@ -19,7 +19,7 @@ test('SIRE endpoints are authenticated, POST-only, rate-limited and separated fr
   assert.match(route, /require_user\(\)/);
   assert.match(route, /rate_limit\(\$pdo, 'sunat_sire', 12, 60\)/);
   assert.match(api, /require_once __DIR__ \. '\/sunat-sire\.php'/);
-  for (const action of ['sunat_sire_periods', 'sunat_sire_proposal', 'sunat_sire_ticket_status', 'sunat_sire_inconsistency_summary', 'sunat_sire_summary_download', 'sunat_sire_download']) {
+  for (const action of ['sunat_sire_periods', 'sunat_sire_proposal', 'sunat_sire_registered_period', 'sunat_sire_ticket_status', 'sunat_sire_inconsistency_summary', 'sunat_sire_summary_download', 'sunat_sire_download']) {
     assert.match(api, new RegExp("case '" + action + "':"));
   }
 });
@@ -60,6 +60,10 @@ test('only RVIE and RCE book codes and documented read-only SIRE routes are expo
   assert.match(sire, /archivoreporte/);
   assert.match(sire, /resumeninconsistencias/);
   assert.match(sire, /resumencomprobantes/);
+  assert.match(sire, /registroslibros\\/descarga/);
+  assert.match(sire, /solicitardescarga/);
+  assert.match(sire, /'codProceso' => '23'/);
+  assert.match(sire, /\['01', '02'\]/);
   assert.match(sire, /function sunat_sire_request_json/);
   assert.match(sire, /if \(\$method === 'POST'\) \$options\[CURLOPT_POST\] = true/);
   assert.match(api, /\$sunatSireBook\['key'\] === 'rce' \? 'POST' : 'GET'/);
@@ -81,6 +85,9 @@ test('SIRE UI never writes credentials to browser storage and uses the authentic
   assert.match(html, /id="sunatSireSolPassword" type="password"/);
   assert.match(app, /declarafyApi\('sunat_sire_periods'/);
   assert.match(app, /declarafyApi\('sunat_sire_proposal'/);
+  assert.match(app, /declarafyApi\('sunat_sire_registered_period'/);
+  assert.match(app, /function sunatSireRequestRegisteredPeriod/);
+  assert.match(html, /id="sunatSireRegisteredProcess"/);
   assert.match(app, /declarafyApi\('sunat_sire_ticket_status'/);
   assert.match(app, /declarafyDownloadApi\('sunat_sire_download'/);
   assert.match(app, /declarafyApi\('sunat_sire_inconsistency_summary'/);
