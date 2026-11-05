@@ -9223,8 +9223,11 @@ async function sunatSireLoadPeriods() {
   if (button) { button.disabled = true; button.textContent = 'Consultando…'; }
   sunatSireMessage('Autenticando y consultando periodos disponibles en SUNAT…');
   sunatSireLastArchive = null;
+  sunatSireAvailableArchives = [];
   const downloadButton = document.getElementById('sunatSireDownloadButton');
+  const archiveSelect = document.getElementById('sunatSireArchiveSelect');
   if (downloadButton) downloadButton.hidden = true;
+  if (archiveSelect) { archiveSelect.hidden = true; archiveSelect.replaceChildren(); }
   try {
     const credentials = sunatSireCredentials();
     const data = await declarafyApi('sunat_sire_periods', { body: credentials });
@@ -9261,8 +9264,11 @@ async function sunatSireRequestProposal() {
   if (button) { button.disabled = true; button.textContent = 'Solicitando…'; }
   sunatSireMessage('Solicitando a SUNAT la propuesta del periodo seleccionado…');
   sunatSireLastArchive = null;
+  sunatSireAvailableArchives = [];
   const downloadButton = document.getElementById('sunatSireDownloadButton');
+  const archiveSelect = document.getElementById('sunatSireArchiveSelect');
   if (downloadButton) downloadButton.hidden = true;
+  if (archiveSelect) { archiveSelect.hidden = true; archiveSelect.replaceChildren(); }
   try {
     const credentials = sunatSireCredentials();
     const period = document.getElementById('sunatSirePeriod')?.value || '';
