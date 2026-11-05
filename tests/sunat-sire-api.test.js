@@ -12,6 +12,7 @@ const sire = read('api/sunat-sire.php');
 const app = read('app.js');
 const html = read('index.html');
 const client = read('server-api.js');
+const importer = read('src/modules/sunat-file-import.js');
 
 test('SIRE endpoints are authenticated, POST-only, rate-limited and separated from other SUNAT services', () => {
   const route = api.slice(api.indexOf("case 'sunat_sire_periods':"), api.indexOf("default:", api.indexOf("case 'sunat_sire_periods':")));
@@ -111,4 +112,11 @@ test('SIRE UI offers both books and a ticket-to-download workflow', () => {
   assert.match(html, /id="sunatSireSummaryType"/);
   assert.match(app, /function sunatSireQueryInconsistencies/);
   assert.match(app, /function sunatSireDownloadSummary/);
+});
+
+test('SIRE ZIP downloads open an import preview using the existing Declarafy importer', () => {
+  assert.match(importer, /async function parseZip/);
+  assert.match(importer, /async function handleFile/);
+  assert.match(app, /importUI\.handleFile/);
+  assert.match(html, /accept="\.csv,\.txt,\.xml,\.zip,\.xlsx,\.xls"/);
 });
