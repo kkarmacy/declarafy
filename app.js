@@ -9302,7 +9302,9 @@ async function sunatSireCheckTicket() {
     const body = { ...credentials, perIni: period, perFin: period, page: 1, perPage: 20 };
     if (ticket) body.numTicket = ticket;
     const data = await declarafyApi('sunat_sire_ticket_status', { body });
-    const record = sunatSireFindTicketRecord(data.tickets, ticket) || data.tickets;
+    const matchedRecord = sunatSireFindTicketRecord(data.tickets, ticket);
+    if (ticket && !matchedRecord) throw new Error('SUNAT no devolvió el ticket solicitado. Verifica el número y el periodo.');
+    const record = matchedRecord || data.tickets;
     const recordTicket = String(sunatSireFindValue(record, ['numTicket']) || ticket);
     const process = String(sunatSireFindValue(record, ['codProceso']) || '');
     const recordPeriod = String(sunatSireFindValue(record, ['perTributario']) || period);
