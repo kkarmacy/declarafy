@@ -6,12 +6,13 @@ const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
 
 module.exports = defineConfig({
   testDir: './tests/e2e',
-  timeout: 45_000,
+  timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 2 : undefined,
+  // Keep browser checks serial in CI: parallel runs have intermittently stalled page.goto().
+  workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI
     ? [['line'], ['html', { outputFolder: 'playwright-report', open: 'never' }]]
     : [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],

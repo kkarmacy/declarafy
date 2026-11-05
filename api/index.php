@@ -811,15 +811,17 @@ switch ($action) {
 
         // Lista permitida: el navegador solo puede elegir un servicio conocido.
         // Esto prueba la obtención de token para ese scope; no confirma acceso a la API funcional.
+        // api-cpe está documentado para GRE y se agrupa para MIGE/controlmsg; falta confirmar cada operación.
+        // api-sire y el scope vacío de documentos digitalizados están documentados; api.sunat para SSPP/ACE es provisional.
         $sunatServices = [
             'controlcpe' => ['name' => 'MIGE Gestión Factoring', 'scope' => 'https://api-cpe.sunat.gob.pe'],
-            'controlmsg' => ['name' => 'Control de mensajes y alertas', 'scope' => '/v1/contribuyente/controlmsg'],
-            'enviossp' => ['name' => 'SSPP Receptor XML', 'scope' => '/v1/contribuyente/enviossp'],
-            'programacion' => ['name' => 'Consulta ACE', 'scope' => '/v1/controladuanero/programacion'],
+            'emisioncpe' => ['name' => 'MIGE Ventas', 'scope' => 'https://api-cpe.sunat.gob.pe'],
+            'gem' => ['name' => 'GRE Emisión de Comprobantes', 'scope' => 'https://api-cpe.sunat.gob.pe'],
+            'controlmsg' => ['name' => 'Control de mensajes y alertas', 'scope' => 'https://api-cpe.sunat.gob.pe'],
+            'enviossp' => ['name' => 'SSPP Receptor XML', 'scope' => 'https://api.sunat.gob.pe'],
+            'programacion' => ['name' => 'Consulta ACE', 'scope' => 'https://api.sunat.gob.pe'],
             'documentossustentatorios' => ['name' => 'Transmisión de documentos digitalizados', 'scope' => ''],
-            'salida' => ['name' => 'Control Aduanero Salida', 'scope' => '/v1/controladuanero/salida'],
-            'autorizacionsalida' => ['name' => 'Declaraciones asociadas a documentos de transporte', 'scope' => '/v1/controladuanero/autorizacionsalida'],
-            'ingreso' => ['name' => 'Control Aduanero Ingreso', 'scope' => '/v1/controladuanero/ingreso'],
+            'migeigv' => ['name' => 'MIGE RCE y RVIE - SIRE', 'scope' => 'https://api-sire.sunat.gob.pe', 'username_separator' => ' '],
         ];
 
         $body = request_body();
@@ -860,6 +862,8 @@ switch ($action) {
             CURLOPT_CONNECTTIMEOUT => 8,
             CURLOPT_TIMEOUT => 20,
             CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_POST => true,
             CURLOPT_HTTPHEADER => ['Accept: application/json', 'Content-Type: application/x-www-form-urlencoded'],
             CURLOPT_POSTFIELDS => http_build_query([
@@ -867,7 +871,7 @@ switch ($action) {
                 'scope' => $scope,
                 'client_id' => $clientId,
                 'client_secret' => $clientSecret,
-                'username' => $ruc . $solUser,
+                'username' => $ruc . (string) ($service['username_separator'] ?? '') . $solUser,
                 'password' => $solPassword,
             ], '', '&', PHP_QUERY_RFC3986),
         ]);
