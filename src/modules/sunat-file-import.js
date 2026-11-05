@@ -10,7 +10,7 @@ const aliases={
  moneda:['moneda','cod moneda','codMoneda'],base_imponible:['base imponible','base','valor venta','valor de venta','bi','mtoBaseImponible','mtoBase'],
  igv:['igv','impuesto general a las ventas','mtoIGV','mtoIgv'],total:['total','importe total','monto total','mtoTotal','mtoImporteTotal']
 };
-const norm=s=>String(s??'').replace(/^\\uFEFF/,'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase().replace(/[_-]+/g,' ');
+const norm=s=>String(s??'').replace(/^\uFEFF/,'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase().replace(/[_-]+/g,' ');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function splitLine(line,sep){let out=[],cur='',q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'){if(q&&line[i+1]==='"'){cur+='"';i++;}else q=!q;}else if(ch===sep&&!q){out.push(cur);cur='';}else cur+=ch;}out.push(cur);return out;}
 function delimiter(text){const l=(text.split(/\r?\n/).find(Boolean)||'');return [';','\t',',','|'].sort((a,b)=>l.split(b).length-l.split(a).length)[0];}
