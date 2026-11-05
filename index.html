@@ -1380,7 +1380,7 @@
         <a href="https://cpe.sunat.gob.pe/node/148" target="_blank" rel="noopener noreferrer">Ver manuales oficiales SIRE</a>.
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
-        <select id="sunatSireBook" aria-label="Libro SIRE" style="flex:1;min-width:180px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+        <select id="sunatSireBook" aria-label="Libro SIRE" onchange="sunatSireUpdateFileTypes()" style="flex:1;min-width:180px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
           <option value="rvie">Ventas — RVIE</option>
           <option value="rce">Compras — RCE</option>
         </select>
