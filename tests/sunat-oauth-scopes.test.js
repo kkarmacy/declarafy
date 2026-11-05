@@ -22,7 +22,7 @@ test('SUNAT authentication test is wired from the admin UI to the API action', (
   assert.match(html, /id="sunatAuthTestButton"[^>]*onclick="testSunatAuthService\(\)"/);
   assert.match(app, /async function testSunatAuthService\(\)/);
   assert.match(app, /declarafyApi\('sunat_auth_test',\s*\{\s*body:\s*\{\s*service\s*\}\s*\}\)/);
-  for (const service of ['controlcpe', 'controlmsg', 'enviossp', 'programacion', 'documentossustentatorios', 'salida', 'autorizacionsalida', 'ingreso']) {
+  for (const service of ['controlcpe', 'emisioncpe', 'gem', 'controlmsg', 'enviossp', 'programacion', 'documentossustentatorios', 'migeigv']) {
     assert.match(html, new RegExp('<option value="' + service + '">'));
   }
 });
@@ -37,7 +37,7 @@ test('SUNAT digitalized documents leaves scope empty as shown in the official ma
 test('generic SUNAT scope is explicitly marked provisional pending service-by-service evidence', () => {
   assert.match(source, /no se ha encontrado/);
   assert.match(source, /documentación oficial que confirme individualmente el scope genérico/);
-  assert.match(source, /Tratar https:\/\/api\.sunat\.gob\.pe como provisional/);
+  assert.match(source, /api\.sunat para SSPP\/ACE permanece provisional/);
 });
 
 test('all eight SUNAT authentication choices have scope values in the configured allowlist', () => {
@@ -47,8 +47,13 @@ test('all eight SUNAT authentication choices have scope values in the configured
     const service = entry[1];
     const scope = entry[2];
     assert.ok(
-      scope === '' || ['https://api-cpe.sunat.gob.pe', 'https://api.sunat.gob.pe'].includes(scope),
+      scope === '' || ['https://api-cpe.sunat.gob.pe', 'https://api.sunat.gob.pe', 'https://api-sire.sunat.gob.pe'].includes(scope),
       'SUNAT service ' + service + ' must use an explicitly approved scope format',
     );
   }
+});
+
+test('SIRE authentication uses the RUC-space-SOL username format', () => {
+  assert.match(source, /'migeigv'\s*=>[^\n]*'username_separator'\s*=>\s*' '/);
+  assert.match(source, /\$ruc \. \(string\) \(\$service\['username_separator'\] \?\? ''\) \. \$solUser/);
 });
