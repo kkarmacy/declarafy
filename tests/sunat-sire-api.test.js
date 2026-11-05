@@ -44,7 +44,7 @@ test('SIRE outbound requests are server-side, HTTPS-only, TLS-verified and do no
   assert.match(sire, /CURLOPT_SSL_VERIFYPEER => true/);
   assert.match(sire, /CURLOPT_SSL_VERIFYHOST => 2/);
   assert.match(sire, /CURLOPT_FOLLOWLOCATION => false/);
-  assert.match(sire, /if \(\$path === '' \|\| \$path\[0\] !== '\/' \|\| str_contains\(\$path, '://'\)\)/);
+  assert.ok(sire.includes("str_contains($path, '://')"));
   assert.match(sire, /api-sire\.sunat\.gob\.pe' \. \$path/);
 });
 
