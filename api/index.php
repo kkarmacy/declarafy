@@ -811,18 +811,17 @@ switch ($action) {
 
         // Lista permitida: el navegador solo puede elegir un servicio conocido.
         // Esto prueba la obtención de token para ese scope; no confirma acceso a la API funcional.
-        // IMPORTANTE: SUNAT publica las rutas de estos servicios, pero no se ha encontrado
-        // documentación oficial que confirme individualmente el scope genérico de cada uno.
-        // Tratar https://api.sunat.gob.pe como provisional hasta validar con manuales/pruebas autorizadas.
+        // Scopes documentados: api-cpe (MIGE/GRE), api-sire (SIRE) y vacío (documentos digitalizados).
+        // api.sunat para SSPP/ACE permanece provisional hasta disponer de manuales específicos.
         $sunatServices = [
             'controlcpe' => ['name' => 'MIGE Gestión Factoring', 'scope' => 'https://api-cpe.sunat.gob.pe'],
-            'controlmsg' => ['name' => 'Control de mensajes y alertas', 'scope' => 'https://api.sunat.gob.pe'],
+            'emisioncpe' => ['name' => 'MIGE Ventas', 'scope' => 'https://api-cpe.sunat.gob.pe'],
+            'gem' => ['name' => 'GRE Emisión de Comprobantes', 'scope' => 'https://api-cpe.sunat.gob.pe'],
+            'controlmsg' => ['name' => 'Control de mensajes y alertas', 'scope' => 'https://api-cpe.sunat.gob.pe'],
             'enviossp' => ['name' => 'SSPP Receptor XML', 'scope' => 'https://api.sunat.gob.pe'],
             'programacion' => ['name' => 'Consulta ACE', 'scope' => 'https://api.sunat.gob.pe'],
             'documentossustentatorios' => ['name' => 'Transmisión de documentos digitalizados', 'scope' => ''],
-            'salida' => ['name' => 'Control Aduanero Salida', 'scope' => 'https://api.sunat.gob.pe'],
-            'autorizacionsalida' => ['name' => 'Declaraciones asociadas a documentos de transporte', 'scope' => 'https://api.sunat.gob.pe'],
-            'ingreso' => ['name' => 'Control Aduanero Ingreso', 'scope' => 'https://api.sunat.gob.pe'],
+            'migeigv' => ['name' => 'MIGE RCE y RVIE - SIRE', 'scope' => 'https://api-sire.sunat.gob.pe', 'username_separator' => ' '],
         ];
 
         $body = request_body();
@@ -870,7 +869,7 @@ switch ($action) {
                 'scope' => $scope,
                 'client_id' => $clientId,
                 'client_secret' => $clientSecret,
-                'username' => $ruc . $solUser,
+                'username' => $ruc . (string) ($service['username_separator'] ?? '') . $solUser,
                 'password' => $solPassword,
             ], '', '&', PHP_QUERY_RFC3986),
         ]);
