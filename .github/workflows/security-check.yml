@@ -35,6 +35,7 @@ jobs:
         run: |
           php -l api/bootstrap.php
           php -l api/index.php
+          php -l api/sunat-sire.php
           php -l api/config.sample.php
       - name: Run regression and deployment tests
         run: npm test
