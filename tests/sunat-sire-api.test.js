@@ -29,7 +29,7 @@ test('SIRE OAuth uses the official SIRE scope and SOL password grant', () => {
   assert.match(sire, /scope' => 'https:\/\/api-sire\.sunat\.gob\.pe/);
   assert.match(sire, /https:\/\/api-sire\.sunat\.gob\.pe/);
   assert.match(sire, /clientessol/);
-  assert.match(sire, /\$credentials\['ruc'\] \. \$credentials\['solUser'\]/);
+  assert.match(sire, /\$credentials\['ruc'\] \. ' ' \. \$credentials\['solUser'\]/);
 });
 
 test('SIRE credentials are request-scoped and are not persisted or returned', () => {
