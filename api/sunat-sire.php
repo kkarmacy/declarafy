@@ -130,15 +130,15 @@ function sunat_sire_proposal_path(array $book, string $period, string $fileType)
     return $path . '?' . http_build_query(['codTipoArchivo' => $fileType, 'codOrigenEnvio' => '2'], '', '&', PHP_QUERY_RFC3986);
 }
 
-function sunat_sire_summary_type(array $body): string {
+function sunat_sire_summary_type(array $body, int $max = 7): string {
     $type = trim((string) ($body['summaryType'] ?? '1'));
-    if (!preg_match('/^[1-7]$/', $type)) fail_request('sunat/sire-summary-type', 'Tipo de resumen no válido.', 400);
+    if (!preg_match('/^[1-7]$/', $type) || (int) $type > $max) fail_request('sunat/sire-summary-type', 'Tipo de resumen no válido para el libro seleccionado.', 400);
     return $type;
 }
 
 function sunat_sire_inconsistency_summary_path(array $book, string $period, string $summaryType): string {
     $period = sunat_sire_period($period);
-    $summaryType = sunat_sire_summary_type(['summaryType' => $summaryType]);
+    $summaryType = sunat_sire_summary_type(['summaryType' => $summaryType], $book['key'] === 'rce' ? 6 : 4);
     return '/v1/contribuyente/migeigv/libros/rvierce/resumen/web/resumeninconsistencias/' . $period . '?' .
         http_build_query(['codTipoResumen' => $summaryType, 'codLibro' => $book['code']], '', '&', PHP_QUERY_RFC3986);
 }
