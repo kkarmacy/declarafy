@@ -169,7 +169,7 @@ function sunat_sire_registered_period_path(array $book, array $body): string {
             'codProceso' => '23',
             'codLibro' => $book['code'],
         ];
-        return '/v1/contribuyente/migeigv/libros/rvierce/gestionlibros/web/registroslibros/descarga?' .
+        return '/v1/contribuyente/migeigv/libros/rvierce/gestionlibro/web/registroslibros/descarga?' .
             http_build_query($params, '', '&', PHP_QUERY_RFC3986);
     }
     $process = trim((string) ($body['registeredProcess'] ?? '01'));
