@@ -1026,8 +1026,8 @@ switch ($action) {
     case 'sunat_sire_ticket_status':
     case 'sunat_sire_download':
         require_method('POST');
-        rate_limit($pdo, 'sunat_sire', 12, 60);
         $sunatSireUserId = require_user();
+        rate_limit($pdo, 'sunat_sire', 12, 60);
         $sunatSireUser = user_row($pdo, $sunatSireUserId);
         $sunatSireBody = request_body();
         $sunatSireBook = sunat_sire_book($sunatSireBody);
