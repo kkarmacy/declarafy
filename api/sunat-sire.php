@@ -184,6 +184,8 @@ function sunat_sire_stream_binary(string $path, string $token, string $downloadN
     if ($stream === false) { @unlink($tmp); fail_request('sunat/sire-download', 'No se pudo preparar la descarga.', 500); }
     $bytes = 0;
     $maxBytes = 100 * 1024 * 1024;
+    $limitExceeded = false;
+    $writeFailed = false;
     $curl = curl_init($url);
     curl_setopt_array($curl, [
         CURLOPT_CONNECTTIMEOUT => 10,
@@ -193,11 +195,11 @@ function sunat_sire_stream_binary(string $path, string $token, string $downloadN
         CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_HTTPGET => true,
         CURLOPT_HTTPHEADER => ['Accept: application/octet-stream, application/zip, text/plain, text/csv, application/json', 'Authorization: Bearer ' . $token],
-        CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use ($stream, &$bytes, $maxBytes): int {
+        CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use ($stream, &$bytes, $maxBytes, &$limitExceeded, &$writeFailed): int {
             $length = strlen($chunk);
-            if ($bytes + $length > $maxBytes) return 0;
+            if ($bytes + $length > $maxBytes) { $limitExceeded = true; return 0; }
             $written = fwrite($stream, $chunk);
-            if ($written === false) return 0;
+            if ($written === false) { $writeFailed = true; return 0; }
             $bytes += $written;
             return $written;
         },
@@ -215,9 +217,8 @@ function sunat_sire_stream_binary(string $path, string $token, string $downloadN
         $errorPayload = is_string($rawError) ? json_decode($rawError, true) : null;
         $sunatCode = is_array($errorPayload) ? preg_replace('/[^A-Za-z0-9_.-]/', '', (string) ($errorPayload['cod'] ?? 'remote_error')) : 'remote_error';
         error_log('Declarafy SIRE download failed; HTTP ' . $status . '; code=' . $sunatCode . '; curl=' . ($curlError !== '' ? 'yes' : 'no'));
-        if ($bytes >= $maxBytes || str_contains(strtolower($curlError), 'write')) {
-            fail_request('sunat/sire-download-too-large', 'El archivo supera el límite seguro de descarga de 100 MB.', 413);
-        }
+        if ($limitExceeded) fail_request('sunat/sire-download-too-large', 'El archivo supera el límite seguro de descarga de 100 MB.', 413);
+        if ($writeFailed) fail_request('sunat/sire-download-storage', 'El servidor no pudo guardar temporalmente el archivo de SUNAT.', 507);
         fail_request('sunat/sire-download-failed', 'SUNAT no pudo entregar el archivo solicitado (HTTP ' . $status . ').', 502);
     }
 
