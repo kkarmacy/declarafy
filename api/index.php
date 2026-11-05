@@ -1023,6 +1023,7 @@ switch ($action) {
 
     case 'sunat_sire_periods':
     case 'sunat_sire_proposal':
+    case 'sunat_sire_registered_period':
     case 'sunat_sire_ticket_status':
     case 'sunat_sire_inconsistency_summary':
     case 'sunat_sire_summary_download':
@@ -1045,6 +1046,12 @@ switch ($action) {
             $fileType = trim((string) ($sunatSireBody['fileType'] ?? '0'));
             $proposal = sunat_sire_get_json(sunat_sire_proposal_path($sunatSireBook, $period, $fileType), $sunatSireToken);
             respond(['book' => $sunatSireBook['key'], 'period' => $period, 'proposal' => $proposal]);
+        }
+        if ($action === 'sunat_sire_registered_period') {
+            $period = sunat_sire_period((string) ($sunatSireBody['period'] ?? ''));
+            $path = sunat_sire_registered_period_path($sunatSireBook, $sunatSireBody);
+            $result = sunat_sire_get_json($path, $sunatSireToken);
+            respond(['book' => $sunatSireBook['key'], 'period' => $period, 'registered_export' => $result]);
         }
         if ($action === 'sunat_sire_ticket_status') {
             $tickets = sunat_sire_get_json(sunat_sire_ticket_path($sunatSireBook, $sunatSireBody), $sunatSireToken);
