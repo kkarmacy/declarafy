@@ -96,4 +96,4 @@ secrets:
   worker_encryption_keyring:
     file: ${DECLARAFY_WORKER_ENCRYPTION_KEYS_JSON_FILE:?Set path to protected encryption keyring file}
   openharness_provider_key:
-    file: ${OPENHARNESS_ANTHROPIC_API_KEY_FILE:?Set path to protected provider key file}
+    file: ${OPENHARNESS_ANTHROPIC_API_KEY_FILE:-/dev/null}
