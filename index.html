@@ -1398,6 +1398,7 @@
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
         <input id="sunatSireTicket" inputmode="numeric" maxlength="14" placeholder="Número de ticket SUNAT" aria-label="Número de ticket SUNAT" style="flex:1;min-width:180px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+        <select id="sunatSireArchiveSelect" aria-label="Archivo SIRE generado" hidden onchange="sunatSireSelectArchive()" style="flex:1;min-width:200px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)"></select>
         <button type="button" id="sunatSireStatusButton" onclick="sunatSireCheckTicket()" style="padding:10px 14px;border:0;border-radius:8px;background:var(--primary);color:#fff;cursor:pointer">Consultar estado</button>
         <button type="button" id="sunatSireDownloadButton" onclick="sunatSireDownloadProposal()" hidden style="padding:10px 14px;border:0;border-radius:8px;background:var(--green,#16803c);color:#fff;cursor:pointer">Descargar ZIP</button>
       </div>
