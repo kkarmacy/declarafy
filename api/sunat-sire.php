@@ -157,6 +157,33 @@ function sunat_sire_summary_download_path(array $book, string $period, string $s
     return $path . '?' . http_build_query(['codLibro' => $book['code']], '', '&', PHP_QUERY_RFC3986);
 }
 
+function sunat_sire_registered_period_path(array $book, array $body): string {
+    $period = sunat_sire_period((string) ($body['period'] ?? ''));
+    $fileType = trim((string) ($body['fileType'] ?? '0'));
+    if (!in_array($fileType, ['0', '1'], true)) fail_request('sunat/sire-file-type', 'Formato de descarga no válido.', 400);
+    if ($book['key'] === 'rvie') {
+        $params = [
+            'perTributario' => $period,
+            'codOrigenEnvio' => '2',
+            'codTipoArchivo' => $fileType,
+            'codProceso' => '23',
+            'codLibro' => $book['code'],
+        ];
+        return '/v1/contribuyente/migeigv/libros/rvierce/gestionlibros/web/registroslibros/descarga?' .
+            http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+    }
+    $process = trim((string) ($body['registeredProcess'] ?? '01'));
+    if (!in_array($process, ['01', '02'], true)) fail_request('sunat/sire-process', 'Selecciona un proceso RCE válido.', 400);
+    $params = [
+        'codTipoArchivo' => $fileType,
+        'codProceso' => $process,
+        'codOrigen' => '2',
+        'lisPeriodos' => $period,
+    ];
+    return '/v1/contribuyente/migeigv/libros/rce/ajustesposteriores/web/ajustesposteriores/' . $period . '/solicitardescarga?' .
+        http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+}
+
 function sunat_sire_ticket_path(array $book, array $body): string {
     $from = sunat_sire_period((string) ($body['perIni'] ?? $body['period'] ?? ''));
     $to = sunat_sire_period((string) ($body['perFin'] ?? $body['period'] ?? ''));
