@@ -28,7 +28,9 @@ All routes require an authenticated Declarafy session, POST, same-origin request
 - `sunat_sire_periods`
 - `sunat_sire_proposal`
 - `sunat_sire_ticket_status`
-- `sunat_sire_download`
+- `sunat_sire_inconsistency_summary` (RVIE GET; RCE POST, as specified in the manuals)
+- `sunat_sire_summary_download` (TXT/CSV)
+- `sunat_sire_download` (ticket archive ZIP)
 
 The download endpoint accepts only the SUNAT archive metadata returned by the ticket-status operation, validates all parameters, uses a fixed SUNAT host, refuses redirects and limits the downloaded file to 100 MiB. Multi-part archives can be selected individually.
 
