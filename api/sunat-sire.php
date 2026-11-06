@@ -292,7 +292,7 @@ function sunat_sire_download_file(array $book, array $body, string $token): neve
 
 function sunat_sire_download_summary(array $book, array $body, string $token): never {
     $period = sunat_sire_period((string) ($body['period'] ?? ''));
-    $summaryType = sunat_sire_summary_type($body);
+    $summaryType = sunat_sire_summary_type($body, $book['key'] === 'rce' ? 7 : 4);
     $fileType = trim((string) ($body['fileType'] ?? '0'));
     $path = sunat_sire_summary_download_path($book, $period, $summaryType, $fileType);
     $extension = $fileType === '1' ? 'csv' : 'txt';
