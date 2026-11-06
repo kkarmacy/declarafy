@@ -65,11 +65,8 @@ async function parseZip(file){
   if(dataOffset+compressedSize>bytes.length)throw Error('El contenido de un archivo ZIP está incompleto.');
   const compressed=buffer.slice(dataOffset,dataOffset+compressedSize);let raw;
   if(method===0)raw=compressed;
-  else if(method===8){
-   if(typeof DecompressionStream==='undefined')throw Error('Este navegador no puede descomprimir ZIP. Extrae el archivo y carga el TXT/CSV manualmente.');
-   try{raw=await new Response(new Blob([compressed]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer();}
-   catch{throw Error('No se pudo descomprimir un archivo del ZIP SIRE.');}
-  }else continue;
+  else if(method===8)raw=await inflateZipEntry(compressed,uncompressedSize);
+  else continue;
   if(raw.byteLength!==uncompressedSize)throw Error('El tamaño descomprimido no coincide con el contenido del ZIP.');
   files.push({name,text:new TextDecoder('utf-8').decode(raw)});
  }
