@@ -20,7 +20,7 @@ const sandbox = {
 vm.runInNewContext(source, sandbox);
 const importer = sandbox.window.DeclarafySunatImport;
 
-function makeZip(filename, contents, method = 8) {
+function makeZip(filename, contents, method = 8, declaredSize = null) {
   const name = Buffer.from(filename, 'utf8');
   const raw = Buffer.from(contents, 'utf8');
   const compressed = method === 8 ? deflateRawSync(raw) : raw;
@@ -29,7 +29,7 @@ function makeZip(filename, contents, method = 8) {
   local.writeUInt16LE(20, 4);
   local.writeUInt16LE(method, 8);
   local.writeUInt32LE(compressed.length, 18);
-  local.writeUInt32LE(raw.length, 22);
+  local.writeUInt32LE(declaredSize ?? raw.length, 22);
   local.writeUInt16LE(name.length, 26);
   const localEntry = Buffer.concat([local, name, compressed]);
 
@@ -39,7 +39,7 @@ function makeZip(filename, contents, method = 8) {
   central.writeUInt16LE(20, 6);
   central.writeUInt16LE(method, 10);
   central.writeUInt32LE(compressed.length, 20);
-  central.writeUInt32LE(raw.length, 24);
+  central.writeUInt32LE(declaredSize ?? raw.length, 24);
   central.writeUInt16LE(name.length, 28);
   const centralEntry = Buffer.concat([central, name]);
 
@@ -84,4 +84,9 @@ test('SIRE CSV field names map to Declarafy import fields', () => {
   assert.equal(rows[0].base_imponible, 100);
   assert.equal(rows[0].igv, 18);
   assert.equal(rows[0].total, 118);
+});
+
+test('SIRE ZIP parser stops decompression when the actual output exceeds the declared size', async () => {
+  const oversized = makeZip('rvie.csv', 'A'.repeat(4096), 8, 64);
+  await assert.rejects(() => importer.parseZip(new Blob([oversized])), /supera el tamaño declarado/);
 });
