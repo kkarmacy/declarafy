@@ -11,6 +11,7 @@ import asyncio
 import os
 import time
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -91,14 +92,33 @@ def process_one(client: httpx.Client, service_token: str) -> bool:
     return True
 
 
+def _internal_base_url(value: str) -> str:
+    """Accept only the Compose service endpoint; reject lookalike hosts/URLs."""
+    try:
+        parsed = urlsplit(value)
+        port = parsed.port
+    except ValueError:
+        raise RuntimeError("worker internal URL is invalid") from None
+    if (
+        parsed.scheme != "http"
+        or parsed.hostname != "openharness-worker"
+        or port != 8080
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path not in ("", "/")
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise RuntimeError("worker internal URL must be the exact private Compose service endpoint")
+    return "http://openharness-worker:8080"
+
+
 def main() -> int:
     if not _enabled():
         print("OpenHarness runner is disabled; no jobs were claimed.")
         return 0
     service_token = _service_token()
-    base_url = os.environ.get("OPENHARNESS_WORKER_INTERNAL_URL", DEFAULT_API).rstrip("/")
-    if not base_url.startswith("http://openharness-worker:") and not base_url.startswith("https://"):
-        raise RuntimeError("worker internal URL must use the private service host or HTTPS")
+    base_url = _internal_base_url(os.environ.get("OPENHARNESS_WORKER_INTERNAL_URL", DEFAULT_API))
     with httpx.Client(base_url=base_url, timeout=HTTP_TIMEOUT) as client:
         while _enabled():
             try:
