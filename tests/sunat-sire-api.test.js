@@ -61,7 +61,7 @@ test('only RVIE and RCE book codes and documented read-only SIRE routes are expo
   assert.match(sire, /archivoreporte/);
   assert.match(sire, /resumeninconsistencias/);
   assert.match(sire, /resumencomprobantes/);
-  assert.match(sire, /registroslibros\\/descarga/);
+  assert.ok(sire.includes('registroslibros/descarga'));
   assert.match(sire, /solicitardescarga/);
   assert.match(sire, /'codProceso' => '23'/);
   assert.match(sire, /\['00', '01', '02'\]/);
