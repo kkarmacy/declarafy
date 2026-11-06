@@ -9225,6 +9225,11 @@ function sunatSireUpdateFileTypes() {
   document.querySelectorAll('#sunatSireInconsistencyType option[value="5"], #sunatSireInconsistencyType option[value="6"]').forEach(option => {
     option.hidden = book !== 'rce';
   });
+  document.querySelectorAll('#sunatSireSummaryType option[value="5"], #sunatSireSummaryType option[value="6"], #sunatSireSummaryType option[value="7"]').forEach(option => {
+    option.hidden = book !== 'rce';
+  });
+  const summaryType = document.getElementById('sunatSireSummaryType');
+  if (summaryType && book !== 'rce' && Number(summaryType.value) > 4) summaryType.value = '1';
   const registeredProcess = document.getElementById('sunatSireRegisteredProcess');
   if (registeredProcess) registeredProcess.hidden = book !== 'rce';
   const inconsistencyType = document.getElementById('sunatSireInconsistencyType');
