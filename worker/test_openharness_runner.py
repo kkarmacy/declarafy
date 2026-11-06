@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import httpx
 
-from openharness_runner import _enabled, process_one
+from openharness_runner import _enabled, _internal_base_url, process_one
 
 
 class FakeResponse:
@@ -31,6 +31,23 @@ class FakeClient:
 
 
 class RunnerGateTests(unittest.TestCase):
+    def test_internal_url_accepts_only_exact_compose_service(self):
+        self.assertEqual(_internal_base_url("http://openharness-worker:8080"), "http://openharness-worker:8080")
+        self.assertEqual(_internal_base_url("http://openharness-worker:8080/"), "http://openharness-worker:8080")
+
+    def test_internal_url_rejects_lookalike_or_external_destinations(self):
+        for value in (
+            "http://openharness-worker.evil:8080",
+            "http://openharness-worker:8080.evil",
+            "https://attacker.example",
+            "http://user@openharness-worker:8080",
+            "http://openharness-worker:8080/path",
+            "http://openharness-worker:8080/?next=https://attacker.example",
+            "http://127.0.0.1:8080",
+        ):
+            with self.subTest(value=value), self.assertRaises(RuntimeError):
+                _internal_base_url(value)
+
     def test_runner_is_disabled_by_default(self):
         with patch.dict(os.environ, {}, clear=True):
             self.assertFalse(_enabled())
