@@ -91,6 +91,8 @@ test('SIRE UI never writes credentials to browser storage and uses the authentic
   assert.match(app, /declarafyApi\('sunat_sire_registered_period'/);
   assert.match(app, /function sunatSireRequestRegisteredPeriod/);
   assert.match(html, /id="sunatSireRegisteredProcess"/);
+  assert.match(html, /id="sunatSireBook"[^>]*onchange="sunatSireUpdateFileTypes\(\)"/);
+  assert.match(html, /id="sunatSireSummaryType"[\s\S]*?<option value="7" hidden>/);
   assert.match(app, /declarafyApi\('sunat_sire_ticket_status'/);
   assert.match(app, /declarafyDownloadApi\('sunat_sire_download'/);
   assert.match(app, /declarafyApi\('sunat_sire_inconsistency_summary'/);
