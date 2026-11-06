@@ -150,7 +150,7 @@ function sunat_sire_inconsistency_summary_path(array $book, string $period, stri
 
 function sunat_sire_summary_download_path(array $book, string $period, string $summaryType, string $fileType): string {
     $period = sunat_sire_period($period);
-    $summaryType = sunat_sire_summary_type(['summaryType' => $summaryType]);
+    $summaryType = sunat_sire_summary_type(['summaryType' => $summaryType], $book['key'] === 'rce' ? 7 : 4);
     if (!in_array($fileType, ['0', '1'], true)) fail_request('sunat/sire-file-type', 'Formato de resumen no válido.', 400);
     $path = '/v1/contribuyente/migeigv/libros/rvierce/resumen/web/resumencomprobantes/' .
         $period . '/' . $summaryType . '/' . $fileType . '/exporta';
