@@ -1320,15 +1320,15 @@
     <p style="font-size:14px;color:var(--muted);margin-bottom:10px">Importa la información descargada de SUNAT/SIRE sin conectar tu Clave SOL. Declarafy previsualiza, valida y evita duplicados antes de guardar.</p>
     <div style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:16px;font-size:13px;color:var(--muted)">🔒 No requiere API SUNAT ni credenciales SOL. Formatos activos: CSV, TXT y XML. Para Excel, exporta temporalmente como CSV UTF-8; el lector XLSX se incorporará en la siguiente iteración.</div>
     <label class="xml-drop" for="sunatImportFile" id="sunatImportDropZone">
-      <input type="file" id="sunatImportFile" accept=".csv,.txt,.xml,.xlsx,.xls" style="display:none" onchange="handleSunatImportFile(this)">
+      <input type="file" id="sunatImportFile" accept=".csv,.txt,.xml,.zip,.xlsx,.xls" style="display:none" onchange="handleSunatImportFile(this)">
       <div class="xml-drop-icon">📥</div>
       <div class="xml-drop-title">Selecciona el archivo descargado de SUNAT/SIRE</div>
-      <div class="xml-drop-sub">CSV · TXT · XML · previsualización antes de importar</div>
+      <div class="xml-drop-sub">CSV · TXT · XML · ZIP SIRE · previsualización antes de importar</div>
     </label>
     <div id="sunatImportPreview" style="display:none;margin-top:16px"></div>
     <div style="margin-top:18px;padding:14px;border:1px solid var(--border);border-radius:10px">
       <strong>Flujo de trabajo</strong>
-      <div style="font-size:13px;color:var(--muted);margin-top:6px">SUNAT/SIRE → descargar archivo → subir a Declarafy → validar → importar → dashboard y análisis. Cuando tengamos la API oficial, la sincronización automática se conectará sobre esta misma capa de datos.</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:6px">SUNAT/SIRE API o archivo local → descargar / cargar → extraer ZIP si corresponde → previsualizar → validar → confirmar importación → dashboard y análisis.</div>
     </div>
   </div>
 
@@ -1354,6 +1354,94 @@
         <button type="button" id="sunatAuthTestButton" onclick="testSunatAuthService()" style="padding:10px 14px;border:0;border-radius:8px;background:var(--primary);color:#fff;cursor:pointer">Probar autenticación</button>
       </div>
       <div id="sunatAuthTestResult" role="status" aria-live="polite" style="margin-top:12px;font-size:13px"></div>
+    </div>
+    <div id="sunatSireTools" style="margin:18px 0;padding:16px;border:1px solid var(--border);border-radius:10px">
+      <strong>🔗 Conexión oficial SIRE — Compras y Ventas</strong>
+      <p style="font-size:13px;color:var(--muted);margin:6px 0 12px">Consulta periodos, solicita la propuesta RVIE/RCE, revisa el ticket y descarga el archivo generado. Las credenciales se envían únicamente al servidor por HTTPS para cada operación; Declarafy no las guarda.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
+        <label style="font-size:12px">RUC del contribuyente
+          <input id="sunatSireRuc" inputmode="numeric" maxlength="11" autocomplete="off" placeholder="RUC de 11 dígitos" style="display:block;width:100%;margin-top:5px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+        </label>
+        <label style="font-size:12px">Client ID SUNAT
+          <input id="sunatSireClientId" autocomplete="off" placeholder="Client ID de Credenciales API" style="display:block;width:100%;margin-top:5px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+        </label>
+        <label style="font-size:12px">Client Secret SUNAT
+          <input id="sunatSireClientSecret" type="password" autocomplete="new-password" placeholder="Client Secret" style="display:block;width:100%;margin-top:5px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+        </label>
+        <label style="font-size:12px">Usuario SOL (sin RUC)
+          <input id="sunatSireSolUser" autocomplete="off" placeholder="Usuario SOL" style="display:block;width:100%;margin-top:5px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+        </label>
+        <label style="font-size:12px">Clave SOL
+          <input id="sunatSireSolPassword" type="password" autocomplete="new-password" placeholder="Clave SOL" style="display:block;width:100%;margin-top:5px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+        </label>
+      </div>
+      <div style="margin:10px 0;padding:10px 12px;border-radius:8px;background:var(--surface,rgba(128,128,128,.08));font-size:12px;color:var(--muted)">
+        Antes de conectar: en SUNAT SOL registra la URI <strong>MIGE RCE y RVIE - SIRE</strong> en Credenciales de API SUNAT y selecciona el alcance Desktop, tal como indica el manual SIRE v32. El parámetro OAuth scope que Declarafy envía es `https://api-sire.sunat.gob.pe`. No reutilices credenciales de otra aplicación.
+        <a href="https://cpe.sunat.gob.pe/node/148" target="_blank" rel="noopener noreferrer">Ver manuales oficiales SIRE</a>.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
+        <select id="sunatSireBook" aria-label="Libro SIRE" onchange="sunatSireUpdateFileTypes()" onchange="sunatSireUpdateFileTypes()" style="flex:1;min-width:180px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+          <option value="rvie">Ventas — RVIE</option>
+          <option value="rce">Compras — RCE</option>
+        </select>
+        <button type="button" id="sunatSirePeriodsButton" onclick="sunatSireLoadPeriods()" style="padding:10px 14px;border:0;border-radius:8px;background:var(--primary);color:#fff;cursor:pointer">Consultar periodos</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
+        <select id="sunatSirePeriod" aria-label="Periodo tributario SIRE" style="flex:1;min-width:150px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+          <option value="">Primero consulta los periodos</option>
+        </select>
+        <select id="sunatSireFileType" aria-label="Formato de propuesta SIRE" style="flex:1;min-width:150px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+          <option value="0">TXT</option>
+          <option value="1" hidden>CSV</option>
+        </select>
+        <button type="button" id="sunatSireProposalButton" onclick="sunatSireRequestProposal()" style="padding:10px 14px;border:0;border-radius:8px;background:var(--primary);color:#fff;cursor:pointer">Solicitar propuesta</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
+        <select id="sunatSireRegisteredProcess" aria-label="Tipo de registro RCE" hidden style="flex:1;min-width:180px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+          <option value="00">RCE: no domiciliados</option>
+          <option value="01">RCE: aceptado</option>
+          <option value="02">RCE: reemplazado</option>
+        </select>
+        <button type="button" id="sunatSireRegisteredPeriodButton" onclick="sunatSireRequestRegisteredPeriod()" style="padding:10px 14px;border:0;border-radius:8px;background:var(--primary);color:#fff;cursor:pointer">Solicitar descarga del libro registrado</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
+        <input id="sunatSireTicket" inputmode="numeric" maxlength="14" placeholder="Número de ticket SUNAT" aria-label="Número de ticket SUNAT" style="flex:1;min-width:180px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+        <select id="sunatSireArchiveSelect" aria-label="Archivo SIRE generado" hidden onchange="sunatSireSelectArchive()" style="flex:1;min-width:200px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)"></select>
+        <button type="button" id="sunatSireStatusButton" onclick="sunatSireCheckTicket()" style="padding:10px 14px;border:0;border-radius:8px;background:var(--primary);color:#fff;cursor:pointer">Consultar estado</button>
+        <button type="button" id="sunatSireDownloadButton" onclick="sunatSireDownloadProposal()" hidden style="padding:10px 14px;border:0;border-radius:8px;background:var(--green,#16803c);color:#fff;cursor:pointer">Descargar ZIP</button>
+      </div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+        <strong style="font-size:13px">Resumen tributario SIRE</strong>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">
+          <select id="sunatSireInconsistencyType" aria-label="Tipo de resumen de inconsistencias" style="flex:1;min-width:180px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+            <option value="1">Propuesta</option>
+            <option value="2">Preliminar</option>
+            <option value="3">Incluidos / excluidos</option>
+            <option value="4">Registro</option>
+            <option value="5" hidden>Preliminar registrado (RCE)</option>
+            <option value="6" hidden>Ajustes posteriores (RCE)</option>
+          </select>
+          <button type="button" id="sunatSireInconsistencyButton" onclick="sunatSireQueryInconsistencies()" style="padding:10px 14px;border:0;border-radius:8px;background:var(--primary);color:#fff;cursor:pointer">Consultar inconsistencias</button>
+        </div>
+        <pre id="sunatSireSummaryResult" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto;margin:10px 0;padding:10px;border-radius:8px;background:var(--surface,rgba(128,128,128,.08));font-size:12px;color:var(--text)"></pre>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">
+          <select id="sunatSireSummaryType" aria-label="Tipo de resumen descargable" style="flex:1;min-width:160px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+            <option value="1">Resumen de propuesta</option>
+            <option value="2">Resumen de preliminar</option>
+            <option value="3">No incluidos / excluidos</option>
+            <option value="4">Resumen de registro</option>
+            <option value="5" hidden>Preliminar registrado</option>
+            <option value="6" hidden>Ajustes posteriores</option>
+            <option value="7" hidden>No domiciliados</option>
+          </select>
+          <select id="sunatSireSummaryFileType" aria-label="Formato del resumen" style="flex:1;min-width:110px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)">
+            <option value="0">TXT</option>
+            <option value="1">CSV</option>
+          </select>
+          <button type="button" id="sunatSireSummaryDownloadButton" onclick="sunatSireDownloadSummary()" style="padding:10px 14px;border:0;border-radius:8px;background:var(--primary);color:#fff;cursor:pointer">Descargar resumen</button>
+        </div>
+      </div>
+      <div id="sunatSireResult" role="status" aria-live="polite" style="margin-top:12px;font-size:13px;color:var(--muted)"></div>
     </div>
     <div class="sunat-tabs">
       <button class="sunat-tab active" onclick="setSunatTab('ruc',this)">Estado RUC</button>
@@ -5540,9 +5628,9 @@ End Function</div>
 <script src="/calculators.js?v=20261025-2"></script>
 <script src="/firebase-sync.js?v=20261025-2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<script src="/app.js?v=20261025-2" defer></script>
+<script src="/app.js?v=20261105-2" defer></script>
 <script src="/frontend-ui.js?v=20261025-2" defer></script>
-<script src="/src/modules/sunat-file-import.js?v=20260928-1" defer></script>
+<script src="/src/modules/sunat-file-import.js?v=20261105-1" defer></script>
 <script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js?v=15').then(reg => {

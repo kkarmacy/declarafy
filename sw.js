@@ -1,5 +1,5 @@
 // Service Worker — DeclaraFY PWA
-const CACHE_NAME = 'declarafy-v15-chat-recovery';
+const CACHE_NAME = 'declarafy-v17-sunat-sire-ui';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

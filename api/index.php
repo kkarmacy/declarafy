@@ -80,6 +80,8 @@ function remote_json(string $url, string $method = 'GET', array $headers = [], ?
         CURLOPT_CONNECTTIMEOUT => 8,
         CURLOPT_TIMEOUT => $timeout,
         CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_HTTPHEADER => array_merge(['Accept: application/json'], $headers),
     ];
     if ($method !== 'GET') {
@@ -107,6 +109,8 @@ function remote_form(string $url, array $fields, int $timeout = 20): array {
         CURLOPT_CONNECTTIMEOUT => 8,
         CURLOPT_TIMEOUT => $timeout,
         CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_POST => true,
         CURLOPT_HTTPHEADER => ['Accept: application/json', 'Content-Type: application/x-www-form-urlencoded'],
         CURLOPT_POSTFIELDS => http_build_query($fields, '', '&', PHP_QUERY_RFC3986),
@@ -208,6 +212,8 @@ function sunat_validate_cpe(array $config, array $body): array {
         'fuente' => 'SUNAT - Consulta Integrada de Validez de CPE',
     ];
 }
+
+require_once __DIR__ . '/sunat-sire.php';
 
 switch ($action) {
     case 'health':
@@ -1013,6 +1019,55 @@ switch ($action) {
         if (!is_array($payload)) { $releaseQuota(); fail_request('ai/invalid-response', 'La IA devolvió una respuesta inválida.', 502); }
         if ($status < 200 || $status >= 300) $releaseQuota();
         raw_json_response($payload, $status >= 200 && $status < 600 ? $status : 502);
+
+
+    case 'sunat_sire_periods':
+    case 'sunat_sire_proposal':
+    case 'sunat_sire_registered_period':
+    case 'sunat_sire_ticket_status':
+    case 'sunat_sire_inconsistency_summary':
+    case 'sunat_sire_summary_download':
+    case 'sunat_sire_download':
+        require_method('POST');
+        $sunatSireUserId = require_user();
+        rate_limit($pdo, 'sunat_sire', 12, 60);
+        $sunatSireUser = user_row($pdo, $sunatSireUserId);
+        $sunatSireBody = request_body();
+        $sunatSireBook = sunat_sire_book($sunatSireBody);
+        $sunatSireCredentials = sunat_sire_credentials($sunatSireBody, $sunatSireUser);
+        $sunatSireToken = sunat_sire_access_token($sunatSireCredentials);
+
+        if ($action === 'sunat_sire_periods') {
+            $periods = sunat_sire_get_json(sunat_sire_periods_path($sunatSireBook), $sunatSireToken);
+            respond(['book' => $sunatSireBook['key'], 'book_name' => $sunatSireBook['label'], 'ruc' => $sunatSireCredentials['ruc'], 'periods' => $periods]);
+        }
+        if ($action === 'sunat_sire_proposal') {
+            $period = sunat_sire_period((string) ($sunatSireBody['period'] ?? ''));
+            $fileType = trim((string) ($sunatSireBody['fileType'] ?? '0'));
+            $proposal = sunat_sire_get_json(sunat_sire_proposal_path($sunatSireBook, $period, $fileType), $sunatSireToken);
+            respond(['book' => $sunatSireBook['key'], 'period' => $period, 'proposal' => $proposal]);
+        }
+        if ($action === 'sunat_sire_registered_period') {
+            $period = sunat_sire_period((string) ($sunatSireBody['period'] ?? ''));
+            $path = sunat_sire_registered_period_path($sunatSireBook, $sunatSireBody);
+            $result = sunat_sire_get_json($path, $sunatSireToken);
+            respond(['book' => $sunatSireBook['key'], 'period' => $period, 'registered_export' => $result]);
+        }
+        if ($action === 'sunat_sire_ticket_status') {
+            $tickets = sunat_sire_get_json(sunat_sire_ticket_path($sunatSireBook, $sunatSireBody), $sunatSireToken);
+            respond(['book' => $sunatSireBook['key'], 'tickets' => $tickets]);
+        }
+        if ($action === 'sunat_sire_inconsistency_summary') {
+            $period = sunat_sire_period((string) ($sunatSireBody['period'] ?? ''));
+            $summaryType = sunat_sire_summary_type($sunatSireBody, $sunatSireBook['key'] === 'rce' ? 6 : 4);
+            $method = $sunatSireBook['key'] === 'rce' ? 'POST' : 'GET';
+            $summary = sunat_sire_request_json(sunat_sire_inconsistency_summary_path($sunatSireBook, $period, $summaryType), $sunatSireToken, $method);
+            respond(['book' => $sunatSireBook['key'], 'period' => $period, 'summary_type' => $summaryType, 'summary' => $summary]);
+        }
+        if ($action === 'sunat_sire_summary_download') {
+            sunat_sire_download_summary($sunatSireBook, $sunatSireBody, $sunatSireToken);
+        }
+        sunat_sire_download_file($sunatSireBook, $sunatSireBody, $sunatSireToken);
 
     default:
         fail_request('request/not-found', 'Operación no encontrada.', 404);
