@@ -120,6 +120,8 @@ test('SIRE UI offers both books and a ticket-to-download workflow', () => {
 
 test('SIRE ZIP downloads open an import preview using the existing Declarafy importer', () => {
   assert.match(importer, /async function parseZip/);
+  assert.match(importer, /async function inflateZipEntry/);
+  assert.match(importer, /total>50\*1024\*1024\|\|total>expectedSize/);
   assert.match(importer, /async function handleFile/);
   assert.match(app, /importUI\.handleFile/);
   assert.match(html, /accept="\.csv,\.txt,\.xml,\.zip,\.xlsx,\.xls"/);
