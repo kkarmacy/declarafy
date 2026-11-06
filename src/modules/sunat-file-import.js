@@ -21,6 +21,22 @@ function parseDelimited(text){const sep=delimiter(text),lines=text.split(/\r?\n/
 function xmlVal(node,names){for(const name of names){const all=node.getElementsByTagName('*');for(const el of all){if(norm(el.localName||el.nodeName)===norm(name))return el.textContent.trim();}}return '';}
 function parseXml(text){const doc=new DOMParser().parseFromString(text,'application/xml');if(doc.querySelector('parsererror'))throw Error('XML inválido.');return [{fecha:xmlVal(doc,['IssueDate','FechaEmision']),tipo:xmlVal(doc,['InvoiceTypeCode','DocumentTypeCode']),serie:'',numero:xmlVal(doc,['ID']),ruc:xmlVal(doc,['CompanyID']),razon_social:xmlVal(doc,['RegistrationName']),moneda:xmlVal(doc,['DocumentCurrencyCode']),base_imponible:num(xmlVal(doc,['TaxExclusiveAmount','LineExtensionAmount'])),igv:num(xmlVal(doc,['TaxAmount'])),total:num(xmlVal(doc,['PayableAmount','TaxInclusiveAmount']))}];}
 
+async function inflateZipEntry(compressed,expectedSize){
+ if(typeof DecompressionStream==='undefined')throw Error('Este navegador no puede descomprimir ZIP. Extrae el archivo y carga el TXT/CSV manualmente.');
+ const reader=new Blob([compressed]).stream().pipeThrough(new DecompressionStream('deflate-raw')).getReader();
+ const chunks=[];let total=0;
+ try{
+  while(true){
+   const part=await reader.read();if(part.done)break;
+   total+=part.value.byteLength;
+   if(total>50*1024*1024||total>expectedSize){await reader.cancel();throw Error('El contenido descomprimido supera el tamaño declarado o el límite seguro de 50 MB por archivo.');}
+   chunks.push(part.value);
+  }
+ }catch(error){try{await reader.cancel();}catch{};throw error;}
+ const output=new Uint8Array(total);let offset=0;
+ for(const chunk of chunks){output.set(chunk,offset);offset+=chunk.byteLength;}
+ return output.buffer;
+}
 async function parseZip(file){
  const buffer=await file.arrayBuffer(),view=new DataView(buffer),bytes=new Uint8Array(buffer);
  if(buffer.byteLength>100*1024*1024)throw Error('El ZIP supera el límite de 100 MB.');
@@ -87,6 +103,6 @@ function render(rows){const box=document.getElementById('sunatImportPreview');if
 async function handle(input){const file=input.files&&input.files[0];if(!file)return;try{await handleFile(file);}catch(e){const box=document.getElementById('sunatImportPreview');if(box){box.style.display='block';box.innerHTML='<div class="sunat-api-result">⚠️ '+esc(e.message)+'</div>';}}}
 function confirm(){const valid=pending.filter(r=>!r._errors.length&&!r._duplicate);const result=save(valid,pendingName);const box=document.getElementById('sunatImportPreview');if(box)box.innerHTML='<div class="sunat-api-result">✅ '+result.added+' registros importados. Base local acumulada: '+result.total+'. Ya están disponibles para el dashboard y análisis.</div>';pending=[];}
 function clear(){pending=[];pendingName='';const b=document.getElementById('sunatImportPreview');if(b)b.style.display='none';const i=document.getElementById('sunatImportFile');if(i)i.value='';}
-global.DeclarafySunatImport={parseDelimited,parseXml,parseZip,validate,stored,summary,save};
+global.DeclarafySunatImport={parseDelimited,parseXml,parseZip,inflateZipEntry,validate,stored,summary,save};
 global.DeclarafySunatImportUI={handle,handleFile,confirm,clear};
 })(window);
