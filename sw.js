@@ -1,10 +1,11 @@
 // Service Worker — DeclaraFY PWA
-const CACHE_NAME = 'declarafy-v15-chat-recovery';
+const CACHE_NAME = 'declarafy-v16-tabler-ui';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/styles.css',
   '/frontend-polish.css',
+  '/tabler-visual-system.css',
   '/frontend-ui.js',
   '/server-api.js',
   '/declarafy-logo.svg',
