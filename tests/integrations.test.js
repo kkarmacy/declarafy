@@ -67,7 +67,7 @@ test('AI key stays server-side and requests have quota and time limits', () => {
 });
 
 test('service worker never caches API responses and refreshes old shells', () => {
-  assert.match(serviceWorker, /declarafy-v14-namecheap/);
+  assert.match(serviceWorker, /declarafy-v16-tabler-ui/);
   assert.match(serviceWorker, /endsWith\('\.css'\)/);
   assert.match(serviceWorker, /url\.pathname\.startsWith\('\/api\/'\)/);
   assert.match(serviceWorker, /e\.request\.mode === 'navigate'/);
