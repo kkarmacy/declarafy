@@ -5,7 +5,7 @@ const STATIC_ASSETS = [
   '/index.html',
   '/styles.css',
   '/frontend-polish.css',
-  '/tabler-visual-system.css',
+  '/tabler-visual-system.css?v=20261107-1',
   '/frontend-ui.js',
   '/server-api.js',
   '/declarafy-logo.svg',
