@@ -83,7 +83,8 @@ function sortPanelNavigation(nav) {
     categories.push({ id: 'more', title: 'Más herramientas', tabs: [] });
     grouped.set('more', extras);
   }
-  const fragment = document.createDocumentFragment();
+  const fragment = typeof document.createDocumentFragment === 'function' ? document.createDocumentFragment() : null;
+  const groupSections = [];
   categories.forEach(category => {
     const items = grouped.get(category.id) || [];
     if (!items.length) return;
@@ -107,12 +108,17 @@ function sortPanelNavigation(nav) {
     });
     items.forEach(button => list.appendChild(button));
     section.append(toggle, list);
-    fragment.appendChild(section);
+    if (fragment) fragment.appendChild(section);
+    else groupSections.push(section);
   });
   const search = nav.querySelector('.pnav-search');
   nav.querySelectorAll(':scope > .pntab, :scope > .pnav-group').forEach(element => element.remove());
-  if (search) search.after(fragment);
-  else nav.prepend(fragment);
+  if (search && fragment) search.after(fragment);
+  else if (search) {
+    let anchor = search;
+    groupSections.forEach(section => { anchor.after(section); anchor = section; });
+  } else if (fragment) nav.prepend(fragment);
+  else groupSections.forEach(section => nav.appendChild(section));
 }
 
 function installFrontendUsability() {
