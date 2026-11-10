@@ -52,7 +52,7 @@ function syncPanelAccessibility() {
   if (title && title.textContent !== text) title.textContent = text;
   const locationBar = document.querySelector('.module-location');
   if (locationBar) {
-    const currentTab = (active?.getAttribute('onclick') || '').match(/setPTab\('([^']+)'/)?.[1] || '';
+    const currentTab = (typeof active?.getAttribute === 'function' ? active.getAttribute('onclick') || '' : '').match(/setPTab\('([^']+)'/)?.[1] || '';
     locationBar.hidden = !currentTab || currentTab === 'inicio' || currentTab === 'especializados';
     const back = locationBar.querySelector('button');
     if (back) back.textContent = '← Ver módulos especializados';
