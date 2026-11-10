@@ -175,3 +175,24 @@ test('evidencia visual del dashboard y módulos principales', async ({ page }, t
   await page.evaluate(() => setPTab('inicio', null));
   await capture('dashboard-mobile');
 });
+
+test('la búsqueda expande categorías y la navegación mantiene un encabezado compacto', async ({ page }) => {
+  const search = page.locator('#panelModuleSearch');
+  const searchBox = await page.locator('.pnav-search').boundingBox();
+  expect(searchBox?.height || 999).toBeLessThan(60);
+  await expect(page.locator('.module-location')).toBeHidden();
+
+  const taxGroup = page.locator('.pnav-group[data-category="tax"]');
+  await expect(taxGroup).toBeVisible();
+  await taxGroup.locator('.pnav-group-toggle').click();
+  await expect(taxGroup.locator('.pnav-group-items')).toBeHidden();
+
+  await search.fill('Consultar SUNAT');
+  await expect(taxGroup).toBeVisible();
+  await expect(taxGroup.locator('.pnav-group-items')).toBeVisible();
+  await expect(taxGroup.locator('.pntab').filter({ hasText: 'Consultar SUNAT' })).toBeVisible();
+
+  await page.evaluate(() => setPTab('sunat_api', null));
+  await expect(page.locator('.module-location')).toBeVisible();
+  await expect(page.locator('.module-location button')).toContainText('Ver módulos especializados');
+});
