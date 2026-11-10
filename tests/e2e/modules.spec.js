@@ -53,7 +53,7 @@ test('la navegación agrupa los módulos por área y los ordena alfabéticamente
   const result = await page.evaluate(() => {
     const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
     const clean = value => value.normalize('NFD')
-      .replace(/[\\u0300-\\u036f]/g, '')
+      .replace(/[\u0300-\u036f]/g, '')
       .replace(/^[^A-Za-z0-9]+/, '')
       .trim();
     const groups = Array.from(document.querySelectorAll('.pnav-group')).map(group => {
