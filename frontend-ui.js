@@ -54,17 +54,65 @@ function syncPanelAccessibility() {
 
 function sortPanelNavigation(nav) {
   const buttons = Array.from(nav.querySelectorAll(':scope > .pntab'));
-  const home = buttons.find(button => /setPTab\('inicio'/.test(button.getAttribute('onclick') || ''));
-  const featured = buttons.find(button => button.classList.contains('pntab-featured'));
   const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
   const label = button => button.textContent
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^[^A-Za-zÁÉÍÓÚÜÑ0-9]+/u, '').trim();
-  buttons.filter(button => button !== home && button !== featured)
-    .sort((a, b) => collator.compare(label(a), label(b)))
-    .forEach(button => nav.appendChild(button));
+  const categories = [
+    { id: 'principal', title: 'Inicio', tabs: ['inicio','especializados','historial','calendario','sugerencias','referidos'] },
+    { id: 'assistant', title: 'Consultor IA', tabs: ['ia_fisc'] },
+    { id: 'tax', title: 'SUNAT y Tributación', tabs: ['simulador','pdt621','pdt_xml','sunat_api','sunat_inf','alertas','tim','multas','moras_sunat','facturacion','ocr_factura','pdt_gen','detector_pdt','renta_anual','perdida','cierre','cierre_fiscal','tim_historico','ret_perc','itf','ir_5ta','dividendos','percepciones','notas_credito','factura_electronica','rectificatoria','cobranza_coactiva','compensacion','exon_detraccion','recurso_multa','spot','fraccionamiento','itan','arbitrios','isc','verificador_ruc','rus','rmt_rer','amazonia','selector_regimen','tea_multas','validador'] },
+    { id: 'finance', title: 'Finanzas y Contabilidad', tabs: ['calculadora','estadisticas','comparador','excel_int','depreciacion','moneda','sbs','smv','bcr','eeff','flujo_caja','concil_banc','leasing','conversor_tasas','analisis_avanz','niif','cripto','cripto_legal','cripto_portfolio','proyeccion_afp'] },
+    { id: 'documents', title: 'Documentos y Gestión', tabs: ['generador','informe','contratos_gen','cartas','expediente','docs_legales','analizador_contratos','casos','biblioteca','guias_remision','widget'] },
+    { id: 'business', title: 'Laboral y Empresas', tabs: ['sunafil','liquidacion','utilidades','cts_gratif','nomina','tregistro','suspension','horas_extras','reg_agrario','afp_comisiones','asignacion_fam','cas','essalud_senati','onp','afp_onp','empresa_hub','plan_anual'] },
+    { id: 'specialized', title: 'Normativa e Internacional', tabs: ['timeline','rtf','comparado','cdi','pt_modulo','withholding','no_domiciliados','donaciones','sucesiones','indecopi','compliance','lavado','mineria','zonas','drawback','saldo_export','importacion','hs_clasificador'] },
+    { id: 'account', title: 'Cuenta y Configuración', tabs: ['perfil','api_access','terminos','privacidad'] }
+  ];
+  const categoryByTab = new Map();
+  categories.forEach(category => category.tabs.forEach(tab => {
+    if (!categoryByTab.has(tab)) categoryByTab.set(tab, category.id);
+  }));
+  const grouped = new Map(categories.map(category => [category.id, []]));
+  const extras = [];
+  buttons.forEach(button => {
+    const match = (button.getAttribute('onclick') || '').match(/setPTab\('([^']+)'/);
+    const categoryId = categoryByTab.get(match?.[1]);
+    if (categoryId) grouped.get(categoryId).push(button);
+    else extras.push(button);
+  });
+  if (extras.length) {
+    categories.push({ id: 'more', title: 'Más herramientas', tabs: [] });
+    grouped.set('more', extras);
+  }
+  const fragment = document.createDocumentFragment();
+  categories.forEach(category => {
+    const items = grouped.get(category.id) || [];
+    if (!items.length) return;
+    items.sort((a, b) => collator.compare(label(a), label(b)));
+    const section = document.createElement('section');
+    section.className = 'pnav-group';
+    section.dataset.category = category.id;
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'pnav-group-toggle';
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.innerHTML = '<span>' + category.title + '</span><span class="pnav-group-chevron" aria-hidden="true">⌄</span>';
+    const list = document.createElement('div');
+    list.className = 'pnav-group-items';
+    list.id = 'pnav-group-' + category.id;
+    toggle.setAttribute('aria-controls', list.id);
+    toggle.addEventListener('click', () => {
+      const expanded = toggle.getAttribute('aria-expanded') === 'true';
+      toggle.setAttribute('aria-expanded', String(!expanded));
+      list.hidden = expanded;
+    });
+    items.forEach(button => list.appendChild(button));
+    section.append(toggle, list);
+    fragment.appendChild(section);
+  });
   const search = nav.querySelector('.pnav-search');
-  if (home) search ? search.after(home) : nav.prepend(home);
-  if (featured) home ? home.after(featured) : (search ? search.after(featured) : nav.prepend(featured));
+  nav.querySelectorAll(':scope > .pntab, :scope > .pnav-group').forEach(element => element.remove());
+  if (search) search.after(fragment);
+  else nav.prepend(fragment);
 }
 
 function installFrontendUsability() {
