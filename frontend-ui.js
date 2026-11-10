@@ -59,7 +59,7 @@ function sortPanelNavigation(nav) {
     const home = buttons.find(button => /setPTab\('inicio'/.test(button.getAttribute('onclick') || ''));
     const featured = buttons.find(button => button.classList.contains('pntab-featured'));
     const label = button => button.textContent
-      .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/^[^A-Za-zÁÉÍÓÚÜÑ0-9]+/u, '').trim();
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^[^A-Za-zÁÉÍÓÚÜÑ0-9]+/u, '').trim();
     buttons.filter(button => button !== home && button !== featured)
       .sort((a, b) => collator.compare(label(a), label(b)))
       .forEach(button => nav.appendChild(button));
