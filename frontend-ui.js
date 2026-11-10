@@ -54,7 +54,7 @@ function syncPanelAccessibility() {
   if (locationBar) {
     const currentTab = (typeof active?.getAttribute === 'function' ? active.getAttribute('onclick') || '' : '').match(/setPTab\('([^']+)'/)?.[1] || '';
     locationBar.hidden = !currentTab || currentTab === 'inicio' || currentTab === 'especializados';
-    const back = locationBar.querySelector('button');
+    const back = typeof locationBar.querySelector === 'function' ? locationBar.querySelector('button') : null;
     if (back) back.textContent = '← Ver módulos especializados';
   }
 }
