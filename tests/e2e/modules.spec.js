@@ -157,3 +157,21 @@ test('clic real en cada módulo deja exactamente un panel visible y con contenid
   }
   expect(problems, JSON.stringify(problems, null, 2)).toEqual([]);
 });
+
+test('evidencia visual del dashboard y módulos principales', async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  const capture = async name => testInfo.attach(name, {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: 'image/png',
+  });
+  await capture('dashboard-desktop');
+
+  for (const tab of ['simulador','calculadora','generador','perfil','historial','sunat_api']) {
+    await page.evaluate(currentTab => setPTab(currentTab, null), tab);
+    await capture('modulo-' + tab);
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => setPTab('inicio', null));
+  await capture('dashboard-mobile');
+});
