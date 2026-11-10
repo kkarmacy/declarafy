@@ -192,7 +192,7 @@ test('la búsqueda expande categorías y la navegación mantiene un encabezado c
   await expect(taxGroup.locator('.pnav-group-items')).toBeVisible();
   await expect(taxGroup.locator('.pntab').filter({ hasText: 'Consultar SUNAT' })).toBeVisible();
 
-  await page.evaluate(() => setPTab('sunat_api', null));
+  await taxGroup.locator('.pntab').filter({ hasText: 'Consultar SUNAT' }).click();
   await expect(page.locator('.module-location')).toBeVisible();
   await expect(page.locator('.module-location button')).toContainText('Ver módulos especializados');
 });
