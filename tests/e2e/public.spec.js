@@ -59,3 +59,21 @@ test('la portada móvil no produce desplazamiento horizontal', async ({ page }) 
   }));
   expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport + 1);
 });
+
+test('evidencia visual de la web pública en escritorio y móvil', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#screen-landing')).toBeVisible();
+  await testInfo.attach('landing-desktop', {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: 'image/png',
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#screen-landing')).toBeVisible();
+  await testInfo.attach('landing-mobile', {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: 'image/png',
+  });
+});
