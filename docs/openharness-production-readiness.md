@@ -125,3 +125,17 @@ The Compose profile is a deployment baseline, not proof that a particular hostin
 The integration branch now includes a separate openharness-runner Compose service under the explicit openharness-execution profile. The default profile does not start it. Even when the profile is selected, the runner exits without claiming jobs unless both OPENHARNESS_RUNNER_ENABLED=1 and OPENHARNESS_EXECUTION_ENABLED=1 are explicitly set. The runner claims one job at a time, invokes the restricted one-turn/no-tool runtime, and posts only a bounded result or a sanitized error code to the internal queue API. It does not log task content or provider responses. The provider key is mounted as a secret only into the opt-in runner container.
 
 The runner's 45-second runtime limit is below the current 120-second lease; it does not yet implement active lease renewal, OS-level process interruption, provider spend/token quotas, per-user budgets, or concurrency controls beyond a single runner instance. The worker runtime still needs independent sandbox/network-egress review and staging verification. The runner and its activation gates require CI validation before any staging exercise. Do not set either flag or start the execution profile until the remaining controls and explicit release approval are complete.
+
+
+## Provider egress and fail-closed secret mounting
+
+The hardened Compose network is intentionally marked `internal: true`. This prevents the worker and runner from reaching public networks, including the Anthropic API. The runner therefore cannot execute provider-backed tasks in this topology. Do not attach it to an unrestricted bridge network or publish a worker port to work around this.
+
+Before any execution test, implement and independently review a dedicated authenticated egress proxy/gateway that:
+- accepts traffic only from the runner's private network identity;
+- permits only the exact approved Anthropic API hostname and TLS port;
+- validates resolved destination addresses at connection time and blocks loopback, private, link-local, multicast, reserved, and IPv6 bypass destinations;
+- rejects redirects and arbitrary CONNECT destinations, and does not log request bodies, authorization headers, prompts, or provider responses;
+- has bounded connections, request sizes, timeouts, and auditable policy configuration.
+
+The runner must remain disconnected from public egress until that gateway is deployed and tested. The Compose provider-key secret path is now mandatory rather than defaulting to `/dev/null`; missing secret configuration must stop Compose configuration instead of creating a misleadingly configured runner. A configured key file alone does not establish network connectivity or authorize execution.
