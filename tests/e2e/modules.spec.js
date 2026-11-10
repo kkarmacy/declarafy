@@ -49,20 +49,34 @@ test('todos los módulos visibles abren contenido utilizable sin errores de Java
   expect(errors).toEqual([]);
 });
 
-test('la barra de módulos se presenta en orden alfabético', async ({ page }) => {
+test('la navegación agrupa los módulos por área y los ordena alfabéticamente', async ({ page }) => {
   const result = await page.evaluate(() => {
+    const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
     const clean = value => value.normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[\\u0300-\\u036f]/g, '')
       .replace(/^[^A-Za-z0-9]+/, '')
       .trim();
-    const labels = Array.from(document.querySelectorAll('.pnav > .pntab'))
-      .filter(button => !/setPTab\('(inicio|especializados)'/.test(button.getAttribute('onclick') || ''))
-      .map(button => clean(button.textContent));
-    const expected = [...labels].sort(new Intl.Collator('es', { sensitivity: 'base', numeric: true }).compare);
-    return { labels, expected };
+    const groups = Array.from(document.querySelectorAll('.pnav-group')).map(group => {
+      const labels = Array.from(group.querySelectorAll('.pntab')).map(button => clean(button.textContent));
+      return {
+        title: group.querySelector('.pnav-group-toggle')?.textContent.replace('⌄', '').trim(),
+        labels,
+        sorted: [...labels].sort(collator.compare),
+        ids: Array.from(group.querySelectorAll('.pntab')).map(button =>
+          (button.getAttribute('onclick') || '').match(/setPTab\\('([^']+)'/)?.[1]).filter(Boolean)
+      };
+    });
+    const allIds = groups.flatMap(group => group.ids);
+    return { groups, allIds, uniqueIds: new Set(allIds).size };
   });
 
-  expect(result.labels).toEqual(result.expected);
+  expect(result.groups.length).toBeGreaterThanOrEqual(7);
+  expect(result.groups.every(group => group.labels.length > 0)).toBe(true);
+  expect(result.groups.every(group => JSON.stringify(group.labels) === JSON.stringify(group.sorted))).toBe(true);
+  expect(result.uniqueIds).toBe(result.allIds.length);
+  expect(result.groups.map(group => group.title)).toContain('SUNAT y Tributación');
+  expect(result.groups.map(group => group.title)).toContain('Finanzas y Contabilidad');
+  expect(result.groups.map(group => group.title)).toContain('Documentos y Gestión');
 });
 
 test('los 17 módulos especializados abren contenido real', async ({ page }) => {
