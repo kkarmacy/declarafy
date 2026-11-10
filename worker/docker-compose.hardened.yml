@@ -48,6 +48,8 @@ services:
       start_period: 15s
 
   # Opt-in only: never starts with the default Compose profile.
+  # This runner shares the internal-only network and therefore has NO provider egress.
+  # Do not enable it until a reviewed, authenticated egress-proxy path is implemented.
   # Requires explicit environment flags AND a completed staging/security review.
   openharness-runner:
     profiles: ["openharness-execution"]
@@ -96,4 +98,4 @@ secrets:
   worker_encryption_keyring:
     file: ${DECLARAFY_WORKER_ENCRYPTION_KEYS_JSON_FILE:?Set path to protected encryption keyring file}
   openharness_provider_key:
-    file: ${OPENHARNESS_ANTHROPIC_API_KEY_FILE:-/dev/null}
+    file: ${OPENHARNESS_ANTHROPIC_API_KEY_FILE:?Set path to protected OpenHarness provider key file}
