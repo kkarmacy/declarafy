@@ -56,7 +56,7 @@ function sortPanelNavigation(nav) {
   const buttons = Array.from(nav.querySelectorAll(':scope > .pntab'));
   const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
   if (typeof document.createElement !== 'function') {
-    const home = buttons.find(button => /setPTab\\('inicio'/.test(button.getAttribute('onclick') || ''));
+    const home = buttons.find(button => /setPTab\('inicio'/.test(button.getAttribute('onclick') || ''));
     const featured = buttons.find(button => button.classList.contains('pntab-featured'));
     const label = button => button.textContent
       .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/^[^A-Za-zÁÉÍÓÚÜÑ0-9]+/u, '').trim();
