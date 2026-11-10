@@ -880,6 +880,16 @@ function filterPanelNavigation(value) {
   document.querySelectorAll('.pnav .pntab').forEach(button => {
     button.hidden = Boolean(query) && !_normalizeModuleSearch(button.textContent).includes(query);
   });
+  document.querySelectorAll('.pnav-group').forEach(group => {
+    const items = group.querySelector('.pnav-group-items');
+    const toggle = group.querySelector('.pnav-group-toggle');
+    const visible = Array.from(group.querySelectorAll('.pntab')).some(button => !button.hidden);
+    group.hidden = Boolean(query) && !visible;
+    if (query && visible && items && toggle) {
+      items.hidden = false;
+      toggle.setAttribute('aria-expanded', 'true');
+    }
+  });
 }
 
 function openSpecializedModule(tab) {
