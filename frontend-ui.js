@@ -50,6 +50,13 @@ function syncPanelAccessibility() {
   const title = document.getElementById('currentModuleTitle');
   const text = active?.textContent.trim() || 'Panel';
   if (title && title.textContent !== text) title.textContent = text;
+  const locationBar = document.querySelector('.module-location');
+  if (locationBar) {
+    const currentTab = (active?.getAttribute('onclick') || '').match(/setPTab\\('([^']+)'/)?.[1] || '';
+    locationBar.hidden = !currentTab || currentTab === 'inicio' || currentTab === 'especializados';
+    const back = locationBar.querySelector('button');
+    if (back) back.textContent = '← Ver módulos especializados';
+  }
 }
 
 function sortPanelNavigation(nav) {
@@ -180,7 +187,7 @@ function installFrontendUsability() {
     bar.className = 'module-location';
     const back = document.createElement('button');
     back.type = 'button';
-    back.textContent = '← Ver los 19 módulos';
+    back.textContent = '← Ver módulos especializados';
     back.addEventListener('click', () => {
       const search = document.getElementById('panelModuleSearch');
       if (search) { search.value = ''; filterPanelNavigation(''); }
