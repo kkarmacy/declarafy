@@ -139,3 +139,8 @@ Before any execution test, implement and independently review a dedicated authen
 - has bounded connections, request sizes, timeouts, and auditable policy configuration.
 
 The runner must remain disconnected from public egress until that gateway is deployed and tested. The Compose provider-key secret path is now mandatory rather than defaulting to `/dev/null`; missing secret configuration must stop Compose configuration instead of creating a misleadingly configured runner. A configured key file alone does not establish network connectivity or authorize execution.
+
+
+## Queue admission limits
+
+The ingress now enforces a hard global ceiling of 100 queued jobs and a per-account ceiling of 10 outstanding jobs across both `queued` and `running` states. The per-account count is checked inside the same SQLite `BEGIN IMMEDIATE` transaction as idempotency and insertion, preventing concurrent submissions from bypassing the cap. Requests over either limit receive HTTP 429. This is an admission-control safeguard, not a provider spend budget: a monetary/token budget, daily usage accounting, and billing integration remain separate release gates.
