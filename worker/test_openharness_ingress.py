@@ -633,3 +633,22 @@ class WorkerIngressTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_per_user_active_job_quota_is_enforced_atomically(self):
+        import openharness_ingress
+
+        for index in range(openharness_ingress.MAX_ACTIVE_JOBS_PER_USER):
+            body = self.request_body(request_id=f"{index + 100:032x}")
+            response = client.post("/v1/jobs", json=body, headers=AUTH)
+            self.assertEqual(response.status_code, 202)
+
+        overflow = self.request_body(request_id="f" * 32)
+        response = client.post("/v1/jobs", json=overflow, headers=AUTH)
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.json()["detail"], "user job limit reached")
+
+        # The quota is account-scoped; a different account retains its own slots.
+        other_user = self.request_body(request_id="e" * 32)
+        other_user["user_ref"] = "different-test-user"
+        self.assertEqual(client.post("/v1/jobs", json=other_user, headers=AUTH).status_code, 202)
+
