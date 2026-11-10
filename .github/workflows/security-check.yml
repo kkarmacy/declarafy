@@ -45,9 +45,12 @@ jobs:
         run: |
           printf 'synthetic-worker-token' > /tmp/declarafy-worker-token
           printf '{"ci-key":"dGVzdC10ZXN0LXRlc3QtdGVzdC10ZXN0LXRlc3QtdGVzdC10ZXN0LXRlc3Q="}' > /tmp/declarafy-worker-keyring.json
+          printf 'synthetic-anthropic-key-for-compose-validation' > /tmp/declarafy-provider-key
+          chmod 600 /tmp/declarafy-worker-token /tmp/declarafy-worker-keyring.json /tmp/declarafy-provider-key
           export DECLARAFY_WORKER_TOKEN_FILE=/tmp/declarafy-worker-token
           export DECLARAFY_WORKER_ENCRYPTION_KEYS_JSON_FILE=/tmp/declarafy-worker-keyring.json
           export DECLARAFY_WORKER_ENCRYPTION_ACTIVE_KEY_ID=ci-key
+          export OPENHARNESS_ANTHROPIC_API_KEY_FILE=/tmp/declarafy-provider-key
           docker compose -f worker/docker-compose.hardened.yml config --quiet
           docker compose -f worker/docker-compose.hardened.yml build --pull=false
       - name: Install worker dependencies
