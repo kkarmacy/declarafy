@@ -106,6 +106,8 @@ def db() -> sqlite3.Connection:
 
 LEASE_SECONDS = 120
 MAX_RESULT_BYTES = 50_000
+MAX_QUEUED_JOBS_GLOBAL = 100
+MAX_ACTIVE_JOBS_PER_USER = 10
 
 
 def verify_encryption_ready() -> None:
@@ -439,9 +441,18 @@ async def create_job(request: Request, authorization: str | None = Header(defaul
         queued_count = connection.execute(
             "SELECT COUNT(*) FROM jobs WHERE status='queued'"
         ).fetchone()[0]
-        if queued_count >= 100:
+        if queued_count >= MAX_QUEUED_JOBS_GLOBAL:
             connection.rollback()
             raise HTTPException(429, "queue full")
+        # Bound outstanding work per account across queued and running states.
+        # The immediate transaction above makes this check atomic under load.
+        user_active_count = connection.execute(
+            "SELECT COUNT(*) FROM jobs WHERE user_ref=? AND status IN ('queued', 'running')",
+            (user_ref,),
+        ).fetchone()[0]
+        if user_active_count >= MAX_ACTIVE_JOBS_PER_USER:
+            connection.rollback()
+            raise HTTPException(429, "user job limit reached")
         job_id = secrets.token_urlsafe(24)
         try:
             encrypted_payload = encrypt_field(
