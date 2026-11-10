@@ -63,7 +63,7 @@ test('la navegación agrupa los módulos por área y los ordena alfabéticamente
         labels,
         sorted: [...labels].sort(collator.compare),
         ids: Array.from(group.querySelectorAll('.pntab')).map(button =>
-          (button.getAttribute('onclick') || '').match(/setPTab\\('([^']+)'/)?.[1]).filter(Boolean)
+          (button.getAttribute('onclick') || '').match(/setPTab\('([^']+)'/)?.[1]).filter(Boolean)
       };
     });
     const allIds = groups.flatMap(group => group.ids);
