@@ -55,6 +55,19 @@ function syncPanelAccessibility() {
 function sortPanelNavigation(nav) {
   const buttons = Array.from(nav.querySelectorAll(':scope > .pntab'));
   const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
+  if (typeof document.createElement !== 'function') {
+    const home = buttons.find(button => /setPTab\\('inicio'/.test(button.getAttribute('onclick') || ''));
+    const featured = buttons.find(button => button.classList.contains('pntab-featured'));
+    const label = button => button.textContent
+      .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/^[^A-Za-zÁÉÍÓÚÜÑ0-9]+/u, '').trim();
+    buttons.filter(button => button !== home && button !== featured)
+      .sort((a, b) => collator.compare(label(a), label(b)))
+      .forEach(button => nav.appendChild(button));
+    const search = nav.querySelector('.pnav-search');
+    if (home) search ? search.after(home) : nav.prepend(home);
+    if (featured) home ? home.after(featured) : (search ? search.after(featured) : nav.prepend(featured));
+    return;
+  }
   const label = button => button.textContent
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^[^A-Za-zÁÉÍÓÚÜÑ0-9]+/u, '').trim();
   const categories = [
