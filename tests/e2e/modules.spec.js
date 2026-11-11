@@ -4,6 +4,16 @@ const { test, expect } = require('@playwright/test');
 const { mockAuthenticatedApi } = require('./helpers');
 
 test.beforeEach(async ({ page }) => {
+  // The CI browser runner has no guaranteed outbound access to third-party CDNs.
+  // Keep UI E2E deterministic without changing production HTML or its dependencies.
+  await page.route('https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js', route => route.fulfill({
+    status: 200,
+    contentType: 'application/javascript; charset=utf-8',
+    body: 'window.DOMPurify = window.DOMPurify || { sanitize: value => String(value ?? "") };',
+  }));
+});
+
+test.beforeEach(async ({ page }) => {
   await mockAuthenticatedApi(page);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#screen-panel')).toBeVisible({ timeout: 15_000 });
