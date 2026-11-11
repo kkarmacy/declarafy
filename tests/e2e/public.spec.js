@@ -2,6 +2,16 @@
 
 const { test, expect } = require('@playwright/test');
 
+test.beforeEach(async ({ page }) => {
+  // The CI browser runner has no guaranteed outbound access to third-party CDNs.
+  // Keep UI E2E deterministic without changing production HTML or its dependencies.
+  await page.route('https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js', route => route.fulfill({
+    status: 200,
+    contentType: 'application/javascript; charset=utf-8',
+    body: 'window.DOMPurify = window.DOMPurify || { sanitize: value => String(value ?? "") };',
+  }));
+});
+
 function observeRuntimeFailures(page) {
   const failures = [];
   page.on('pageerror', error => failures.push(`JavaScript: ${error.message}`));
