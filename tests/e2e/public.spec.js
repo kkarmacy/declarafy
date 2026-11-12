@@ -2,6 +2,30 @@
 
 const { test, expect } = require('@playwright/test');
 
+test.beforeEach(async ({ page }) => {
+  // The CI browser runner has no guaranteed outbound access to third-party CDNs.
+  // Keep UI E2E deterministic without changing production HTML or its dependencies.
+  await page.route('https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js', route => route.fulfill({
+    status: 200,
+    contentType: 'application/javascript; charset=utf-8',
+    body: 'window.DOMPurify = window.DOMPurify || { sanitize: value => String(value ?? "") };',
+  }));
+});
+
+  // Third-party PDF libraries are not required by navigation or visual smoke tests.
+  const cdnStubs = [
+    ['https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js', 'window.html2pdf = window.html2pdf || (() => ({ from: () => ({ save: () => Promise.resolve() }) }));'],
+    ['https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js', 'window.pdfjsLib = window.pdfjsLib || { GlobalWorkerOptions: {}, getDocument: () => ({ promise: Promise.reject(new Error("PDF.js stub: no document loaded")) }) };'],
+    ['https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js', '/* PDF worker intentionally stubbed in UI E2E. */'],
+  ];
+  for (const [url, body] of cdnStubs) {
+    await page.route(url, route => route.fulfill({
+      status: 200,
+      contentType: 'application/javascript; charset=utf-8',
+      body,
+    }));
+  }
+
 function observeRuntimeFailures(page) {
   const failures = [];
   page.on('pageerror', error => failures.push(`JavaScript: ${error.message}`));
@@ -58,4 +82,22 @@ test('la portada móvil no produce desplazamiento horizontal', async ({ page }) 
     content: document.documentElement.scrollWidth,
   }));
   expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport + 1);
+});
+
+test('evidencia visual de la web pública en escritorio y móvil', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#screen-landing')).toBeVisible();
+  await testInfo.attach('landing-desktop', {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: 'image/png',
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#screen-landing')).toBeVisible();
+  await testInfo.attach('landing-mobile', {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: 'image/png',
+  });
 });
