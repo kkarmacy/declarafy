@@ -1,0 +1,44 @@
+name: SEO technical audit
+
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'robots.txt'
+      - 'sitemap.xml'
+      - 'scripts/seo-audit.js'
+      - 'tests/seo-audit.test.js'
+      - 'package.json'
+      - '.github/workflows/seo-audit.yml'
+  push:
+    branches:
+      - main
+      - 'feature/seo-audit-tributafy'
+    paths:
+      - 'index.html'
+      - 'robots.txt'
+      - 'sitemap.xml'
+      - 'scripts/seo-audit.js'
+      - 'tests/seo-audit.test.js'
+      - 'package.json'
+      - '.github/workflows/seo-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  seo-structure:
+    name: Validate SEO metadata and crawl files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run SEO audit unit tests
+        run: node --test tests/seo-audit.test.js
+      - name: Run SEO audit
+        run: npm run seo:audit
