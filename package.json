@@ -9,7 +9,8 @@
     "test": "npm run test:static",
     "test:static": "node --test tests/*.test.js && node scripts/verify-deployment-structure.js",
     "test:e2e": "playwright test",
-    "test:e2e:production": "PLAYWRIGHT_BASE_URL=https://declarafy.com playwright test"
+    "test:e2e:production": "PLAYWRIGHT_BASE_URL=https://declarafy.com playwright test",
+    "seo:audit": "node scripts/seo-audit.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0"
