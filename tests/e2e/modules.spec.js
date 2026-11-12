@@ -13,6 +13,20 @@ test.beforeEach(async ({ page }) => {
   }));
 });
 
+  // Third-party PDF libraries are not required by navigation or visual smoke tests.
+  const cdnStubs = [
+    ['https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js', 'window.html2pdf = window.html2pdf || (() => ({ from: () => ({ save: () => Promise.resolve() }) }));'],
+    ['https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js', 'window.pdfjsLib = window.pdfjsLib || { GlobalWorkerOptions: {}, getDocument: () => ({ promise: Promise.reject(new Error("PDF.js stub: no document loaded")) }) };'],
+    ['https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js', '/* PDF worker intentionally stubbed in UI E2E. */'],
+  ];
+  for (const [url, body] of cdnStubs) {
+    await page.route(url, route => route.fulfill({
+      status: 200,
+      contentType: 'application/javascript; charset=utf-8',
+      body,
+    }));
+  }
+
 test.beforeEach(async ({ page }) => {
   await mockAuthenticatedApi(page);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
