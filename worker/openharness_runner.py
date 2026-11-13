@@ -24,7 +24,54 @@ from openharness_runtime import (
 
 DEFAULT_API = "http://openharness-worker:8080"
 POLL_SECONDS = 3
+LEASE_RENEW_SECONDS = 5
 HTTP_TIMEOUT = 5.0
+
+
+class LeaseLost(RuntimeError):
+    """Raised when a job is cancelled, expires, or can no longer be fenced safely."""
+
+
+async def _run_with_lease_heartbeat(
+    client: httpx.Client, headers: dict[str, str], job: dict[str, Any]
+) -> dict[str, Any]:
+    """Run one model task while renewing its lease; stop promptly if ownership is lost.
+
+    A cancellation clears the lease in the queue. The next renewal then returns
+    non-200, which cancels the in-flight OpenHarness coroutine before its result
+    can be committed. Network uncertainty is fail-closed to avoid orphan spend.
+    """
+    async def renew_until_done() -> None:
+        while True:
+            await asyncio.sleep(LEASE_RENEW_SECONDS)
+            try:
+                response = await asyncio.to_thread(
+                    client.post,
+                    f"/internal/worker/{job['job_id']}/renew",
+                    headers=headers,
+                    json={"lease_token": job["lease_token"]},
+                )
+            except httpx.HTTPError:
+                raise LeaseLost("job lease could not be renewed") from None
+            if response.status_code != 200:
+                raise LeaseLost("job lease was cancelled, expired, or superseded")
+
+    execution = asyncio.create_task(run_openharness_task(job["task"], job["input"]))
+    heartbeat = asyncio.create_task(renew_until_done())
+    try:
+        done, _ = await asyncio.wait(
+            {execution, heartbeat}, return_when=asyncio.FIRST_COMPLETED
+        )
+        if heartbeat in done:
+            # A heartbeat only completes by raising LeaseLost.
+            await heartbeat
+            raise LeaseLost("job lease heartbeat stopped unexpectedly")
+        return await execution
+    finally:
+        heartbeat.cancel()
+        if not execution.done():
+            execution.cancel()
+        await asyncio.gather(heartbeat, execution, return_exceptions=True)
 
 
 def _enabled() -> bool:
@@ -64,13 +111,17 @@ def process_one(client: httpx.Client, service_token: str) -> bool:
     job_id = job["job_id"]
     lease_token = job["lease_token"]
     try:
-        result = asyncio.run(run_openharness_task(job["task"], job["input"]))
+        result = asyncio.run(_run_with_lease_heartbeat(client, headers, job))
         completed = client.post(
             f"/internal/worker/{job_id}/complete",
             headers=headers,
             json={"lease_token": lease_token, "result": result},
         )
         completed.raise_for_status()
+    except LeaseLost:
+        # Cancellation/lease loss is authoritative in the queue. Do not submit
+        # a failure for a job whose lease has already been cleared or replaced.
+        return True
     except (RuntimeDisabled, RuntimeConfigurationError):
         # Configuration errors are not transient model failures; fail the job
         # without retrying by allowing the queue's bounded attempt policy to
