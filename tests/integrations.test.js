@@ -102,7 +102,7 @@ test('canonical host, critical shell CSS and cache versions are deployment-safe'
   assert.match(html, /id="critical-shell-css"/);
   assert.match(html, /#tp-confirm-overlay:not\(\.show\)/);
   assert.match(html, /\/app\.js\?v=20261025-2/);
-  assert.match(html, /\/sw\.js\?v=14/);
+  assert.match(html, /\/sw\.js\?v=15/);
   assert.match(version, /2026\.09\.15-1/);
   const rootHeaders = read('.htaccess');
   assert.match(rootHeaders, /RewriteCond %\{HTTP_HOST\} \^www\\\.declarafy\\\.com\$/);
