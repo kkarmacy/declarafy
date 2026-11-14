@@ -21,7 +21,7 @@ for (const src of localScripts) {
 
 for (const required of [
   '.htaccess',
-  'api/index.php', 'api/bootstrap.php', 'api/schema.sql', 'api/config.sample.php',
+  'api/index.php', 'api/bootstrap.php', 'api/openharness.php', 'api/schema.sql', 'api/config.sample.php',
   'api/.htaccess', 'server-api.js', 'reset-password.html'
 ]) {
   if (!fs.existsSync(path.join(root, required))) fail(`missing Namecheap deployment file: ${required}`);

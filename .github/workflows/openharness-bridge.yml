@@ -1,0 +1,32 @@
+name: OpenHarness bridge checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'api/openharness.php'
+      - 'api/bootstrap.php'
+      - 'api/config.sample.php'
+      - 'tests/openharness-bridge.test.js'
+      - 'scripts/verify-deployment-structure.js'
+      - '.github/workflows/openharness-bridge.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  static-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: curl, pdo, pdo_mysql
+      - run: npm test
+      - run: php -l api/openharness.php
+      - run: php -l api/bootstrap.php
+      - run: php -l api/config.sample.php
