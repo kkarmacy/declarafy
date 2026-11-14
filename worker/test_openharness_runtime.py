@@ -11,6 +11,8 @@ from openharness.engine.messages import ConversationMessage, TextBlock, ToolUseB
 
 from openharness_runtime import (
     MAX_COMPLETION_TOKENS,
+    MAX_ESTIMATED_INPUT_TOKENS,
+    _estimated_input_tokens,
     OPENHARNESS_RELEASE,
     RuntimeDisabled,
     RuntimeExecutionError,
@@ -166,6 +168,18 @@ class OpenHarnessRuntimeTests(unittest.TestCase):
     def test_runtime_rejects_oversized_document(self):
         with self.assertRaises(Exception):
             _task_prompt("document_summary", {"text": "x" * 40_001})
+
+    def test_input_budget_is_checked_before_provider_request(self):
+        prompt = "x" * (MAX_ESTIMATED_INPUT_TOKENS * 3 + 1)
+        self.assertGreater(_estimated_input_tokens(prompt), MAX_ESTIMATED_INPUT_TOKENS)
+        with self.assertRaisesRegex(RuntimeExecutionError, "estimated input exceeds"):
+            async def run():
+                with patch.dict(os.environ, {
+                    "OPENHARNESS_EXECUTION_ENABLED": "1",
+                    "OPENHARNESS_MODEL": "test-model",
+                }):
+                    await run_openharness_task("document_summary", {"text": "x" * 39_000})
+            asyncio.run(run())
 
     def test_runtime_rejects_non_finite_analysis_values(self):
         with self.assertRaises(Exception):
