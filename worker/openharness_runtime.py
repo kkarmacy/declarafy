@@ -35,6 +35,9 @@ OPENHARNESS_RELEASE = "0.1.9"
 MAX_OUTPUT_BYTES = 20_000
 MAX_RUNTIME_SECONDS = 45
 MAX_COMPLETION_TOKENS = 2048
+# Conservative preflight budget: UTF-8 bytes / 3 overestimates token count
+# for ordinary Spanish text in most cases, but is not a provider tokenizer.
+MAX_ESTIMATED_INPUT_TOKENS = 12_000
 
 
 class RestrictedQueryEngine(QueryEngine):
@@ -194,6 +197,14 @@ def build_task_engine(
     )
 
 
+def _estimated_input_tokens(prompt: str) -> int:
+    """Return a conservative size estimate before sending data to the provider.
+
+    This is a guardrail, not an exact tokenizer or a monetary cost guarantee.
+    """
+    return (len(prompt.encode("utf-8")) + 2) // 3
+
+
 async def _collect_answer(engine: QueryEngine, prompt: str) -> tuple[str, int, int]:
     chunks: list[str] = []
     usage_input = 0
@@ -227,6 +238,9 @@ async def run_openharness_task(task: str, payload: dict[str, Any]) -> dict[str, 
         raise RuntimeConfigurationError("model is not configured or has an invalid identifier")
 
     prompt = _task_prompt(task, payload)
+    estimated_input_tokens = _estimated_input_tokens(prompt)
+    if estimated_input_tokens > MAX_ESTIMATED_INPUT_TOKENS:
+        raise RuntimeExecutionError("estimated input exceeds the per-job token budget")
     api_key = _read_provider_key()
     # Use the official Anthropic endpoint only; jobs and worker environment
     # cannot redirect taxpayer content to an arbitrary compatible server.
@@ -250,6 +264,10 @@ async def run_openharness_task(task: str, payload: dict[str, Any]) -> dict[str, 
             if hasattr(result, "__await__"):
                 await result
 
+    if input_tokens > MAX_ESTIMATED_INPUT_TOKENS:
+        raise RuntimeExecutionError("provider-reported input usage exceeded the per-job token budget")
+    if output_tokens > MAX_COMPLETION_TOKENS:
+        raise RuntimeExecutionError("provider-reported output usage exceeded the per-job token budget")
     if len(answer.encode("utf-8")) > MAX_OUTPUT_BYTES:
         raise RuntimeExecutionError("model output exceeded the configured limit")
     return {
