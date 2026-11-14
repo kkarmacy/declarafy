@@ -28,6 +28,10 @@ A Dockerfile alone does not enforce runtime isolation. The deployment platform m
 - Use a disposable workspace per job; reject absolute paths, traversal, and symlink escapes. Never expose general shell, browser, MCP, or arbitrary filesystem tools to tax tasks by default.
 - Keep provider keys in secret storage, rotate them, and ensure they are absent from process arguments, logs, task records, and user-visible responses.
 
+## Per-job token guardrail added in the integration branch
+
+The OpenHarness adapter now rejects a task before provider dispatch when its prompt exceeds a conservative UTF-8-size-based estimate of 12,000 input tokens. It also checks provider-reported input/output usage before accepting the result, with output capped at 2,048 tokens and response bytes capped at 20 KB. The estimate is deliberately documented as approximate: it is not an exact model tokenizer and is not a monetary spend guarantee. A true spend ceiling still requires model-specific pricing, a trusted tokenizer or provider-side budget enforcement, and per-user accounting. Synthetic regression coverage is included in `worker/test_openharness_runtime.py`.
+
 ## Execution and result controls
 
 - Keep execution disabled until a reviewed task runner exists.
