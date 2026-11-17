@@ -10,9 +10,9 @@ const { audit } = require('../scripts/seo-audit');
 function fixture(overrides = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'declarafy-seo-'));
   const files = {
-    'index.html': '<!doctype html><html><head><title>Declarafy | Asesor tributario</title><meta content="Asesoría tributaria para empresas peruanas." name="description"><meta name="robots" content="index,follow"><link rel="canonical" href="https://tributafy.com/"></head><body></body></html>',
-    'robots.txt': 'User-agent: *\nAllow: /\nSitemap: https://tributafy.com/sitemap.xml\n',
-    'sitemap.xml': '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://tributafy.com/</loc></url></urlset>'
+    'index.html': '<!doctype html><html><head><title>Declarafy | Asesor tributario</title><meta content="Asesoría tributaria para empresas peruanas." name="description"><meta name="robots" content="index,follow"><link rel="canonical" href="https://www.declarafy.com/"></head><body></body></html>',
+    'robots.txt': 'User-agent: *\nAllow: /\nSitemap: https://www.declarafy.com/sitemap.xml\n',
+    'sitemap.xml': '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://www.declarafy.com/</loc></url></urlset>'
   };
   for (const [name, value] of Object.entries({ ...files, ...overrides })) {
     fs.writeFileSync(path.join(root, name), value);
@@ -31,7 +31,7 @@ test('passes a valid basic SEO fixture without warnings', t => {
 
 test('reports malformed sitemap loc entries', t => {
   const root = fixture({
-    'sitemap.xml': '<urlset><url><loc>https://tributafy.com/</url></urlset>'
+    'sitemap.xml': '<urlset><url><loc>https://www.declarafy.com/</url></urlset>'
   });
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const result = audit(root);
@@ -40,7 +40,7 @@ test('reports malformed sitemap loc entries', t => {
 
 test('reports invalid JSON-LD', t => {
   const root = fixture({
-    'index.html': '<title>Declarafy</title><meta name="description" content="Tax help"><link rel="canonical" href="https://tributafy.com/"><script type="application/ld+json">{invalid}</script>'
+    'index.html': '<title>Declarafy</title><meta name="description" content="Tax help"><link rel="canonical" href="https://www.declarafy.com/"><script type="application/ld+json">{invalid}</script>'
   });
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const result = audit(root);
@@ -53,5 +53,5 @@ test('warns when sitemap and canonical hosts differ', t => {
   });
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const result = audit(root);
-  assert.ok(result.warnings.some(warning => warning.includes('different from the canonical URL')));
+  assert.ok(result.issues.some(issue => issue.includes('different from the canonical URL')));
 });
