@@ -10,15 +10,14 @@ Reviewed the default-branch `package.json`, `README.md`, `index.html`, `robots.t
 ### High-priority issues
 
 1. **Canonical host mismatch**
-   - `index.html` declares `https://declarafy.com/` as canonical and Open Graph URL.
-   - `robots.txt` points crawlers to `https://www.declarafy.com/sitemap.xml`.
-   - `sitemap.xml` lists `https://www.declarafy.com/`.
-   - These host variants should be unified after confirming the intended public canonical domain and redirect behavior.
+   - The owner confirmed `https://www.declarafy.com/` as the canonical public host.
+   - `index.html` canonical, hreflang, Open Graph, icon, and structured-data URLs now use `https://www.declarafy.com/`.
+   - `robots.txt` declares `https://www.declarafy.com/sitemap.xml` and the sitemap lists the same host.
+   - The automated audit now treats host mismatches as errors. Hosting-level redirects from non-www and HTTP variants still require verification before release.
 
 2. **Brand/domain ambiguity**
-   - Repository documentation and page metadata currently identify the production site as Declarafy / `declarafy.com`.
-   - The commercial landing-page domain has also been referred to as `tributafy.com`.
-   - Do not change canonical URLs, redirects, Open Graph URLs, or sitemap hosts until the owner confirms which domain is the public acquisition site and which domain serves the authenticated application.
+   - The owner explicitly confirmed `www.declarafy.com` as the canonical SEO host. Do not change this decision without further authorization.
+   - The relationship with `tributafy.com` remains outside this change; do not redirect or repurpose it without a separate decision.
 
 3. **Sitemap is incomplete**
    - The current sitemap contains only the homepage.
@@ -38,9 +37,9 @@ Reviewed the default-branch `package.json`, `README.md`, `index.html`, `robots.t
 ## Implementation plan
 
 ### Phase 1 — establish canonical architecture
-- Confirm the public marketing domain, app domain, and preferred host (www or non-www).
-- Verify HTTP-to-HTTPS and host redirects.
-- Align canonical, Open Graph URL, robots sitemap declaration, sitemap locations, and internal links.
+- Canonical public host confirmed: `https://www.declarafy.com/`.
+- Verify HTTP-to-HTTPS and non-www-to-www host redirects at the hosting/DNS layer.
+- Keep canonical, Open Graph URL, robots sitemap declaration, sitemap locations, and internal links aligned.
 - Keep authentication and private application paths out of indexable content.
 
 ### Phase 2 — technical SEO automation
@@ -65,6 +64,6 @@ Reviewed the default-branch `package.json`, `README.md`, `index.html`, `robots.t
 - No secrets, credentials, API integrations, or user data are required for SEO checks.
 - Do not merge or deploy until the canonical-domain decision is confirmed and automated checks pass.
 
-## Next required decision
+## Remaining domain verification
 
-Confirm the public acquisition domain and relationship between `tributafy.com` and `declarafy.com` (marketing site, application, redirect, or separate properties). This is required before safely changing canonical tags or sitemap URLs.
+The canonical SEO host is confirmed as `https://www.declarafy.com/`. Before release, verify that HTTP and non-www variants redirect permanently to this host, and separately decide whether `tributafy.com` is retained as a distinct property or redirected. No hosting/DNS changes are included in this pull request.
