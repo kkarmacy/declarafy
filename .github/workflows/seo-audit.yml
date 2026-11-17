@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'index.html'
+      - '.htaccess'
+      - 'docs/SEO_TECHNICAL_AUDIT.md'
       - 'robots.txt'
       - 'sitemap.xml'
       - 'scripts/seo-audit.js'
