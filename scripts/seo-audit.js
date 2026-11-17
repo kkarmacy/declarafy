@@ -60,7 +60,7 @@ function audit(root = path.resolve(__dirname, '..')) {
     try {
       const robotsSitemapUrl = new URL(sitemapLocation);
       if (!['https:', 'http:'].includes(robotsSitemapUrl.protocol)) issues.push('robots.txt Sitemap URL must use HTTP or HTTPS.');
-      if (canonicalUrl && robotsSitemapUrl.host !== canonicalUrl.host) warnings.push('robots.txt Sitemap host differs from the canonical host.');
+      if (canonicalUrl && robotsSitemapUrl.host !== canonicalUrl.host) issues.push('robots.txt Sitemap host differs from the canonical host.');
     } catch {
       issues.push('robots.txt contains an invalid Sitemap URL.');
     }
@@ -75,7 +75,7 @@ function audit(root = path.resolve(__dirname, '..')) {
     try {
       const url = new URL(location);
       if (!['https:', 'http:'].includes(url.protocol)) issues.push('Sitemap loc entry ' + (index + 1) + ' must use HTTP or HTTPS.');
-      if (canonicalUrl && url.host !== canonicalUrl.host) warnings.push('Sitemap loc entry ' + (index + 1) + ' uses a host different from the canonical URL.');
+      if (canonicalUrl && url.host !== canonicalUrl.host) issues.push('Sitemap loc entry ' + (index + 1) + ' uses a host different from the canonical URL.');
     } catch {
       issues.push('Sitemap loc entry ' + (index + 1) + ' is not an absolute valid URL.');
     }
