@@ -38,7 +38,7 @@ Reviewed the default-branch `package.json`, `README.md`, `index.html`, `robots.t
 
 ### Phase 1 — establish canonical architecture
 - Canonical public host confirmed: `https://www.declarafy.com/`.
-- Verify HTTP-to-HTTPS and non-www-to-www host redirects at the hosting/DNS layer.
+- `.htaccess` now redirects HTTP and non-www requests permanently to `https://www.declarafy.com/`; verify behavior on the live host after release.
 - Keep canonical, Open Graph URL, robots sitemap declaration, sitemap locations, and internal links aligned.
 - Keep authentication and private application paths out of indexable content.
 
@@ -60,7 +60,7 @@ Reviewed the default-branch `package.json`, `README.md`, `index.html`, `robots.t
 ## Safety and release controls
 
 - This branch is isolated from `main`.
-- No production files or hosting settings have been changed.
+- The `.htaccess` redirect rule is updated on this branch only; production hosting is unchanged until merge/deploy.
 - No secrets, credentials, API integrations, or user data are required for SEO checks.
 - Do not merge or deploy until the canonical-domain decision is confirmed and automated checks pass.
 
